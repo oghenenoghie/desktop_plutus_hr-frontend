@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import {
+  branchesApi,
   employeeChecklistsApi,
   employeeDocumentsApi,
   employeesApi,
@@ -23,10 +25,12 @@ import {
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatNaira, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { NIGERIA_STATES } from "@/lib/nigeria-states";
 import type {
   ChecklistItem,
   ChecklistType,
   DocumentCategory,
+  Employee,
   EmployeeHistoryEvent,
   ProbationPeriod,
 } from "@/lib/types";
@@ -45,6 +49,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const { user } = useAuth();
   const canManage = user?.role === "admin" || user?.role === "payroll_manager";
   const employee = useApiResource(() => employeesApi.get(id), [id]);
+  const [editing, setEditing] = useState(false);
 
   return (
     <div>
@@ -62,12 +67,29 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               .filter(Boolean)
               .join(" · ")}
             action={
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <Avatar name={employee.data.full_name} size="lg" src={employee.data.photo_url} />
                 <StatusBadge status={employee.data.lifecycle_stage} />
                 <Badge tone="neutral">{titleCase(employee.data.employment_type)}</Badge>
+                {canManage ? (
+                  <Button size="md" variant="secondary" onClick={() => setEditing(true)}>
+                    Edit Details
+                  </Button>
+                ) : null}
               </div>
             }
           />
+
+          {editing ? (
+            <EditDetailsDrawer
+              employee={employee.data}
+              onClose={() => setEditing(false)}
+              onSaved={() => {
+                setEditing(false);
+                employee.reload();
+              }}
+            />
+          ) : null}
 
           <Tabs
             tabs={[
@@ -100,10 +122,107 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   );
 }
 
+function EditDetailsDrawer({
+  employee,
+  onClose,
+  onSaved,
+}: {
+  employee: Employee;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { showToast } = useToast();
+  const branches = useApiResource(() => branchesApi.list());
+  const [stateOfOrigin, setStateOfOrigin] = useState(employee.state_of_origin ?? "");
+  const [branchId, setBranchId] = useState(employee.branch_id ?? "");
+  const [contractEndDate, setContractEndDate] = useState(employee.contract_end_date ?? "");
+  const [photoUrl, setPhotoUrl] = useState(employee.photo_url ?? "");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      await employeesApi.update(employee.id, {
+        state_of_origin: stateOfOrigin || null,
+        branch_id: branchId || null,
+        contract_end_date: contractEndDate || null,
+        photo_url: photoUrl || null,
+      });
+      showToast("Employee details updated", "good");
+      onSaved();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Drawer title={`Edit Details — ${employee.full_name}`} onClose={onClose}>
+      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+        <div>
+          <Label htmlFor="edit-state-of-origin">State of Origin</Label>
+          <Select
+            id="edit-state-of-origin"
+            value={stateOfOrigin}
+            onChange={(event) => setStateOfOrigin(event.target.value)}
+          >
+            <option value="">Not set</option>
+            {NIGERIA_STATES.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="edit-branch">Branch (Work Location)</Label>
+          <Select id="edit-branch" value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+            <option value="">No branch</option>
+            {(branches.data ?? []).map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="edit-contract-end-date">Contract End Date</Label>
+          <Input
+            id="edit-contract-end-date"
+            type="date"
+            value={contractEndDate}
+            onChange={(event) => setContractEndDate(event.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="edit-photo-url">Photo URL</Label>
+          <Input
+            id="edit-photo-url"
+            value={photoUrl}
+            onChange={(event) => setPhotoUrl(event.target.value)}
+            placeholder="https://…"
+          />
+        </div>
+        <div className="mt-auto flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </form>
+    </Drawer>
+  );
+}
+
 function OverviewTab({ employeeId }: { employeeId: string }) {
   const employee = useApiResource(() => employeesApi.get(employeeId), [employeeId]);
+  const branches = useApiResource(() => branchesApi.list());
   if (!employee.data) return null;
   const e = employee.data;
+  const branch = (branches.data ?? []).find((b) => b.id === e.branch_id) ?? null;
   const grossMinor =
     e.basic_minor === null ||
     e.housing_minor === null ||
@@ -119,8 +238,14 @@ function OverviewTab({ employeeId }: { employeeId: string }) {
         <dl className="grid grid-cols-[160px_1fr] gap-y-2.5 text-[13px]">
           <dt className="text-ink-soft">State of Residence</dt>
           <dd className="font-bold">{e.state_of_residence}</dd>
+          <dt className="text-ink-soft">State of Origin</dt>
+          <dd className="font-bold">{e.state_of_origin ?? "—"}</dd>
+          <dt className="text-ink-soft">Branch</dt>
+          <dd className="font-bold">{branch?.name ?? "—"}</dd>
           <dt className="text-ink-soft">Date of Joining</dt>
           <dd className="font-bold">{formatDate(e.date_of_joining)}</dd>
+          <dt className="text-ink-soft">Contract End Date</dt>
+          <dd className="font-bold">{formatDate(e.contract_end_date)}</dd>
           <dt className="text-ink-soft">Pay Frequency</dt>
           <dd className="font-bold">{titleCase(e.pay_frequency)}</dd>
           <dt className="text-ink-soft">TIN</dt>

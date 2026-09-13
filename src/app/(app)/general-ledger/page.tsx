@@ -13,14 +13,20 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { chartAccountsApi, generalLedgerApi } from "@/lib/api/endpoints";
+import { chartAccountsApi, departmentsApi, generalLedgerApi } from "@/lib/api/endpoints";
 import { formatDateTime, formatNaira, nairaToMinor } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { ChartAccount } from "@/lib/types";
 
 export default function GeneralLedgerPage() {
   const trialBalance = useApiResource(() => generalLedgerApi.trialBalance());
-  const entries = useApiResource(() => generalLedgerApi.entries());
+  const departments = useApiResource(() => departmentsApi.list());
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const entries = useApiResource(
+    () => generalLedgerApi.entries({ departmentId: departmentFilter || undefined }),
+    [departmentFilter],
+  );
+  const departmentsById = new Map((departments.data ?? []).map((department) => [department.id, department]));
   const [posting, setPosting] = useState(false);
 
   return (
@@ -72,7 +78,25 @@ export default function GeneralLedgerPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Ledger Entries" />
+        <CardHeader
+          title="Ledger Entries"
+          subtitle="Filter by cost centre to see one department's share of payroll postings"
+          action={
+            <div className="w-56">
+              <Select
+                value={departmentFilter}
+                onChange={(event) => setDepartmentFilter(event.target.value)}
+              >
+                <option value="">All departments</option>
+                {(departments.data ?? []).map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          }
+        />
         {entries.loading ? <LoadingState /> : null}
         {entries.error ? <ErrorState message={entries.error} /> : null}
         {entries.data && entries.data.length === 0 ? (
@@ -85,6 +109,7 @@ export default function GeneralLedgerPage() {
                 <Th>Date</Th>
                 <Th>Description</Th>
                 <Th>Account</Th>
+                <Th>Department</Th>
                 <Th align="right">Debit</Th>
                 <Th align="right">Credit</Th>
               </tr>
@@ -95,6 +120,7 @@ export default function GeneralLedgerPage() {
                   <Td>{formatDateTime(entry.created_at)}</Td>
                   <Td>{entry.description ?? "—"}</Td>
                   <Td className="font-bold">{entry.account_name ?? entry.account}</Td>
+                  <Td>{entry.department_id ? (departmentsById.get(entry.department_id)?.name ?? "—") : "—"}</Td>
                   <Td align="right">{entry.debit_minor ? formatNaira(entry.debit_minor) : "—"}</Td>
                   <Td align="right">{entry.credit_minor ? formatNaira(entry.credit_minor) : "—"}</Td>
                 </tr>

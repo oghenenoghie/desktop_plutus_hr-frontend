@@ -29,7 +29,7 @@ export default function DashboardPage() {
     try {
       const result = await remindersApi.run();
       showToast(
-        `${result.notifications_created} reminder notification(s) sent (${result.deadline_count} deadlines, ${result.stale_approval_count} stale approvals)`,
+        `${result.notifications_created} reminder notification(s) sent (${result.deadline_count} deadlines, ${result.stale_approval_count} stale approvals, ${result.expiring_contract_count} expiring contracts)`,
         "good",
       );
     } catch (err) {

@@ -46,13 +46,17 @@ export interface Employee {
   login_code: string | null;
   full_name: string;
   state_of_residence: string;
+  state_of_origin: string | null;
   employment_type: EmploymentType;
   lifecycle_state: LifecycleState;
   lifecycle_stage: LifecycleStage;
   date_of_joining: string;
+  contract_end_date: string | null;
   job_title: string | null;
+  photo_url: string | null;
   manager_id: string | null;
   department_id: string | null;
+  branch_id: string | null;
   job_grade_id: string | null;
   shift_id: string | null;
   tin: string | null;
@@ -74,8 +78,10 @@ export interface EmployeeCreateBody {
   employee_number: string;
   full_name: string;
   state_of_residence: string;
+  state_of_origin?: string;
   employment_type: EmploymentType;
   date_of_joining: string;
+  contract_end_date?: string;
   basic_minor: number;
   housing_minor: number;
   transport_minor: number;
@@ -97,10 +103,58 @@ export interface EmployeeCreateBody {
   rsa_pin?: string;
   nhf_number?: string;
   job_title?: string;
+  photo_url?: string;
   manager_id?: string;
   department_id?: string;
+  branch_id?: string;
   job_grade_id?: string;
   shift_id?: string;
+}
+
+// PATCH /employees/{id} — mirrors app.schemas.employees.EmployeeUpdate. Every
+// field optional and independently settable; the UI only exercises the
+// subset a given drawer edits.
+export interface EmployeeUpdateBody {
+  full_name?: string;
+  state_of_residence?: string;
+  state_of_origin?: string | null;
+  job_title?: string;
+  photo_url?: string | null;
+  contract_end_date?: string | null;
+  manager_id?: string | null;
+  department_id?: string | null;
+  branch_id?: string | null;
+  job_grade_id?: string | null;
+  shift_id?: string | null;
+  tin?: string;
+  pfa_name?: string;
+  rsa_pin?: string;
+  nhf_number?: string;
+  basic_minor?: number;
+  housing_minor?: number;
+  transport_minor?: number;
+  other_earnings_minor?: number;
+  annual_rent_paid_minor?: number;
+  pay_frequency?: PayFrequency;
+  annual_leave_entitlement_days?: number;
+  salary_masked?: boolean;
+}
+
+// POST /employees/bulk-import — csv_content is the raw CSV text, header row
+// included, with column names matching EmployeeCreateBody's own field names.
+export interface EmployeeBulkImportRequest {
+  csv_content: string;
+}
+
+export interface EmployeeBulkImportRowError {
+  row: number;
+  employee_number: string | null;
+  error: string;
+}
+
+export interface EmployeeBulkImportResult {
+  created: Employee[];
+  row_errors: EmployeeBulkImportRowError[];
 }
 
 export interface BankAccount {
@@ -163,6 +217,25 @@ export interface BranchUpdateBody {
   state?: string | null;
   address?: string | null;
   manager_id?: string | null;
+}
+
+// --- public holidays ---
+// Org-scoped calendar excluded (alongside weekends) from working-days
+// proration. Only long-standing fixed-date Nigerian holidays are ever
+// seed-able server-side; movable Islamic/Easter-based ones must be added
+// here by an admin for the years they need — never invented client-side.
+
+export interface PublicHoliday {
+  id: string;
+  org_id: string;
+  holiday_date: string;
+  name: string;
+  created_at: string;
+}
+
+export interface PublicHolidayCreateBody {
+  holiday_date: string;
+  name: string;
 }
 
 // --- job grades ---
@@ -727,6 +800,10 @@ export interface Contractor {
   bank_name: string | null;
   account_number: string | null;
   account_name: string | null;
+  email: string | null;
+  phone: string | null;
+  engagement_start_date: string | null;
+  engagement_end_date: string | null;
   created_at: string;
 }
 
@@ -736,6 +813,43 @@ export interface ContractorCreateBody {
   bank_name?: string | null;
   account_number?: string | null;
   account_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  engagement_start_date?: string | null;
+  engagement_end_date?: string | null;
+}
+
+// --- contractor invoices ---
+// draft -> submitted -> paid; paying one records the actual withholding-tax
+// payment for its amount (a WhtPayment) and links back to it here.
+
+export type ContractorInvoiceStatus = "draft" | "submitted" | "paid";
+
+export interface ContractorInvoice {
+  id: string;
+  org_id: string;
+  contractor_id: string;
+  wht_payment_id: string | null;
+  invoice_number: string;
+  description: string | null;
+  amount_minor: number;
+  invoice_date: string;
+  due_date: string | null;
+  status: ContractorInvoiceStatus;
+  created_at: string;
+}
+
+export interface ContractorInvoiceCreateBody {
+  invoice_number: string;
+  amount_minor: number;
+  invoice_date: string;
+  description?: string | null;
+  due_date?: string | null;
+}
+
+export interface ContractorInvoicePayRequest {
+  category: WhtCategory;
+  payment_date: string;
 }
 
 export type WhtCategory = "goods" | "services";
@@ -874,6 +988,7 @@ export interface LedgerEntry {
   journal_entry_id: string;
   pay_run_id: string | null;
   employee_id: string | null;
+  department_id: string | null;
   account: string;
   account_name: string | null;
   debit_minor: number;
@@ -1639,6 +1754,7 @@ export interface GeneratedDocument {
 export interface RemindersSummary {
   deadline_count: number;
   stale_approval_count: number;
+  expiring_contract_count: number;
   notifications_created: number;
 }
 

@@ -46,6 +46,9 @@ import type {
   CompanyBankAccountCreateBody,
   Contractor,
   ContractorCreateBody,
+  ContractorInvoice,
+  ContractorInvoiceCreateBody,
+  ContractorInvoicePayRequest,
   CreditNote,
   CreditNoteCreateBody,
   Customer,
@@ -63,11 +66,14 @@ import type {
   DocumentTemplateCreateBody,
   EffectivePermissions,
   Employee,
+  EmployeeBulkImportRequest,
+  EmployeeBulkImportResult,
   EmployeeCreateBody,
   EmployeeDocument,
   EmployeeDocumentCreateBody,
   EmployeeDocumentUpdateBody,
   EmployeeHistoryEvent,
+  EmployeeUpdateBody,
   Expense,
   FinalSettlement,
   FinalSettlementCreateBody,
@@ -123,6 +129,8 @@ import type {
   ProbationExtendBody,
   ProbationPeriod,
   ProbationPeriodCreateBody,
+  PublicHoliday,
+  PublicHolidayCreateBody,
   Quiz,
   QuizAttempt,
   QuizAttemptSubmitBody,
@@ -205,7 +213,11 @@ export const employeesApi = {
       method: "PATCH",
       body: { salary_masked: salaryMasked },
     }),
+  update: (id: string, body: EmployeeUpdateBody) =>
+    apiFetch<Employee>(`/employees/${id}`, { method: "PATCH", body }),
   history: (id: string) => apiFetch<EmployeeHistoryEvent[]>(`/employees/${id}/history`),
+  bulkImport: (body: EmployeeBulkImportRequest) =>
+    apiFetch<EmployeeBulkImportResult>("/employees/bulk-import", { method: "POST", body }),
 };
 
 // --- departments ---
@@ -227,6 +239,20 @@ export const branchesApi = {
   create: (body: BranchCreateBody) => apiFetch<Branch>("/branches", { method: "POST", body }),
   update: (id: string, body: BranchUpdateBody) =>
     apiFetch<Branch>(`/branches/${id}`, { method: "PATCH", body }),
+};
+
+// --- public holidays ---
+
+export const publicHolidaysApi = {
+  list: () => apiFetch<PublicHoliday[]>("/public-holidays"),
+  create: (body: PublicHolidayCreateBody) =>
+    apiFetch<PublicHoliday>("/public-holidays", { method: "POST", body }),
+  seedDefaults: (year: number) =>
+    apiFetch<PublicHoliday[]>(`/public-holidays/seed-defaults?year=${year}`, {
+      method: "POST",
+      body: {},
+    }),
+  remove: (id: string) => apiFetch<void>(`/public-holidays/${id}`, { method: "DELETE" }),
 };
 
 // --- job grades ---
@@ -403,10 +429,11 @@ export const chartAccountsApi = {
 // --- general ledger ---
 
 export const generalLedgerApi = {
-  entries: (params?: { account?: string; payRunId?: string }) => {
+  entries: (params?: { account?: string; payRunId?: string; departmentId?: string }) => {
     const query = new URLSearchParams();
     if (params?.account) query.set("account", params.account);
     if (params?.payRunId) query.set("pay_run_id", params.payRunId);
+    if (params?.departmentId) query.set("department_id", params.departmentId);
     const qs = query.toString();
     return apiFetch<LedgerEntry[]>(`/general-ledger/entries${qs ? `?${qs}` : ""}`);
   },
@@ -598,6 +625,23 @@ export const contractorsApi = {
   payments: (id: string) => apiFetch<WhtPayment[]>(`/contractors/${id}/payments`),
   recordPayment: (id: string, body: WhtPaymentCreateBody) =>
     apiFetch<WhtPayment>(`/contractors/${id}/payments`, { method: "POST", body }),
+};
+
+export const contractorInvoicesApi = {
+  list: (contractorId: string) =>
+    apiFetch<ContractorInvoice[]>(`/contractors/${contractorId}/invoices`),
+  create: (contractorId: string, body: ContractorInvoiceCreateBody) =>
+    apiFetch<ContractorInvoice>(`/contractors/${contractorId}/invoices`, { method: "POST", body }),
+  submit: (contractorId: string, invoiceId: string) =>
+    apiFetch<ContractorInvoice>(`/contractors/${contractorId}/invoices/${invoiceId}/submit`, {
+      method: "POST",
+      body: {},
+    }),
+  pay: (contractorId: string, invoiceId: string, body: ContractorInvoicePayRequest) =>
+    apiFetch<ContractorInvoice>(`/contractors/${contractorId}/invoices/${invoiceId}/pay`, {
+      method: "POST",
+      body,
+    }),
 };
 
 // --- statutory liabilities ---

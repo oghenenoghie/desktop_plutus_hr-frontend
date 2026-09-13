@@ -1663,6 +1663,17 @@ export interface MembershipOut {
   created_at: string;
 }
 
+export interface MembershipCreateBody {
+  email: string;
+  password: string;
+  role: Role;
+}
+
+export interface MembershipCreateOut extends MembershipOut {
+  totp_secret: string | null;
+  totp_provisioning_uri: string | null;
+}
+
 export interface EffectivePermissions {
   membership_id: string;
   role: string;

@@ -96,6 +96,8 @@ import type {
   LedgerStatementLineImport,
   Loan,
   MeResponse,
+  MembershipCreateBody,
+  MembershipCreateOut,
   MembershipOut,
   Notification,
   NotificationBroadcastBody,
@@ -903,6 +905,8 @@ export const remindersApi = {
 
 export const membershipsApi = {
   list: () => apiFetch<MembershipOut[]>("/memberships"),
+  create: (body: MembershipCreateBody) =>
+    apiFetch<MembershipCreateOut>("/memberships", { method: "POST", body }),
   effectivePermissions: (membershipId: string) =>
     apiFetch<EffectivePermissions>(`/memberships/${membershipId}/permissions`),
   setOverride: (membershipId: string, body: PermissionOverrideBody) =>

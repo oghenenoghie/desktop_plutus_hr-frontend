@@ -4,11 +4,16 @@ import Link from "next/link";
 import { Fragment, useState } from "react";
 
 import { ApprovalHistoryPanel } from "@/components/approval-history-panel";
+import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "@/components/ui/data-state";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -16,7 +21,12 @@ import { StatusBadge } from "@/components/ui/badge";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { approvalInstancesApi, billsApi, chartAccountsApi, vendorsApi } from "@/lib/api/endpoints";
+import {
+  approvalInstancesApi,
+  billsApi,
+  chartAccountsApi,
+  vendorsApi,
+} from "@/lib/api/endpoints";
 import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { ApprovalInstance, Bill } from "@/lib/types";
@@ -27,17 +37,47 @@ export default function BillsPage() {
   const { showToast } = useToast();
   const [creating, setCreating] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [history, setHistory] = useState<Record<string, ApprovalInstance | null>>({});
+  const [history, setHistory] = useState<
+    Record<string, ApprovalInstance | null>
+  >({});
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [emailingBill, setEmailingBill] = useState<Bill | null>(null);
 
-  const vendorNameById = new Map((vendors.data ?? []).map((vendor) => [vendor.id, vendor.name]));
+  const vendorNameById = new Map(
+    (vendors.data ?? []).map((vendor) => [vendor.id, vendor.name]),
+  );
+  const vendorById = new Map(
+    (vendors.data ?? []).map((vendor) => [vendor.id, vendor]),
+  );
 
   async function act(action: (id: string) => Promise<Bill>, bill: Bill) {
     try {
       await action(bill.id);
       bills.reload();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Action failed.",
+        "bad",
+      );
+    }
+  }
+
+  async function downloadPdf(bill: Bill) {
+    setDownloadingId(bill.id);
+    try {
+      await billsApi.downloadPdf(bill.id, `bill-${bill.bill_number}.pdf`);
+    } catch (err) {
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Download failed.",
+        "bad",
+      );
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -54,7 +94,9 @@ export default function BillsPage() {
         setHistory((prev) => ({ ...prev, [billId]: result }));
       } catch (err) {
         showToast(
-          err instanceof ApiError ? String(err.detail ?? err.message) : "Failed to load history.",
+          err instanceof ApiError
+            ? String(err.detail ?? err.message)
+            : "Failed to load history.",
           "bad",
         );
       } finally {
@@ -84,7 +126,9 @@ export default function BillsPage() {
       <Card>
         {bills.loading ? <LoadingState /> : null}
         {bills.error ? <ErrorState message={bills.error} /> : null}
-        {bills.data && bills.data.length === 0 ? <EmptyState label="No bills yet." /> : null}
+        {bills.data && bills.data.length === 0 ? (
+          <EmptyState label="No bills yet." />
+        ) : null}
         {bills.data && bills.data.length > 0 ? (
           <Table>
             <Thead>
@@ -107,12 +151,20 @@ export default function BillsPage() {
                     <Td>{formatDate(bill.due_date)}</Td>
                     <Td align="right">{formatNaira(bill.amount_minor)}</Td>
                     <Td align="right">
-                      <div className="font-bold">{formatNaira(bill.net_payable_minor)}</div>
+                      <div className="font-bold">
+                        {formatNaira(bill.net_payable_minor)}
+                      </div>
                       {bill.vat_minor > 0 || bill.wht_amount_minor > 0 ? (
                         <div className="text-[11px] text-ink-soft">
-                          {bill.vat_minor > 0 ? `VAT ${formatNaira(bill.vat_minor)}` : ""}
-                          {bill.vat_minor > 0 && bill.wht_amount_minor > 0 ? " · " : ""}
-                          {bill.wht_amount_minor > 0 ? `WHT -${formatNaira(bill.wht_amount_minor)}` : ""}
+                          {bill.vat_minor > 0
+                            ? `VAT ${formatNaira(bill.vat_minor)}`
+                            : ""}
+                          {bill.vat_minor > 0 && bill.wht_amount_minor > 0
+                            ? " · "
+                            : ""}
+                          {bill.wht_amount_minor > 0
+                            ? `WHT -${formatNaira(bill.wht_amount_minor)}`
+                            : ""}
                         </div>
                       ) : null}
                     </Td>
@@ -151,15 +203,37 @@ export default function BillsPage() {
                             confirmLabel="Mark Paid"
                           />
                         ) : null}
-                        <Button size="md" variant="secondary" onClick={() => toggleHistory(bill.id)}>
+                        <Button
+                          size="md"
+                          variant="secondary"
+                          onClick={() => toggleHistory(bill.id)}
+                        >
                           {expandedId === bill.id ? "Hide" : "History"}
+                        </Button>
+                        <Button
+                          size="md"
+                          variant="secondary"
+                          onClick={() => downloadPdf(bill)}
+                          disabled={downloadingId === bill.id}
+                        >
+                          {downloadingId === bill.id ? "Downloading…" : "PDF"}
+                        </Button>
+                        <Button
+                          size="md"
+                          variant="secondary"
+                          onClick={() => setEmailingBill(bill)}
+                        >
+                          Email
                         </Button>
                       </div>
                     </Td>
                   </tr>
                   {expandedId === bill.id ? (
                     <tr>
-                      <td colSpan={7} className="border-b border-border bg-bg px-4 py-5">
+                      <td
+                        colSpan={7}
+                        className="border-b border-border bg-bg px-4 py-5"
+                      >
                         <ApprovalHistoryPanel
                           loading={loadingHistoryId === bill.id}
                           instance={history[bill.id]}
@@ -174,6 +248,16 @@ export default function BillsPage() {
         ) : null}
       </Card>
 
+      {emailingBill ? (
+        <EmailPdfDrawer
+          title={`Email Bill ${emailingBill.bill_number}`}
+          description={`Sends bill ${emailingBill.bill_number} (${formatNaira(emailingBill.amount_minor)}) as a PDF attachment.`}
+          defaultTo={vendorById.get(emailingBill.vendor_id)?.contact_email}
+          onClose={() => setEmailingBill(null)}
+          onSend={(to) => billsApi.email(emailingBill.id, to)}
+        />
+      ) : null}
+
       {creating ? (
         <NewBillDrawer
           onClose={() => setCreating(false)}
@@ -187,7 +271,13 @@ export default function BillsPage() {
   );
 }
 
-function NewBillDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewBillDrawer({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const vendors = useApiResource(() => vendorsApi.list());
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
@@ -223,7 +313,12 @@ function NewBillDrawer({ onClose, onCreated }: { onClose: () => void; onCreated:
       });
       onCreated();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Action failed.",
+        "bad",
+      );
       setSubmitting(false);
     }
   }
@@ -233,7 +328,12 @@ function NewBillDrawer({ onClose, onCreated }: { onClose: () => void; onCreated:
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="vendor">Vendor</Label>
-          <Select id="vendor" value={vendorId} onChange={(event) => setVendorId(event.target.value)} required>
+          <Select
+            id="vendor"
+            value={vendorId}
+            onChange={(event) => setVendorId(event.target.value)}
+            required
+          >
             <option value="">Select vendor</option>
             {(vendors.data ?? []).map((vendor) => (
               <option key={vendor.id} value={vendor.id}>
@@ -303,14 +403,22 @@ function NewBillDrawer({ onClose, onCreated }: { onClose: () => void; onCreated:
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="vat">VAT (₦)</Label>
-            <Input id="vat" value={vat} onChange={(event) => setVat(event.target.value)} inputMode="decimal" placeholder="0" />
+            <Input
+              id="vat"
+              value={vat}
+              onChange={(event) => setVat(event.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+            />
           </div>
           <div>
             <Label htmlFor="whtCategory">WHT Category</Label>
             <Select
               id="whtCategory"
               value={whtCategory}
-              onChange={(event) => setWhtCategory(event.target.value as "" | "goods" | "services")}
+              onChange={(event) =>
+                setWhtCategory(event.target.value as "" | "goods" | "services")
+              }
             >
               <option value="">None</option>
               <option value="goods">Goods</option>

@@ -2,19 +2,29 @@
 
 import { useState } from "react";
 
+import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
+import { useToast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/api/client";
 import { financialStatementsApi } from "@/lib/api/endpoints";
 import { formatNaira } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 export default function FinancialStatementsPage() {
+  const { showToast } = useToast();
   const [asOf, setAsOf] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [downloadingBalanceSheet, setDownloadingBalanceSheet] = useState(false);
+  const [downloadingIncomeStatement, setDownloadingIncomeStatement] =
+    useState(false);
+  const [emailingBalanceSheet, setEmailingBalanceSheet] = useState(false);
+  const [emailingIncomeStatement, setEmailingIncomeStatement] = useState(false);
 
   const balanceSheet = useApiResource(
     () => financialStatementsApi.balanceSheet(asOf || undefined),
@@ -29,6 +39,44 @@ export default function FinancialStatementsPage() {
     [fromDate, toDate],
   );
 
+  async function downloadBalanceSheetPdf() {
+    setDownloadingBalanceSheet(true);
+    try {
+      await financialStatementsApi.downloadBalanceSheetPdf(
+        asOf || undefined,
+        "balance-sheet.pdf",
+      );
+    } catch (err) {
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Download failed.",
+        "bad",
+      );
+    } finally {
+      setDownloadingBalanceSheet(false);
+    }
+  }
+
+  async function downloadIncomeStatementPdf() {
+    setDownloadingIncomeStatement(true);
+    try {
+      await financialStatementsApi.downloadIncomeStatementPdf(
+        { fromDate: fromDate || undefined, toDate: toDate || undefined },
+        "income-statement.pdf",
+      );
+    } catch (err) {
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Download failed.",
+        "bad",
+      );
+    } finally {
+      setDownloadingIncomeStatement(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -41,14 +89,36 @@ export default function FinancialStatementsPage() {
           title="Balance Sheet"
           subtitle="A snapshot as of a point in time. No equity account or period-end closing exists yet, so assets will not equal liabilities + equity."
           action={
-            <div className="w-44">
-              <Label htmlFor="asOf">As Of</Label>
-              <Input id="asOf" type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} />
+            <div className="flex items-end gap-3">
+              <div className="w-44">
+                <Label htmlFor="asOf">As Of</Label>
+                <Input
+                  id="asOf"
+                  type="date"
+                  value={asOf}
+                  onChange={(event) => setAsOf(event.target.value)}
+                />
+              </div>
+              <Button
+                variant="secondary"
+                onClick={downloadBalanceSheetPdf}
+                disabled={downloadingBalanceSheet}
+              >
+                {downloadingBalanceSheet ? "Downloading…" : "PDF"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setEmailingBalanceSheet(true)}
+              >
+                Email
+              </Button>
             </div>
           }
         />
         {balanceSheet.loading ? <LoadingState /> : null}
-        {balanceSheet.error ? <ErrorState message={balanceSheet.error} /> : null}
+        {balanceSheet.error ? (
+          <ErrorState message={balanceSheet.error} />
+        ) : null}
         {balanceSheet.data ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
@@ -109,10 +179,13 @@ export default function FinancialStatementsPage() {
                     </tr>
                   ) : null}
                   <tr>
-                    <Td className="font-bold">Total Liabilities &amp; Equity</Td>
+                    <Td className="font-bold">
+                      Total Liabilities &amp; Equity
+                    </Td>
                     <Td align="right" className="font-bold">
                       {formatNaira(
-                        balanceSheet.data.total_liabilities_minor + balanceSheet.data.total_equity_minor,
+                        balanceSheet.data.total_liabilities_minor +
+                          balanceSheet.data.total_equity_minor,
                       )}
                     </Td>
                   </tr>
@@ -127,7 +200,7 @@ export default function FinancialStatementsPage() {
         <CardHeader
           title="Income Statement"
           action={
-            <div className="flex gap-3">
+            <div className="flex items-end gap-3">
               <div className="w-40">
                 <Label htmlFor="fromDate">From</Label>
                 <Input
@@ -146,11 +219,26 @@ export default function FinancialStatementsPage() {
                   onChange={(event) => setToDate(event.target.value)}
                 />
               </div>
+              <Button
+                variant="secondary"
+                onClick={downloadIncomeStatementPdf}
+                disabled={downloadingIncomeStatement}
+              >
+                {downloadingIncomeStatement ? "Downloading…" : "PDF"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setEmailingIncomeStatement(true)}
+              >
+                Email
+              </Button>
             </div>
           }
         />
         {incomeStatement.loading ? <LoadingState /> : null}
-        {incomeStatement.error ? <ErrorState message={incomeStatement.error} /> : null}
+        {incomeStatement.error ? (
+          <ErrorState message={incomeStatement.error} />
+        ) : null}
         {incomeStatement.data ? (
           <Table>
             <Thead>
@@ -161,7 +249,9 @@ export default function FinancialStatementsPage() {
             </Thead>
             <tbody>
               <tr>
-                <Td className="font-extrabold uppercase tracking-[0.03em] text-ink-soft">Revenue</Td>
+                <Td className="font-extrabold uppercase tracking-[0.03em] text-ink-soft">
+                  Revenue
+                </Td>
                 <Td>{null}</Td>
               </tr>
               {incomeStatement.data.revenue.map((line) => (
@@ -204,6 +294,31 @@ export default function FinancialStatementsPage() {
           </Table>
         ) : null}
       </Card>
+
+      {emailingBalanceSheet ? (
+        <EmailPdfDrawer
+          title="Email Balance Sheet"
+          description="No default recipient exists for an internal financial statement — enter the address to send it to."
+          onClose={() => setEmailingBalanceSheet(false)}
+          onSend={(to) =>
+            financialStatementsApi.emailBalanceSheet(to, asOf || undefined)
+          }
+        />
+      ) : null}
+
+      {emailingIncomeStatement ? (
+        <EmailPdfDrawer
+          title="Email Income Statement"
+          description="No default recipient exists for an internal financial statement — enter the address to send it to."
+          onClose={() => setEmailingIncomeStatement(false)}
+          onSend={(to) =>
+            financialStatementsApi.emailIncomeStatement(to, {
+              fromDate: fromDate || undefined,
+              toDate: toDate || undefined,
+            })
+          }
+        />
+      ) : null}
     </div>
   );
 }

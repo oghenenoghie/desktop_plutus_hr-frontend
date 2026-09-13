@@ -11,14 +11,34 @@ export type EmploymentType =
   | "intern"
   | "consultant";
 export type LifecycleState = "active" | "suspended" | "terminated";
-export type LifecycleStage = "onboarding" | "active" | "suspended" | "terminated";
-export type PayRunStatus = "draft" | "processing" | "completed" | "failed" | "reversed";
-export type LeaveType = "annual" | "sick" | "maternity" | "paternity" | "unpaid";
+export type LifecycleStage =
+  | "onboarding"
+  | "active"
+  | "suspended"
+  | "terminated";
+export type PayRunStatus =
+  | "draft"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "reversed";
+export type LeaveType =
+  | "annual"
+  | "sick"
+  | "maternity"
+  | "paternity"
+  | "unpaid";
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ExpenseStatus = "pending" | "approved" | "rejected" | "reimbursed";
 export type LoanStatus = "active" | "paid_off" | "cancelled";
 export type BenefitFrequency = "one_time" | "monthly" | "annual";
-export type LiabilityScheme = "paye" | "pension" | "nhf" | "nsitf" | "itf" | "wht";
+export type LiabilityScheme =
+  | "paye"
+  | "pension"
+  | "nhf"
+  | "nsitf"
+  | "itf"
+  | "wht";
 export type LiabilityStatus = "pending" | "filed" | "remitted";
 
 // --- auth ---
@@ -291,7 +311,12 @@ export interface ShiftUpdateBody {
 // --- recruitment ---
 
 export type JobPostingStatus = "open" | "closed";
-export type CandidateStatus = "applied" | "interviewing" | "offered" | "hired" | "rejected";
+export type CandidateStatus =
+  | "applied"
+  | "interviewing"
+  | "offered"
+  | "hired"
+  | "rejected";
 
 export interface JobPosting {
   id: string;
@@ -386,7 +411,11 @@ export interface PerformanceReviewAcknowledgeBody {
 
 // --- learning & development ---
 
-export type TrainingEnrollmentStatus = "enrolled" | "in_progress" | "completed" | "failed";
+export type TrainingEnrollmentStatus =
+  | "enrolled"
+  | "in_progress"
+  | "completed"
+  | "failed";
 
 export interface TrainingCourse {
   id: string;
@@ -443,7 +472,11 @@ export type DisciplinaryCaseCategory =
   | "policy_violation"
   | "harassment"
   | "other";
-export type DisciplinaryCaseStatus = "open" | "under_review" | "resolved" | "dismissed";
+export type DisciplinaryCaseStatus =
+  | "open"
+  | "under_review"
+  | "resolved"
+  | "dismissed";
 export type DisciplinaryCaseAction =
   | "none"
   | "verbal_warning"
@@ -545,8 +578,17 @@ export interface UnionMembershipTerminateBody {
 
 // --- company assets ---
 
-export type CompanyAssetCategory = "laptop" | "phone" | "vehicle" | "furniture" | "other";
-export type CompanyAssetStatus = "available" | "assigned" | "maintenance" | "retired";
+export type CompanyAssetCategory =
+  | "laptop"
+  | "phone"
+  | "vehicle"
+  | "furniture"
+  | "other";
+export type CompanyAssetStatus =
+  | "available"
+  | "assigned"
+  | "maintenance"
+  | "retired";
 
 export interface CompanyAsset {
   id: string;
@@ -959,7 +1001,12 @@ export interface PayRunSimulationOut {
 
 // --- chart of accounts / general ledger ---
 
-export type AccountType = "asset" | "liability" | "equity" | "revenue" | "expense";
+export type AccountType =
+  | "asset"
+  | "liability"
+  | "equity"
+  | "revenue"
+  | "expense";
 
 export interface ChartAccount {
   id: string;
@@ -1511,6 +1558,15 @@ export interface VendorStatementLine {
   bill_date: string;
   amount_minor: number;
   status: BillStatus;
+  running_balance_minor: number;
+}
+
+export interface CustomerStatementLine {
+  invoice_id: string;
+  invoice_number: string;
+  issue_date: string;
+  amount_minor: number;
+  status: InvoiceStatus;
   running_balance_minor: number;
 }
 

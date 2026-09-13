@@ -712,6 +712,7 @@ export interface OrgSummary {
   outstanding_liability_minor: number;
   pending_leave_request_count: number;
   pending_expense_count: number;
+  expiring_contract_count: number;
   cash_balance_minor: number;
   accounts_payable_minor: number;
   accounts_receivable_minor: number;

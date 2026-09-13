@@ -15,15 +15,27 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { ApiError } from "@/lib/api/client";
-import { dashboardApi, notificationsApi, remindersApi } from "@/lib/api/endpoints";
+import { dashboardApi, employeesApi, notificationsApi, payRunsApi, remindersApi } from "@/lib/api/endpoints";
 import { formatDate, formatNaira } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import type { PayRun } from "@/lib/types";
 
 export default function DashboardPage() {
   const summary = useApiResource(() => dashboardApi.summary());
   const deadlines = useApiResource(() => dashboardApi.deadlines(30));
+  const payRuns = useApiResource(() => payRunsApi.list());
+  const employees = useApiResource(() => employeesApi.list());
   const [broadcasting, setBroadcasting] = useState(false);
   const { showToast } = useToast();
+
+  const completedPayRuns = (payRuns.data ?? [])
+    .filter((run) => run.status === "completed")
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const recentPayRuns = [...completedPayRuns].reverse().slice(0, 5);
+  const trendPayRuns = completedPayRuns.slice(-6);
+  const recentEmployees = [...(employees.data ?? [])]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 5);
 
   async function runReminders() {
     try {
@@ -61,7 +73,7 @@ export default function DashboardPage() {
       {summary.error ? <ErrorState message={summary.error} /> : null}
 
       {summary.data ? (
-        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <KpiTile label="Active Employees" value={summary.data.active_employee_count.toLocaleString("en-NG")} />
           <KpiTile
             label="Outstanding Liability"
@@ -74,6 +86,11 @@ export default function DashboardPage() {
           <KpiTile
             label="Pending Expenses"
             value={summary.data.pending_expense_count.toLocaleString("en-NG")}
+          />
+          <KpiTile
+            label="Expiring Contracts"
+            value={summary.data.expiring_contract_count.toLocaleString("en-NG")}
+            caption="Within 30 days"
           />
         </div>
       ) : null}
@@ -128,6 +145,99 @@ export default function DashboardPage() {
         </Card>
       ) : null}
 
+      <div className="mb-8 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Payroll Cost Trend" subtitle="Net pay across the last 6 completed pay runs" />
+          {payRuns.loading ? <LoadingState /> : null}
+          {payRuns.error ? <ErrorState message={payRuns.error} /> : null}
+          {payRuns.data && trendPayRuns.length === 0 ? (
+            <EmptyState label="No completed pay runs yet." />
+          ) : null}
+          {trendPayRuns.length > 0 ? <PayrollCostTrendChart payRuns={trendPayRuns} /> : null}
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Recent Pay Runs"
+            action={
+              <Link href="/payroll">
+                <Button variant="secondary">All Pay Runs</Button>
+              </Link>
+            }
+          />
+          {payRuns.loading ? <LoadingState /> : null}
+          {payRuns.error ? <ErrorState message={payRuns.error} /> : null}
+          {payRuns.data && recentPayRuns.length === 0 ? (
+            <EmptyState label="No pay runs completed yet." />
+          ) : null}
+          {recentPayRuns.length > 0 ? (
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Period</Th>
+                  <Th>Status</Th>
+                  <Th align="right">Net</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {recentPayRuns.map((run) => (
+                  <tr key={run.id}>
+                    <Td>
+                      {formatDate(run.period_start)} – {formatDate(run.period_end)}
+                    </Td>
+                    <Td>
+                      <StatusBadge status={run.status} />
+                    </Td>
+                    <Td align="right" className="font-bold">
+                      {formatNaira(run.net_minor)}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : null}
+        </Card>
+      </div>
+
+      <Card className="mb-8">
+        <CardHeader
+          title="Recently Added Employees"
+          action={
+            <Link href="/employees">
+              <Button variant="secondary">All Employees</Button>
+            </Link>
+          }
+        />
+        {employees.loading ? <LoadingState /> : null}
+        {employees.error ? <ErrorState message={employees.error} /> : null}
+        {employees.data && recentEmployees.length === 0 ? (
+          <EmptyState label="No employees on record yet." />
+        ) : null}
+        {recentEmployees.length > 0 ? (
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Employee</Th>
+                <Th>Employment Type</Th>
+                <Th>Joined</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {recentEmployees.map((employee) => (
+                <tr key={employee.id}>
+                  <Td className="font-bold">
+                    {employee.full_name}
+                    <span className="ml-2 font-normal text-ink-soft">{employee.employee_number}</span>
+                  </Td>
+                  <Td>{employee.employment_type.replace(/_/g, " ")}</Td>
+                  <Td>{formatDate(employee.date_of_joining)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : null}
+      </Card>
+
       <Card>
         <CardHeader title="Upcoming Statutory Deadlines" subtitle="Filings and remittances due within 30 days" />
         {deadlines.loading ? <LoadingState /> : null}
@@ -167,6 +277,53 @@ export default function DashboardPage() {
 
       {broadcasting ? <BroadcastDrawer onClose={() => setBroadcasting(false)} /> : null}
     </div>
+  );
+}
+
+// Single-series magnitude-over-time — a hand-rolled SVG bar chart rather
+// than a new charting dependency, matching the Ledger design system's flat,
+// bordered register (no shadows/gradients) and using the app's own primary
+// hue rather than a categorical palette, since one series needs neither a
+// legend nor color-identity work.
+function PayrollCostTrendChart({ payRuns }: { payRuns: PayRun[] }) {
+  const width = 480;
+  const height = 180;
+  const barGap = 10;
+  const barWidth = (width - barGap * (payRuns.length - 1)) / payRuns.length;
+  const maxNet = Math.max(...payRuns.map((run) => run.net_minor), 1);
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height + 22}`}
+      className="w-full"
+      role="img"
+      aria-label="Net pay across recent pay runs"
+    >
+      <line x1={0} y1={height} x2={width} y2={height} stroke="var(--color-border)" strokeWidth={1} />
+      {payRuns.map((run, index) => {
+        const barHeight = Math.max((run.net_minor / maxNet) * (height - 8), 2);
+        const x = index * (barWidth + barGap);
+        const y = height - barHeight;
+        return (
+          <g key={run.id}>
+            <rect x={x} y={y} width={barWidth} height={barHeight} rx={4} fill="var(--color-primary)">
+              <title>
+                {formatDate(run.period_end)} — {formatNaira(run.net_minor)}
+              </title>
+            </rect>
+            <text
+              x={x + barWidth / 2}
+              y={height + 16}
+              textAnchor="middle"
+              className="fill-ink-soft"
+              style={{ fontSize: 10, fontWeight: 700 }}
+            >
+              {new Date(run.period_end).toLocaleDateString("en-NG", { month: "short" })}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

@@ -15,6 +15,7 @@ export interface NavItem {
     | "shiftRoster"
     | "attendance"
     | "overtime"
+    | "compliance"
     | "recruitment"
     | "performance"
     | "learning"
@@ -231,6 +232,12 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/payroll",
             label: "Payroll Runs",
             icon: "payroll",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/compliance",
+            label: "Compliance Engine",
+            icon: "compliance",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {

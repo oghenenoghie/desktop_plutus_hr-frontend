@@ -147,6 +147,7 @@ import type {
   RecurringInvoice,
   RecurringInvoiceCreateBody,
   RemindersSummary,
+  RuleVersion,
   Shift,
   ShiftCreateBody,
   ShiftRosterEntry,
@@ -204,6 +205,12 @@ export const authApi = {
 };
 
 // --- dashboard ---
+
+// --- compliance ---
+
+export const complianceApi = {
+  currentRules: () => apiFetch<RuleVersion>("/compliance/current-rules"),
+};
 
 export const dashboardApi = {
   summary: () => apiFetch<OrgSummary>("/dashboard/summary"),

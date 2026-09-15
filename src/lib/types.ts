@@ -1983,3 +1983,73 @@ export interface TrainingCourseAttachment {
   storage_url: string;
   created_at: string;
 }
+
+// --- compliance rules ---
+
+export interface PayeBand {
+  up_to_minor: number | null;
+  rate_ppm: number;
+}
+
+export interface PayeRule {
+  bands: PayeBand[];
+  tax_free_threshold_minor: number;
+  rent_relief_rate_ppm: number;
+  rent_relief_cap_minor: number;
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface PensionRule {
+  employee_rate_ppm: number;
+  employer_rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_working_days_after_payment: number;
+}
+
+export interface NhfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_days_after_payment: number;
+}
+
+export interface NsitfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface ItfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_month: number;
+  due_day: number;
+}
+
+export interface WhtCategoryRule {
+  category: string;
+  rate_ppm: number;
+}
+
+export interface WhtRule {
+  categories: WhtCategoryRule[];
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface RuleVersion {
+  id: string;
+  country: string;
+  effective_from: string;
+  effective_to: string | null;
+  paye: PayeRule;
+  pension: PensionRule;
+  nhf: NhfRule;
+  nsitf: NsitfRule;
+  itf: ItfRule;
+  wht: WhtRule;
+}

@@ -18,6 +18,7 @@ export interface NavItem {
     | "compliance"
     | "payeCalculator"
     | "setup"
+    | "notifications"
     | "recruitment"
     | "performance"
     | "learning"
@@ -80,7 +81,13 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/dashboard",
         label: "Overview",
         icon: "dashboard",
-        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "department_manager", "auditor"],
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/notifications",
+        label: "Notifications",
+        icon: "notifications",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "department_manager", "auditor"],
       },
     ],
   },

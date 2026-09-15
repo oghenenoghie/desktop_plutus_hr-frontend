@@ -7,6 +7,7 @@ import {
   ArrowLeftRight,
   Banknote,
   BarChart3,
+  Bell,
   BookText,
   Boxes,
   Building2,
@@ -60,6 +61,7 @@ import type { Role } from "@/lib/types";
 
 const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
+  notifications: Bell,
   employees: Users,
   orgChart: Network,
   departments: Building2,

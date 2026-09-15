@@ -110,6 +110,8 @@ import type {
   NotificationBroadcastBody,
   NotificationUnreadCount,
   OrgSummary,
+  Overtime,
+  OvertimeCreateBody,
   PayRun,
   PayRunCreateBody,
   PayRunSimulationOut,
@@ -786,6 +788,19 @@ export const expensesApi = {
     apiFetch<Expense>(`/expenses/${id}/reject`, { method: "POST" }),
   reimburse: (id: string) =>
     apiFetch<Expense>(`/expenses/${id}/reimburse`, { method: "POST" }),
+};
+
+// --- overtime ---
+
+export const overtimeApi = {
+  list: () => apiFetch<Overtime[]>("/overtime"),
+  mine: () => apiFetch<Overtime[]>("/overtime/me"),
+  submit: (body: OvertimeCreateBody) =>
+    apiFetch<Overtime>("/overtime/me", { method: "POST", body }),
+  approve: (id: string) =>
+    apiFetch<Overtime>(`/overtime/${id}/approve`, { method: "POST" }),
+  reject: (id: string) =>
+    apiFetch<Overtime>(`/overtime/${id}/reject`, { method: "POST" }),
 };
 
 // --- loans ---

@@ -1,7 +1,15 @@
 // Mirrors app/schemas/* and app/models/* in the plutus-hr-system (FastAPI) backend.
 // Money fields are minor units (kobo); dates are ISO date strings; datetimes are ISO strings.
 
-export type Role = "admin" | "payroll_manager" | "manager" | "employee";
+export type Role =
+  | "admin"
+  | "payroll_manager"
+  | "accountant"
+  | "hr_manager"
+  | "manager"
+  | "department_manager"
+  | "auditor"
+  | "employee";
 
 export type PayFrequency = "monthly" | "weekly" | "biweekly";
 export type EmploymentType =
@@ -31,6 +39,7 @@ export type LeaveType =
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ExpenseStatus = "pending" | "approved" | "rejected" | "reimbursed";
 export type LoanStatus = "active" | "paid_off" | "cancelled";
+export type OvertimeStatus = "pending" | "approved" | "rejected" | "paid";
 export type BenefitFrequency = "one_time" | "monthly" | "annual";
 export type LiabilityScheme =
   | "paye"
@@ -808,6 +817,28 @@ export interface Loan {
   status: LoanStatus;
   outstanding_minor: number;
   created_at: string;
+}
+
+// --- overtime ---
+
+export interface Overtime {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  hours: string;
+  rate_multiplier: string;
+  amount_minor: number;
+  status: OvertimeStatus;
+  pay_run_id: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface OvertimeCreateBody {
+  work_date: string;
+  hours: number;
+  rate_multiplier: number;
+  amount_minor: number;
 }
 
 // --- benefits ---

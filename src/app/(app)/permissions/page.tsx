@@ -13,8 +13,8 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { membershipsApi } from "@/lib/api/endpoints";
-import { titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { ROLE_LABELS } from "@/lib/nav";
 import type { MembershipCreateOut, Permission, Role } from "@/lib/types";
 
 const ALL_PERMISSIONS: Permission[] = [
@@ -29,7 +29,13 @@ const ALL_PERMISSIONS: Permission[] = [
   "settings.manage",
 ];
 
-const ROLES: Role[] = ["admin", "payroll_manager", "manager", "employee"];
+// The team-invite flow grants Super Admin/Payroll Manager/HR Manager/
+// Accountant/Auditor/Manager to a new login. Employee is deliberately
+// excluded — that invite stays tied to a specific employee record via
+// employees/[id]/edit — and so is Department Manager, which is granted
+// from the department it heads (alongside its manager_id assignment)
+// since it only makes sense attached to an existing employee record.
+const ROLES: Role[] = ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "auditor"];
 
 export default function PermissionsPage() {
   const memberships = useApiResource(() => membershipsApi.list());
@@ -55,7 +61,7 @@ export default function PermissionsPage() {
               <option value="">Select a member</option>
               {memberships.data.map((membership) => (
                 <option key={membership.id} value={membership.id}>
-                  {membership.email} · {titleCase(membership.role)}
+                  {membership.email} · {ROLE_LABELS[membership.role]}
                 </option>
               ))}
             </Select>
@@ -138,7 +144,7 @@ function NewUserDrawer({
           <Select id="new-user-role" value={role} onChange={(event) => setRole(event.target.value as Role)}>
             {ROLES.map((r) => (
               <option key={r} value={r}>
-                {titleCase(r)}
+                {ROLE_LABELS[r]}
               </option>
             ))}
           </Select>
@@ -174,12 +180,12 @@ function NewUserCredentialsDialog({
           <dt className="text-ink-soft">Email</dt>
           <dd className="font-mono font-bold">{membership.email}</dd>
           <dt className="text-ink-soft">Role</dt>
-          <dd className="font-bold">{titleCase(membership.role)}</dd>
+          <dd className="font-bold">{ROLE_LABELS[membership.role]}</dd>
         </dl>
         {membership.totp_secret ? (
           <div className="rounded-panel border border-border p-3">
             <p className="text-[12.5px] text-ink-soft">
-              {titleCase(membership.role)} requires an authenticator app. Have them add this secret (Google
+              {ROLE_LABELS[membership.role]} requires an authenticator app. Have them add this secret (Google
               Authenticator, Authy, 1Password, etc.) before their first login:
             </p>
             <p className="mt-2 break-all font-mono text-[12px] font-bold text-ink">{membership.totp_secret}</p>
@@ -193,7 +199,7 @@ function NewUserCredentialsDialog({
   );
 }
 
-function MembershipPermissions({ membershipId, role }: { membershipId: string; role: string }) {
+function MembershipPermissions({ membershipId, role }: { membershipId: string; role: Role }) {
   const { showToast } = useToast();
   const effective = useApiResource(() => membershipsApi.effectivePermissions(membershipId), [membershipId]);
   const [pendingPermission, setPendingPermission] = useState<Permission | null>(null);
@@ -228,7 +234,7 @@ function MembershipPermissions({ membershipId, role }: { membershipId: string; r
     <Card>
       <CardHeader
         title="Effective Permissions"
-        subtitle={`Base role: ${titleCase(role)} — toggling here adds a per-membership override, it doesn't change the role`}
+        subtitle={`Base role: ${ROLE_LABELS[role]} — toggling here adds a per-membership override, it doesn't change the role`}
       />
       {effective.loading ? <LoadingState /> : null}
       {effective.error ? <ErrorState message={effective.error} /> : null}

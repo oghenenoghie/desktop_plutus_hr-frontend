@@ -17,6 +17,7 @@ export interface NavItem {
     | "overtime"
     | "compliance"
     | "payeCalculator"
+    | "setup"
     | "recruitment"
     | "performance"
     | "learning"
@@ -341,6 +342,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: "Company Info",
     items: [
+      {
+        href: "/setup",
+        label: "Setup & Onboarding",
+        icon: "setup",
+        roles: ["admin"],
+      },
       {
         href: "/integrations",
         label: "Integrations",

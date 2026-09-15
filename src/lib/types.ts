@@ -2074,3 +2074,22 @@ export interface PayeEstimateOut {
   net_annual_minor: number;
   net_monthly_minor: number;
 }
+
+export interface Organisation {
+  id: string;
+  name: string;
+  rc_number: string | null;
+  company_tin: string | null;
+  default_pay_frequency: PayFrequency;
+  default_pfa: string | null;
+  states_of_operation: string[];
+}
+
+export interface OrganisationUpdateBody {
+  name?: string;
+  rc_number?: string;
+  company_tin?: string;
+  default_pay_frequency?: PayFrequency;
+  default_pfa?: string;
+  states_of_operation?: string[];
+}

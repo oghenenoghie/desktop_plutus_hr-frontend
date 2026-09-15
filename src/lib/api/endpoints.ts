@@ -109,6 +109,8 @@ import type {
   Notification,
   NotificationBroadcastBody,
   NotificationUnreadCount,
+  Organisation,
+  OrganisationUpdateBody,
   OrgSummary,
   Overtime,
   OvertimeCreateBody,
@@ -1374,6 +1376,14 @@ export const membershipsApi = {
       `/memberships/${membershipId}/permissions/override/${permission}`,
       { method: "DELETE" },
     ),
+};
+
+// --- organisation ---
+
+export const organisationApi = {
+  get: () => apiFetch<Organisation>("/organisation"),
+  update: (body: OrganisationUpdateBody) =>
+    apiFetch<Organisation>("/organisation", { method: "PUT", body }),
 };
 
 // --- subscription / usage ---

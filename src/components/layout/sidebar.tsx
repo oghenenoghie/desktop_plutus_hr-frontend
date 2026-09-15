@@ -43,6 +43,7 @@ import {
   Sparkles,
   Star,
   Timer,
+  UserCog,
   UserPlus,
   UserSquare2,
   Users,
@@ -62,6 +63,7 @@ import type { Role } from "@/lib/types";
 const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
   notifications: Bell,
+  myTeam: UserCog,
   employees: Users,
   orgChart: Network,
   departments: Building2,

@@ -19,6 +19,7 @@ export interface NavItem {
     | "payeCalculator"
     | "setup"
     | "notifications"
+    | "myTeam"
     | "recruitment"
     | "performance"
     | "learning"
@@ -88,6 +89,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Notifications",
         icon: "notifications",
         roles: ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/my-team",
+        label: "My Team",
+        icon: "myTeam",
+        roles: ["manager", "department_manager"],
       },
     ],
   },

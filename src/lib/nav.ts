@@ -15,6 +15,12 @@ export interface NavItem {
     | "shiftRoster"
     | "attendance"
     | "overtime"
+    | "compliance"
+    | "payeCalculator"
+    | "setup"
+    | "notifications"
+    | "myTeam"
+    | "featureMap"
     | "recruitment"
     | "performance"
     | "learning"
@@ -77,7 +83,19 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/dashboard",
         label: "Overview",
         icon: "dashboard",
-        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "department_manager", "auditor"],
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/notifications",
+        label: "Notifications",
+        icon: "notifications",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/my-team",
+        label: "My Team",
+        icon: "myTeam",
+        roles: ["manager", "department_manager"],
       },
     ],
   },
@@ -234,6 +252,18 @@ export const NAV_GROUPS: NavGroup[] = [
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
+            href: "/compliance",
+            label: "Compliance Engine",
+            icon: "compliance",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/calculator",
+            label: "PAYE Calculator",
+            icon: "payeCalculator",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
             href: "/payroll-reports",
             label: "Payroll Reports",
             icon: "payrollReports",
@@ -328,6 +358,12 @@ export const NAV_GROUPS: NavGroup[] = [
     heading: "Company Info",
     items: [
       {
+        href: "/setup",
+        label: "Setup & Onboarding",
+        icon: "setup",
+        roles: ["admin"],
+      },
+      {
         href: "/integrations",
         label: "Integrations",
         icon: "integrations",
@@ -362,6 +398,20 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Subscription",
         icon: "subscription",
         roles: ["admin"],
+      },
+      {
+        href: "/feature-map",
+        label: "Full Feature Map",
+        icon: "featureMap",
+        roles: [
+          "admin",
+          "payroll_manager",
+          "accountant",
+          "hr_manager",
+          "manager",
+          "department_manager",
+          "auditor",
+        ],
       },
     ],
   },

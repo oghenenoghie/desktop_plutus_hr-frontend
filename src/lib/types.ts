@@ -1983,3 +1983,113 @@ export interface TrainingCourseAttachment {
   storage_url: string;
   created_at: string;
 }
+
+// --- compliance rules ---
+
+export interface PayeBand {
+  up_to_minor: number | null;
+  rate_ppm: number;
+}
+
+export interface PayeRule {
+  bands: PayeBand[];
+  tax_free_threshold_minor: number;
+  rent_relief_rate_ppm: number;
+  rent_relief_cap_minor: number;
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface PensionRule {
+  employee_rate_ppm: number;
+  employer_rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_working_days_after_payment: number;
+}
+
+export interface NhfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_days_after_payment: number;
+}
+
+export interface NsitfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface ItfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_month: number;
+  due_day: number;
+}
+
+export interface WhtCategoryRule {
+  category: string;
+  rate_ppm: number;
+}
+
+export interface WhtRule {
+  categories: WhtCategoryRule[];
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface RuleVersion {
+  id: string;
+  country: string;
+  effective_from: string;
+  effective_to: string | null;
+  paye: PayeRule;
+  pension: PensionRule;
+  nhf: NhfRule;
+  nsitf: NsitfRule;
+  itf: ItfRule;
+  wht: WhtRule;
+}
+
+export interface PayeEstimateRequestBody {
+  annual_gross_minor: number;
+  annual_rent_minor?: number;
+}
+
+export interface PayeEstimateOut {
+  rule_version_id: string;
+  basic_minor: number;
+  housing_minor: number;
+  transport_minor: number;
+  gross_annual_minor: number;
+  pension_employee_annual_minor: number;
+  nhf_annual_minor: number;
+  rent_relief_annual_minor: number;
+  chargeable_income_annual_minor: number;
+  paye_annual_minor: number;
+  paye_monthly_minor: number;
+  net_annual_minor: number;
+  net_monthly_minor: number;
+}
+
+export interface Organisation {
+  id: string;
+  name: string;
+  rc_number: string | null;
+  company_tin: string | null;
+  default_pay_frequency: PayFrequency;
+  default_pfa: string | null;
+  states_of_operation: string[];
+}
+
+export interface OrganisationUpdateBody {
+  name?: string;
+  rc_number?: string;
+  company_tin?: string;
+  default_pay_frequency?: PayFrequency;
+  default_pfa?: string;
+  states_of_operation?: string[];
+}

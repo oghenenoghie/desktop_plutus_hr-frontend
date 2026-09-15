@@ -109,6 +109,8 @@ import type {
   Notification,
   NotificationBroadcastBody,
   NotificationUnreadCount,
+  Organisation,
+  OrganisationUpdateBody,
   OrgSummary,
   Overtime,
   OvertimeCreateBody,
@@ -117,6 +119,8 @@ import type {
   PayRunSimulationOut,
   PayRunSimulationRequestBody,
   PayeByStateLine,
+  PayeEstimateOut,
+  PayeEstimateRequestBody,
   PayrollRegisterLine,
   Payslip,
   PayslipDelivery,
@@ -147,6 +151,7 @@ import type {
   RecurringInvoice,
   RecurringInvoiceCreateBody,
   RemindersSummary,
+  RuleVersion,
   Shift,
   ShiftCreateBody,
   ShiftRosterEntry,
@@ -204,6 +209,14 @@ export const authApi = {
 };
 
 // --- dashboard ---
+
+// --- compliance ---
+
+export const complianceApi = {
+  currentRules: () => apiFetch<RuleVersion>("/compliance/current-rules"),
+  payeEstimate: (body: PayeEstimateRequestBody) =>
+    apiFetch<PayeEstimateOut>("/compliance/paye-estimate", { method: "POST", body }),
+};
 
 export const dashboardApi = {
   summary: () => apiFetch<OrgSummary>("/dashboard/summary"),
@@ -1363,6 +1376,14 @@ export const membershipsApi = {
       `/memberships/${membershipId}/permissions/override/${permission}`,
       { method: "DELETE" },
     ),
+};
+
+// --- organisation ---
+
+export const organisationApi = {
+  get: () => apiFetch<Organisation>("/organisation"),
+  update: (body: OrganisationUpdateBody) =>
+    apiFetch<Organisation>("/organisation", { method: "PUT", body }),
 };
 
 // --- subscription / usage ---

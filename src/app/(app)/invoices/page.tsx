@@ -3,19 +3,29 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "@/components/ui/data-state";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { chartAccountsApi, creditNotesApi, customersApi, invoicesApi } from "@/lib/api/endpoints";
+import {
+  chartAccountsApi,
+  creditNotesApi,
+  customersApi,
+  invoicesApi,
+} from "@/lib/api/endpoints";
 import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Invoice } from "@/lib/types";
@@ -25,18 +35,52 @@ export default function InvoicesPage() {
   const customers = useApiResource(() => customersApi.list());
   const { showToast } = useToast();
   const [creating, setCreating] = useState(false);
-  const [creditingInvoice, setCreditingInvoice] = useState<Invoice | null>(null);
+  const [creditingInvoice, setCreditingInvoice] = useState<Invoice | null>(
+    null,
+  );
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [emailingInvoice, setEmailingInvoice] = useState<Invoice | null>(null);
 
   const customerNameById = new Map(
     (customers.data ?? []).map((customer) => [customer.id, customer.name]),
   );
+  const customerById = new Map(
+    (customers.data ?? []).map((customer) => [customer.id, customer]),
+  );
 
-  async function act(action: (id: string) => Promise<Invoice>, invoice: Invoice) {
+  async function act(
+    action: (id: string) => Promise<Invoice>,
+    invoice: Invoice,
+  ) {
     try {
       await action(invoice.id);
       invoices.reload();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Action failed.",
+        "bad",
+      );
+    }
+  }
+
+  async function downloadPdf(invoice: Invoice) {
+    setDownloadingId(invoice.id);
+    try {
+      await invoicesApi.downloadPdf(
+        invoice.id,
+        `invoice-${invoice.invoice_number}.pdf`,
+      );
+    } catch (err) {
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Download failed.",
+        "bad",
+      );
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -61,7 +105,9 @@ export default function InvoicesPage() {
       <Card>
         {invoices.loading ? <LoadingState /> : null}
         {invoices.error ? <ErrorState message={invoices.error} /> : null}
-        {invoices.data && invoices.data.length === 0 ? <EmptyState label="No invoices yet." /> : null}
+        {invoices.data && invoices.data.length === 0 ? (
+          <EmptyState label="No invoices yet." />
+        ) : null}
         {invoices.data && invoices.data.length > 0 ? (
           <Table>
             <Thead>
@@ -116,12 +162,34 @@ export default function InvoicesPage() {
                           confirmLabel="Mark Paid"
                         />
                       ) : null}
-                      {invoice.status === "sent" || invoice.status === "paid" ? (
-                        <Button size="md" variant="secondary" onClick={() => setCreditingInvoice(invoice)}>
+                      {invoice.status === "sent" ||
+                      invoice.status === "paid" ? (
+                        <Button
+                          size="md"
+                          variant="secondary"
+                          onClick={() => setCreditingInvoice(invoice)}
+                        >
                           Credit Note
                         </Button>
                       ) : null}
-                      {invoice.status === "void" ? <span className="text-ink-soft">—</span> : null}
+                      {invoice.status === "void" ? (
+                        <span className="text-ink-soft">—</span>
+                      ) : null}
+                      <Button
+                        size="md"
+                        variant="secondary"
+                        onClick={() => downloadPdf(invoice)}
+                        disabled={downloadingId === invoice.id}
+                      >
+                        {downloadingId === invoice.id ? "Downloading…" : "PDF"}
+                      </Button>
+                      <Button
+                        size="md"
+                        variant="secondary"
+                        onClick={() => setEmailingInvoice(invoice)}
+                      >
+                        Email
+                      </Button>
                     </div>
                   </Td>
                 </tr>
@@ -130,6 +198,18 @@ export default function InvoicesPage() {
           </Table>
         ) : null}
       </Card>
+
+      {emailingInvoice ? (
+        <EmailPdfDrawer
+          title={`Email Invoice ${emailingInvoice.invoice_number}`}
+          description={`Sends invoice ${emailingInvoice.invoice_number} (${formatNaira(emailingInvoice.amount_minor)}) as a PDF attachment.`}
+          defaultTo={
+            customerById.get(emailingInvoice.customer_id)?.contact_email
+          }
+          onClose={() => setEmailingInvoice(null)}
+          onSend={(to) => invoicesApi.email(emailingInvoice.id, to)}
+        />
+      ) : null}
 
       {creating ? (
         <NewInvoiceDrawer
@@ -165,14 +245,22 @@ function CreditNoteDrawer({
   onIssued: () => void;
 }) {
   const { showToast } = useToast();
-  const creditNotes = useApiResource(() => creditNotesApi.forInvoice(invoice.id), [invoice.id]);
+  const creditNotes = useApiResource(
+    () => creditNotesApi.forInvoice(invoice.id),
+    [invoice.id],
+  );
   const [creditNoteNumber, setCreditNoteNumber] = useState("");
-  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [issueDate, setIssueDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const alreadyCredited = (creditNotes.data ?? []).reduce((sum, note) => sum + note.amount_minor, 0);
+  const alreadyCredited = (creditNotes.data ?? []).reduce(
+    (sum, note) => sum + note.amount_minor,
+    0,
+  );
   const remaining = invoice.amount_minor - alreadyCredited;
 
   async function onSubmit(event: React.FormEvent) {
@@ -188,7 +276,12 @@ function CreditNoteDrawer({
       showToast("Credit note issued", "good");
       onIssued();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Action failed.",
+        "bad",
+      );
       setSubmitting(false);
     }
   }
@@ -247,11 +340,22 @@ function CreditNoteDrawer({
             </div>
             <div>
               <Label htmlFor="amount">Amount (₦)</Label>
-              <Input id="amount" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" required />
+              <Input
+                id="amount"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                inputMode="decimal"
+                required
+              />
             </div>
             <div>
               <Label htmlFor="reason">Reason</Label>
-              <Textarea id="reason" value={reason} onChange={(event) => setReason(event.target.value)} required />
+              <Textarea
+                id="reason"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                required
+              />
             </div>
             <div className="mt-auto flex justify-end gap-3 pt-2">
               <Button type="button" variant="secondary" onClick={onClose}>
@@ -274,7 +378,13 @@ function CreditNoteDrawer({
   );
 }
 
-function NewInvoiceDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewInvoiceDrawer({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const customers = useApiResource(() => customersApi.list());
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
@@ -306,7 +416,12 @@ function NewInvoiceDrawer({ onClose, onCreated }: { onClose: () => void; onCreat
       });
       onCreated();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Action failed.",
+        "bad",
+      );
       setSubmitting(false);
     }
   }

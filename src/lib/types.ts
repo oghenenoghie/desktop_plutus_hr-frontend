@@ -1,7 +1,15 @@
 // Mirrors app/schemas/* and app/models/* in the plutus-hr-system (FastAPI) backend.
 // Money fields are minor units (kobo); dates are ISO date strings; datetimes are ISO strings.
 
-export type Role = "admin" | "payroll_manager" | "manager" | "employee";
+export type Role =
+  | "admin"
+  | "payroll_manager"
+  | "accountant"
+  | "hr_manager"
+  | "manager"
+  | "department_manager"
+  | "auditor"
+  | "employee";
 
 export type PayFrequency = "monthly" | "weekly" | "biweekly";
 export type EmploymentType =
@@ -11,14 +19,35 @@ export type EmploymentType =
   | "intern"
   | "consultant";
 export type LifecycleState = "active" | "suspended" | "terminated";
-export type LifecycleStage = "onboarding" | "active" | "suspended" | "terminated";
-export type PayRunStatus = "draft" | "processing" | "completed" | "failed" | "reversed";
-export type LeaveType = "annual" | "sick" | "maternity" | "paternity" | "unpaid";
+export type LifecycleStage =
+  | "onboarding"
+  | "active"
+  | "suspended"
+  | "terminated";
+export type PayRunStatus =
+  | "draft"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "reversed";
+export type LeaveType =
+  | "annual"
+  | "sick"
+  | "maternity"
+  | "paternity"
+  | "unpaid";
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ExpenseStatus = "pending" | "approved" | "rejected" | "reimbursed";
 export type LoanStatus = "active" | "paid_off" | "cancelled";
+export type OvertimeStatus = "pending" | "approved" | "rejected" | "paid";
 export type BenefitFrequency = "one_time" | "monthly" | "annual";
-export type LiabilityScheme = "paye" | "pension" | "nhf" | "nsitf" | "itf" | "wht";
+export type LiabilityScheme =
+  | "paye"
+  | "pension"
+  | "nhf"
+  | "nsitf"
+  | "itf"
+  | "wht";
 export type LiabilityStatus = "pending" | "filed" | "remitted";
 
 // --- auth ---
@@ -46,13 +75,17 @@ export interface Employee {
   login_code: string | null;
   full_name: string;
   state_of_residence: string;
+  state_of_origin: string | null;
   employment_type: EmploymentType;
   lifecycle_state: LifecycleState;
   lifecycle_stage: LifecycleStage;
   date_of_joining: string;
+  contract_end_date: string | null;
   job_title: string | null;
+  photo_url: string | null;
   manager_id: string | null;
   department_id: string | null;
+  branch_id: string | null;
   job_grade_id: string | null;
   shift_id: string | null;
   tin: string | null;
@@ -74,8 +107,10 @@ export interface EmployeeCreateBody {
   employee_number: string;
   full_name: string;
   state_of_residence: string;
+  state_of_origin?: string;
   employment_type: EmploymentType;
   date_of_joining: string;
+  contract_end_date?: string;
   basic_minor: number;
   housing_minor: number;
   transport_minor: number;
@@ -97,10 +132,58 @@ export interface EmployeeCreateBody {
   rsa_pin?: string;
   nhf_number?: string;
   job_title?: string;
+  photo_url?: string;
   manager_id?: string;
   department_id?: string;
+  branch_id?: string;
   job_grade_id?: string;
   shift_id?: string;
+}
+
+// PATCH /employees/{id} — mirrors app.schemas.employees.EmployeeUpdate. Every
+// field optional and independently settable; the UI only exercises the
+// subset a given drawer edits.
+export interface EmployeeUpdateBody {
+  full_name?: string;
+  state_of_residence?: string;
+  state_of_origin?: string | null;
+  job_title?: string;
+  photo_url?: string | null;
+  contract_end_date?: string | null;
+  manager_id?: string | null;
+  department_id?: string | null;
+  branch_id?: string | null;
+  job_grade_id?: string | null;
+  shift_id?: string | null;
+  tin?: string;
+  pfa_name?: string;
+  rsa_pin?: string;
+  nhf_number?: string;
+  basic_minor?: number;
+  housing_minor?: number;
+  transport_minor?: number;
+  other_earnings_minor?: number;
+  annual_rent_paid_minor?: number;
+  pay_frequency?: PayFrequency;
+  annual_leave_entitlement_days?: number;
+  salary_masked?: boolean;
+}
+
+// POST /employees/bulk-import — csv_content is the raw CSV text, header row
+// included, with column names matching EmployeeCreateBody's own field names.
+export interface EmployeeBulkImportRequest {
+  csv_content: string;
+}
+
+export interface EmployeeBulkImportRowError {
+  row: number;
+  employee_number: string | null;
+  error: string;
+}
+
+export interface EmployeeBulkImportResult {
+  created: Employee[];
+  row_errors: EmployeeBulkImportRowError[];
 }
 
 export interface BankAccount {
@@ -165,6 +248,25 @@ export interface BranchUpdateBody {
   manager_id?: string | null;
 }
 
+// --- public holidays ---
+// Org-scoped calendar excluded (alongside weekends) from working-days
+// proration. Only long-standing fixed-date Nigerian holidays are ever
+// seed-able server-side; movable Islamic/Easter-based ones must be added
+// here by an admin for the years they need — never invented client-side.
+
+export interface PublicHoliday {
+  id: string;
+  org_id: string;
+  holiday_date: string;
+  name: string;
+  created_at: string;
+}
+
+export interface PublicHolidayCreateBody {
+  holiday_date: string;
+  name: string;
+}
+
 // --- job grades ---
 
 export interface JobGrade {
@@ -218,7 +320,12 @@ export interface ShiftUpdateBody {
 // --- recruitment ---
 
 export type JobPostingStatus = "open" | "closed";
-export type CandidateStatus = "applied" | "interviewing" | "offered" | "hired" | "rejected";
+export type CandidateStatus =
+  | "applied"
+  | "interviewing"
+  | "offered"
+  | "hired"
+  | "rejected";
 
 export interface JobPosting {
   id: string;
@@ -313,7 +420,11 @@ export interface PerformanceReviewAcknowledgeBody {
 
 // --- learning & development ---
 
-export type TrainingEnrollmentStatus = "enrolled" | "in_progress" | "completed" | "failed";
+export type TrainingEnrollmentStatus =
+  | "enrolled"
+  | "in_progress"
+  | "completed"
+  | "failed";
 
 export interface TrainingCourse {
   id: string;
@@ -370,7 +481,11 @@ export type DisciplinaryCaseCategory =
   | "policy_violation"
   | "harassment"
   | "other";
-export type DisciplinaryCaseStatus = "open" | "under_review" | "resolved" | "dismissed";
+export type DisciplinaryCaseStatus =
+  | "open"
+  | "under_review"
+  | "resolved"
+  | "dismissed";
 export type DisciplinaryCaseAction =
   | "none"
   | "verbal_warning"
@@ -472,8 +587,17 @@ export interface UnionMembershipTerminateBody {
 
 // --- company assets ---
 
-export type CompanyAssetCategory = "laptop" | "phone" | "vehicle" | "furniture" | "other";
-export type CompanyAssetStatus = "available" | "assigned" | "maintenance" | "retired";
+export type CompanyAssetCategory =
+  | "laptop"
+  | "phone"
+  | "vehicle"
+  | "furniture"
+  | "other";
+export type CompanyAssetStatus =
+  | "available"
+  | "assigned"
+  | "maintenance"
+  | "retired";
 
 export interface CompanyAsset {
   id: string;
@@ -639,6 +763,7 @@ export interface OrgSummary {
   outstanding_liability_minor: number;
   pending_leave_request_count: number;
   pending_expense_count: number;
+  expiring_contract_count: number;
   cash_balance_minor: number;
   accounts_payable_minor: number;
   accounts_receivable_minor: number;
@@ -694,6 +819,28 @@ export interface Loan {
   created_at: string;
 }
 
+// --- overtime ---
+
+export interface Overtime {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  hours: string;
+  rate_multiplier: string;
+  amount_minor: number;
+  status: OvertimeStatus;
+  pay_run_id: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface OvertimeCreateBody {
+  work_date: string;
+  hours: number;
+  rate_multiplier: number;
+  amount_minor: number;
+}
+
 // --- benefits ---
 
 export interface BenefitCreateBody {
@@ -727,6 +874,10 @@ export interface Contractor {
   bank_name: string | null;
   account_number: string | null;
   account_name: string | null;
+  email: string | null;
+  phone: string | null;
+  engagement_start_date: string | null;
+  engagement_end_date: string | null;
   created_at: string;
 }
 
@@ -736,6 +887,43 @@ export interface ContractorCreateBody {
   bank_name?: string | null;
   account_number?: string | null;
   account_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  engagement_start_date?: string | null;
+  engagement_end_date?: string | null;
+}
+
+// --- contractor invoices ---
+// draft -> submitted -> paid; paying one records the actual withholding-tax
+// payment for its amount (a WhtPayment) and links back to it here.
+
+export type ContractorInvoiceStatus = "draft" | "submitted" | "paid";
+
+export interface ContractorInvoice {
+  id: string;
+  org_id: string;
+  contractor_id: string;
+  wht_payment_id: string | null;
+  invoice_number: string;
+  description: string | null;
+  amount_minor: number;
+  invoice_date: string;
+  due_date: string | null;
+  status: ContractorInvoiceStatus;
+  created_at: string;
+}
+
+export interface ContractorInvoiceCreateBody {
+  invoice_number: string;
+  amount_minor: number;
+  invoice_date: string;
+  description?: string | null;
+  due_date?: string | null;
+}
+
+export interface ContractorInvoicePayRequest {
+  category: WhtCategory;
+  payment_date: string;
 }
 
 export type WhtCategory = "goods" | "services";
@@ -844,7 +1032,12 @@ export interface PayRunSimulationOut {
 
 // --- chart of accounts / general ledger ---
 
-export type AccountType = "asset" | "liability" | "equity" | "revenue" | "expense";
+export type AccountType =
+  | "asset"
+  | "liability"
+  | "equity"
+  | "revenue"
+  | "expense";
 
 export interface ChartAccount {
   id: string;
@@ -874,6 +1067,7 @@ export interface LedgerEntry {
   journal_entry_id: string;
   pay_run_id: string | null;
   employee_id: string | null;
+  department_id: string | null;
   account: string;
   account_name: string | null;
   debit_minor: number;
@@ -1398,6 +1592,15 @@ export interface VendorStatementLine {
   running_balance_minor: number;
 }
 
+export interface CustomerStatementLine {
+  invoice_id: string;
+  invoice_number: string;
+  issue_date: string;
+  amount_minor: number;
+  status: InvoiceStatus;
+  running_balance_minor: number;
+}
+
 // --- credit notes ---
 
 export interface CreditNoteCreateBody {
@@ -1639,6 +1842,7 @@ export interface GeneratedDocument {
 export interface RemindersSummary {
   deadline_count: number;
   stale_approval_count: number;
+  expiring_contract_count: number;
   notifications_created: number;
 }
 
@@ -1661,6 +1865,17 @@ export interface MembershipOut {
   email: string;
   role: Role;
   created_at: string;
+}
+
+export interface MembershipCreateBody {
+  email: string;
+  password: string;
+  role: Role;
+}
+
+export interface MembershipCreateOut extends MembershipOut {
+  totp_secret: string | null;
+  totp_provisioning_uri: string | null;
 }
 
 export interface EffectivePermissions {

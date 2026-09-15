@@ -11,8 +11,9 @@ import { ErrorState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api/client";
-import { employeesApi } from "@/lib/api/endpoints";
+import { branchesApi, employeesApi } from "@/lib/api/endpoints";
 import { nairaToMinor } from "@/lib/format";
+import { useApiResource } from "@/lib/hooks";
 import { NIGERIA_STATES } from "@/lib/nigeria-states";
 import type { EmploymentType, PayFrequency } from "@/lib/types";
 
@@ -23,10 +24,14 @@ interface FormState {
   employee_number: string;
   full_name: string;
   state_of_residence: string;
+  state_of_origin: string;
   employment_type: EmploymentType;
   date_of_joining: string;
+  contract_end_date: string;
   job_title: string;
+  photo_url: string;
   manager_id: string;
+  branch_id: string;
   basic: string;
   housing: string;
   transport: string;
@@ -53,10 +58,14 @@ const INITIAL_STATE: FormState = {
   employee_number: "",
   full_name: "",
   state_of_residence: "",
+  state_of_origin: "",
   employment_type: "permanent",
   date_of_joining: "",
+  contract_end_date: "",
   job_title: "",
+  photo_url: "",
   manager_id: "",
+  branch_id: "",
   basic: "",
   housing: "",
   transport: "",
@@ -84,6 +93,7 @@ export default function NewEmployeePage() {
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const branches = useApiResource(() => branchesApi.list());
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -98,8 +108,10 @@ export default function NewEmployeePage() {
         employee_number: form.employee_number,
         full_name: form.full_name,
         state_of_residence: form.state_of_residence,
+        state_of_origin: form.state_of_origin || undefined,
         employment_type: form.employment_type,
         date_of_joining: form.date_of_joining,
+        contract_end_date: form.contract_end_date || undefined,
         basic_minor: nairaToMinor(form.basic),
         housing_minor: nairaToMinor(form.housing),
         transport_minor: nairaToMinor(form.transport),
@@ -110,7 +122,9 @@ export default function NewEmployeePage() {
           ? Number(form.annual_leave_entitlement_days)
           : undefined,
         job_title: form.job_title || undefined,
+        photo_url: form.photo_url || undefined,
         manager_id: form.manager_id || undefined,
+        branch_id: form.branch_id || undefined,
         tin: form.tin || undefined,
         pfa_name: form.pfa_name || undefined,
         rsa_pin: form.rsa_pin || undefined,
@@ -156,6 +170,16 @@ export default function NewEmployeePage() {
                 ))}
               </Select>
             </Field>
+            <Field label="State of Origin">
+              <Select value={form.state_of_origin} onChange={(e) => set("state_of_origin", e.target.value)}>
+                <option value="">Select a state</option>
+                {NIGERIA_STATES.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Employment Type" required>
               <Select required value={form.employment_type} onChange={(e) => set("employment_type", e.target.value as EmploymentType)}>
                 {EMPLOYMENT_TYPES.map((type) => (
@@ -168,11 +192,24 @@ export default function NewEmployeePage() {
             <Field label="Date of Joining" required>
               <Input required type="date" value={form.date_of_joining} onChange={(e) => set("date_of_joining", e.target.value)} />
             </Field>
+            <Field label="Contract End Date">
+              <Input type="date" value={form.contract_end_date} onChange={(e) => set("contract_end_date", e.target.value)} />
+            </Field>
             <Field label="Job Title">
               <Input value={form.job_title} onChange={(e) => set("job_title", e.target.value)} />
             </Field>
             <Field label="Manager">
               <EmployeePicker value={form.manager_id} onChange={(value) => set("manager_id", value)} />
+            </Field>
+            <Field label="Branch (Work Location)">
+              <Select value={form.branch_id} onChange={(e) => set("branch_id", e.target.value)}>
+                <option value="">No branch</option>
+                {(branches.data ?? []).map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </Select>
             </Field>
           </div>
         </Card>
@@ -251,6 +288,13 @@ export default function NewEmployeePage() {
             </Field>
             <Field label="Residential Address" full>
               <Input value={form.residential_address} onChange={(e) => set("residential_address", e.target.value)} />
+            </Field>
+            <Field label="Photo URL" full>
+              <Input
+                value={form.photo_url}
+                onChange={(e) => set("photo_url", e.target.value)}
+                placeholder="https://…"
+              />
             </Field>
             <Field label="Next of Kin Name">
               <Input value={form.next_of_kin_name} onChange={(e) => set("next_of_kin_name", e.target.value)} />

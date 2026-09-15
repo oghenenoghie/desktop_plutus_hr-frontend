@@ -297,6 +297,7 @@ export const MOCK_FIXTURES = {
     outstanding_liability_minor: 214_500_00,
     pending_leave_request_count: 2,
     pending_expense_count: 1,
+    expiring_contract_count: 1,
     cash_balance_minor: -865_675_00,
     accounts_payable_minor: 300_000_00,
     accounts_receivable_minor: 900_000_00,

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Drawer } from "@/components/ui/drawer";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -20,7 +20,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { formatNaira, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { NIGERIAN_BANKS } from "@/lib/nigerian-banks";
-import type { Employee } from "@/lib/types";
+import type { Employee, EmployeeBulkImportResult } from "@/lib/types";
 
 export default function EmployeesPage() {
   const router = useRouter();
@@ -28,6 +28,7 @@ export default function EmployeesPage() {
   const canManageMasking = user?.role === "admin" || user?.role === "payroll_manager";
   const employees = useApiResource(() => employeesApi.list());
   const [bankAccountFor, setBankAccountFor] = useState<Employee | null>(null);
+  const [bulkImporting, setBulkImporting] = useState(false);
   const { showToast } = useToast();
   const departments = useApiResource(() => departmentsApi.list());
   const departmentsById = new Map((departments.data ?? []).map((department) => [department.id, department]));
@@ -50,7 +51,14 @@ export default function EmployeesPage() {
       <PageHeader
         title="Employees"
         subtitle="Directory, TIN status and pay components"
-        action={<Button onClick={() => router.push("/employees/new")}>New Employee</Button>}
+        action={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setBulkImporting(true)}>
+              Bulk Import
+            </Button>
+            <Button onClick={() => router.push("/employees/new")}>New Employee</Button>
+          </div>
+        }
       />
 
       <Card>
@@ -89,7 +97,7 @@ export default function EmployeesPage() {
                   <tr key={employee.id}>
                     <Td>
                       <div className="flex items-center gap-2.5">
-                        <Avatar name={employee.full_name} />
+                        <Avatar name={employee.full_name} src={employee.photo_url} />
                         <div>
                           <div className="font-bold">{employee.full_name}</div>
                           <div className="text-[11px] text-ink-soft">
@@ -161,7 +169,113 @@ export default function EmployeesPage() {
       {bankAccountFor ? (
         <BankAccountDrawer employee={bankAccountFor} onClose={() => setBankAccountFor(null)} />
       ) : null}
+
+      {bulkImporting ? (
+        <BulkImportDrawer
+          onClose={() => setBulkImporting(false)}
+          onImported={() => employees.reload()}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function BulkImportDrawer({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const { showToast } = useToast();
+  const [csvContent, setCsvContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<EmployeeBulkImportResult | null>(null);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      const outcome = await employeesApi.bulkImport({ csv_content: csvContent });
+      setResult(outcome);
+      if (outcome.created.length > 0) onImported();
+      if (outcome.row_errors.length === 0) {
+        showToast(`${outcome.created.length} employee(s) imported`, "good");
+      }
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Import failed.", "bad");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Drawer title="Bulk Import Employees" onClose={onClose}>
+      {result ? (
+        <div className="flex flex-1 flex-col gap-4">
+          <p className="text-[13px]">
+            <span className="font-bold text-good">{result.created.length} created</span>
+            {result.row_errors.length > 0 ? (
+              <>
+                {" · "}
+                <span className="font-bold text-bad">{result.row_errors.length} failed</span>
+              </>
+            ) : null}
+          </p>
+          {result.row_errors.length > 0 ? (
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Row</Th>
+                  <Th>Employee Number</Th>
+                  <Th>Error</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {result.row_errors.map((rowError) => (
+                  <tr key={rowError.row}>
+                    <Td>{rowError.row}</Td>
+                    <Td>{rowError.employee_number ?? "—"}</Td>
+                    <Td className="text-bad">{rowError.error}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : null}
+          <div className="mt-auto flex justify-end gap-3 pt-4">
+            {result.row_errors.length > 0 ? (
+              <Button variant="secondary" onClick={() => setResult(null)}>
+                Fix and Retry
+              </Button>
+            ) : null}
+            <Button onClick={onClose}>Done</Button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+          <p className="text-[13px] text-ink-soft">
+            Paste CSV text — a header row plus one row per employee, columns matching the New Employee
+            form&apos;s field names (employee_number, full_name, state_of_residence, employment_type,
+            date_of_joining, basic_minor, housing_minor, transport_minor, …). A bad row is skipped and
+            reported here — it never blocks the rest of the file.
+          </p>
+          <div className="flex flex-1 flex-col">
+            <Label htmlFor="csv-content">CSV Content</Label>
+            <Textarea
+              id="csv-content"
+              className="flex-1 font-mono"
+              rows={14}
+              value={csvContent}
+              onChange={(event) => setCsvContent(event.target.value)}
+              placeholder={"employee_number,full_name,state_of_residence,employment_type,date_of_joining,basic_minor,housing_minor,transport_minor\nEMP-101,Bisi Adeyemi,Lagos,permanent,2026-01-01,30000000,15000000,5000000"}
+              required
+            />
+          </div>
+          <div className="mt-auto flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting || !csvContent.trim()}>
+              {submitting ? "Importing…" : "Import"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Drawer>
   );
 }
 

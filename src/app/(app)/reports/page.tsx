@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 
+import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "@/components/ui/data-state";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -15,7 +20,12 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { agingReportsApi, statutoryLiabilitiesApi, vendorsApi } from "@/lib/api/endpoints";
+import {
+  agingReportsApi,
+  customersApi,
+  statutoryLiabilitiesApi,
+  vendorsApi,
+} from "@/lib/api/endpoints";
 import { formatDate, formatNaira } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { AgingBucket, AgingLine, StatutoryLiability } from "@/lib/types";
@@ -31,13 +41,37 @@ const BUCKET_LABELS: Record<AgingBucket, string> = {
 export default function ReportsPage() {
   return (
     <div>
-      <PageHeader title="Financial Reports" subtitle="Statutory liabilities, AP/AR aging, and vendor statements" />
+      <PageHeader
+        title="Financial Reports"
+        subtitle="Statutory liabilities, AP/AR aging, and vendor statements"
+      />
       <Tabs
         tabs={[
-          { id: "statutory", label: "Statutory Liabilities", content: <StatutoryLiabilitiesTab /> },
-          { id: "ap-aging", label: "AP Aging", content: <AgingTab type="ap" /> },
-          { id: "ar-aging", label: "AR Aging", content: <AgingTab type="ar" /> },
-          { id: "vendor-statement", label: "Vendor Statement", content: <VendorStatementTab /> },
+          {
+            id: "statutory",
+            label: "Statutory Liabilities",
+            content: <StatutoryLiabilitiesTab />,
+          },
+          {
+            id: "ap-aging",
+            label: "AP Aging",
+            content: <AgingTab type="ap" />,
+          },
+          {
+            id: "ar-aging",
+            label: "AR Aging",
+            content: <AgingTab type="ar" />,
+          },
+          {
+            id: "vendor-statement",
+            label: "Vendor Statement",
+            content: <VendorStatementTab />,
+          },
+          {
+            id: "customer-statement",
+            label: "Customer Statement",
+            content: <CustomerStatementTab />,
+          },
         ]}
       />
     </div>
@@ -55,7 +89,12 @@ function StatutoryLiabilitiesTab() {
       showToast(`${liability.scheme.toUpperCase()} marked filed`, "good");
       liabilities.reload();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Action failed.",
+        "bad",
+      );
     }
   }
 
@@ -88,7 +127,8 @@ function StatutoryLiabilitiesTab() {
                   <Td>{liability.authority}</Td>
                   <Td>{liability.state ?? "—"}</Td>
                   <Td>
-                    {formatDate(liability.period_start)} – {formatDate(liability.period_end)}
+                    {formatDate(liability.period_start)} –{" "}
+                    {formatDate(liability.period_end)}
                   </Td>
                   <Td align="right">{formatNaira(liability.amount_minor)}</Td>
                   <Td>{formatDate(liability.due_date)}</Td>
@@ -108,11 +148,16 @@ function StatutoryLiabilitiesTab() {
                         />
                       ) : null}
                       {liability.status === "filed" ? (
-                        <Button size="md" onClick={() => setRemitting(liability)}>
+                        <Button
+                          size="md"
+                          onClick={() => setRemitting(liability)}
+                        >
                           Mark Remitted
                         </Button>
                       ) : null}
-                      {liability.status === "remitted" ? <span className="text-ink-soft">—</span> : null}
+                      {liability.status === "remitted" ? (
+                        <span className="text-ink-soft">—</span>
+                      ) : null}
                     </div>
                   </Td>
                 </tr>
@@ -157,7 +202,12 @@ function RemitDrawer({
       showToast(`${liability.scheme.toUpperCase()} marked remitted`, "good");
       onRemitted();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Action failed.",
+        "bad",
+      );
       setSubmitting(false);
     }
   }
@@ -166,8 +216,10 @@ function RemitDrawer({
     <Drawer title="Mark as Remitted" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          {liability.scheme.toUpperCase()} for {formatDate(liability.period_start)} –{" "}
-          {formatDate(liability.period_end)} ({formatNaira(liability.amount_minor)}), payable to{" "}
+          {liability.scheme.toUpperCase()} for{" "}
+          {formatDate(liability.period_start)} –{" "}
+          {formatDate(liability.period_end)} (
+          {formatNaira(liability.amount_minor)}), payable to{" "}
           {liability.authority}.
         </p>
         <div>
@@ -193,10 +245,17 @@ function RemitDrawer({
 }
 
 function AgingTab({ type }: { type: "ap" | "ar" }) {
-  const lines = useApiResource(() => (type === "ap" ? agingReportsApi.apAging() : agingReportsApi.arAging()), [type]);
+  const lines = useApiResource(
+    () =>
+      type === "ap" ? agingReportsApi.apAging() : agingReportsApi.arAging(),
+    [type],
+  );
   const totalByBucket = new Map<AgingBucket, number>();
   for (const line of lines.data ?? []) {
-    totalByBucket.set(line.bucket, (totalByBucket.get(line.bucket) ?? 0) + line.amount_minor);
+    totalByBucket.set(
+      line.bucket,
+      (totalByBucket.get(line.bucket) ?? 0) + line.amount_minor,
+    );
   }
 
   return (
@@ -218,7 +277,9 @@ function AgingTab({ type }: { type: "ap" | "ar" }) {
         {lines.loading ? <LoadingState /> : null}
         {lines.error ? <ErrorState message={lines.error} /> : null}
         {lines.data && lines.data.length === 0 ? (
-          <EmptyState label={`No ${type === "ap" ? "outstanding bills" : "outstanding invoices"}.`} />
+          <EmptyState
+            label={`No ${type === "ap" ? "outstanding bills" : "outstanding invoices"}.`}
+          />
         ) : null}
         {lines.data && lines.data.length > 0 ? (
           <Table>
@@ -250,22 +311,54 @@ function AgingTab({ type }: { type: "ap" | "ar" }) {
 }
 
 function VendorStatementTab() {
+  const { showToast } = useToast();
   const vendors = useApiResource(() => vendorsApi.list());
   const [vendorId, setVendorId] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [emailing, setEmailing] = useState(false);
   const statement = useApiResource(
-    () => (vendorId ? agingReportsApi.vendorStatement(vendorId) : Promise.resolve([])),
+    () =>
+      vendorId
+        ? agingReportsApi.vendorStatement(vendorId)
+        : Promise.resolve([]),
     [vendorId],
   );
+  const vendor = (vendors.data ?? []).find((v) => v.id === vendorId);
+
+  async function downloadPdf() {
+    if (!vendor) return;
+    setDownloading(true);
+    try {
+      await agingReportsApi.downloadVendorStatementPdf(
+        vendor.id,
+        undefined,
+        `statement-${vendor.name}.pdf`,
+      );
+    } catch (err) {
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Download failed.",
+        "bad",
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <div>
       <Card className="mb-6">
         <Label htmlFor="vendor">Vendor</Label>
-        <Select id="vendor" value={vendorId} onChange={(event) => setVendorId(event.target.value)}>
+        <Select
+          id="vendor"
+          value={vendorId}
+          onChange={(event) => setVendorId(event.target.value)}
+        >
           <option value="">Select a vendor</option>
-          {(vendors.data ?? []).map((vendor) => (
-            <option key={vendor.id} value={vendor.id}>
-              {vendor.name}
+          {(vendors.data ?? []).map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
             </option>
           ))}
         </Select>
@@ -273,6 +366,23 @@ function VendorStatementTab() {
 
       {vendorId ? (
         <Card>
+          <div className="mb-4 flex justify-end gap-2">
+            <Button
+              size="md"
+              variant="secondary"
+              onClick={downloadPdf}
+              disabled={downloading}
+            >
+              {downloading ? "Downloading…" : "PDF"}
+            </Button>
+            <Button
+              size="md"
+              variant="secondary"
+              onClick={() => setEmailing(true)}
+            >
+              Email
+            </Button>
+          </div>
           {statement.loading ? <LoadingState /> : null}
           {statement.error ? <ErrorState message={statement.error} /> : null}
           {statement.data && statement.data.length === 0 ? (
@@ -307,6 +417,140 @@ function VendorStatementTab() {
             </Table>
           ) : null}
         </Card>
+      ) : null}
+
+      {emailing && vendor ? (
+        <EmailPdfDrawer
+          title={`Email Statement — ${vendor.name}`}
+          description="Sends this vendor's statement of account as a PDF attachment."
+          defaultTo={vendor.contact_email}
+          onClose={() => setEmailing(false)}
+          onSend={(to) => agingReportsApi.emailVendorStatement(vendor.id, to)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CustomerStatementTab() {
+  const { showToast } = useToast();
+  const customers = useApiResource(() => customersApi.list());
+  const [customerId, setCustomerId] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  const statement = useApiResource(
+    () =>
+      customerId
+        ? agingReportsApi.customerStatement(customerId)
+        : Promise.resolve([]),
+    [customerId],
+  );
+  const customer = (customers.data ?? []).find((c) => c.id === customerId);
+
+  async function downloadPdf() {
+    if (!customer) return;
+    setDownloading(true);
+    try {
+      await agingReportsApi.downloadCustomerStatementPdf(
+        customer.id,
+        undefined,
+        `statement-${customer.name}.pdf`,
+      );
+    } catch (err) {
+      showToast(
+        err instanceof ApiError
+          ? String(err.detail ?? err.message)
+          : "Download failed.",
+        "bad",
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div>
+      <Card className="mb-6">
+        <Label htmlFor="customer">Customer</Label>
+        <Select
+          id="customer"
+          value={customerId}
+          onChange={(event) => setCustomerId(event.target.value)}
+        >
+          <option value="">Select a customer</option>
+          {(customers.data ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      </Card>
+
+      {customerId ? (
+        <Card>
+          <div className="mb-4 flex justify-end gap-2">
+            <Button
+              size="md"
+              variant="secondary"
+              onClick={downloadPdf}
+              disabled={downloading}
+            >
+              {downloading ? "Downloading…" : "PDF"}
+            </Button>
+            <Button
+              size="md"
+              variant="secondary"
+              onClick={() => setEmailing(true)}
+            >
+              Email
+            </Button>
+          </div>
+          {statement.loading ? <LoadingState /> : null}
+          {statement.error ? <ErrorState message={statement.error} /> : null}
+          {statement.data && statement.data.length === 0 ? (
+            <EmptyState label="No invoices recorded for this customer." />
+          ) : null}
+          {statement.data && statement.data.length > 0 ? (
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Invoice #</Th>
+                  <Th>Date</Th>
+                  <Th>Status</Th>
+                  <Th align="right">Amount</Th>
+                  <Th align="right">Running Balance</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {statement.data.map((line) => (
+                  <tr key={line.invoice_id}>
+                    <Td className="font-bold">{line.invoice_number}</Td>
+                    <Td>{formatDate(line.issue_date)}</Td>
+                    <Td>
+                      <StatusBadge status={line.status} />
+                    </Td>
+                    <Td align="right">{formatNaira(line.amount_minor)}</Td>
+                    <Td align="right" className="font-bold">
+                      {formatNaira(line.running_balance_minor)}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {emailing && customer ? (
+        <EmailPdfDrawer
+          title={`Email Statement — ${customer.name}`}
+          description="Sends this customer's statement of account as a PDF attachment."
+          defaultTo={customer.contact_email}
+          onClose={() => setEmailing(false)}
+          onSend={(to) =>
+            agingReportsApi.emailCustomerStatement(customer.id, to)
+          }
+        />
       ) : null}
     </div>
   );

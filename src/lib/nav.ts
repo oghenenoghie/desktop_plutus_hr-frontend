@@ -20,6 +20,7 @@ export interface NavItem {
     | "setup"
     | "notifications"
     | "myTeam"
+    | "featureMap"
     | "recruitment"
     | "performance"
     | "learning"
@@ -397,6 +398,20 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Subscription",
         icon: "subscription",
         roles: ["admin"],
+      },
+      {
+        href: "/feature-map",
+        label: "Full Feature Map",
+        icon: "featureMap",
+        roles: [
+          "admin",
+          "payroll_manager",
+          "accountant",
+          "hr_manager",
+          "manager",
+          "department_manager",
+          "auditor",
+        ],
       },
     ],
   },

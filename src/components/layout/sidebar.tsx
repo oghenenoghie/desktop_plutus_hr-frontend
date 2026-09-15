@@ -31,6 +31,7 @@ import {
   Laptop,
   LayoutDashboard,
   Link2,
+  Map,
   MapPin,
   Network,
   Percent,
@@ -106,6 +107,7 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   documentGeneration: FileSignature,
   permissions: KeyRound,
   subscription: Sparkles,
+  featureMap: Map,
 };
 
 function isActiveHref(pathname: string, href: string): boolean {

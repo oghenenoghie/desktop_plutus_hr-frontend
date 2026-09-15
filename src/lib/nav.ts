@@ -16,6 +16,7 @@ export interface NavItem {
     | "attendance"
     | "overtime"
     | "compliance"
+    | "payeCalculator"
     | "recruitment"
     | "performance"
     | "learning"
@@ -238,6 +239,12 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/compliance",
             label: "Compliance Engine",
             icon: "compliance",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/calculator",
+            label: "PAYE Calculator",
+            icon: "payeCalculator",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {

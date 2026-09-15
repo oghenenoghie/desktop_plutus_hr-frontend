@@ -117,6 +117,8 @@ import type {
   PayRunSimulationOut,
   PayRunSimulationRequestBody,
   PayeByStateLine,
+  PayeEstimateOut,
+  PayeEstimateRequestBody,
   PayrollRegisterLine,
   Payslip,
   PayslipDelivery,
@@ -210,6 +212,8 @@ export const authApi = {
 
 export const complianceApi = {
   currentRules: () => apiFetch<RuleVersion>("/compliance/current-rules"),
+  payeEstimate: (body: PayeEstimateRequestBody) =>
+    apiFetch<PayeEstimateOut>("/compliance/paye-estimate", { method: "POST", body }),
 };
 
 export const dashboardApi = {

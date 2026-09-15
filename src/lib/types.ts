@@ -2053,3 +2053,24 @@ export interface RuleVersion {
   itf: ItfRule;
   wht: WhtRule;
 }
+
+export interface PayeEstimateRequestBody {
+  annual_gross_minor: number;
+  annual_rent_minor?: number;
+}
+
+export interface PayeEstimateOut {
+  rule_version_id: string;
+  basic_minor: number;
+  housing_minor: number;
+  transport_minor: number;
+  gross_annual_minor: number;
+  pension_employee_annual_minor: number;
+  nhf_annual_minor: number;
+  rent_relief_annual_minor: number;
+  chargeable_income_annual_minor: number;
+  paye_annual_minor: number;
+  paye_monthly_minor: number;
+  net_annual_minor: number;
+  net_monthly_minor: number;
+}

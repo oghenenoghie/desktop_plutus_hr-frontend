@@ -13,6 +13,7 @@ import {
   Building2,
   Calculator,
   CalendarCheck,
+  CalendarDays,
   CalendarOff,
   ChevronDown,
   Clock,
@@ -112,6 +113,7 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   subscription: Sparkles,
   featureMap: Map,
   tasks: ListChecks,
+  calendar: CalendarDays,
   publicHolidays: CalendarOff,
   security: Lock,
 };

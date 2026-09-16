@@ -51,6 +51,7 @@ export interface NavItem {
     | "permissions"
     | "subscription"
     | "tasks"
+    | "calendar"
     | "publicHolidays"
     | "security";
   roles: Role[];
@@ -195,6 +196,20 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/tasks",
             label: "Tasks",
             icon: "tasks",
+            roles: [
+              "admin",
+              "payroll_manager",
+              "manager",
+              "accountant",
+              "hr_manager",
+              "department_manager",
+              "auditor",
+            ],
+          },
+          {
+            href: "/calendar",
+            label: "Calendar",
+            icon: "calendar",
             roles: [
               "admin",
               "payroll_manager",

@@ -49,6 +49,8 @@ import type {
   ContractorInvoice,
   ContractorInvoiceCreateBody,
   ContractorInvoicePayRequest,
+  CreateEmployeeLoginBody,
+  CreateEmployeeLoginOut,
   CreditNote,
   CreditNoteCreateBody,
   Customer,
@@ -162,6 +164,10 @@ import type {
   SimulationRequestBody,
   StatutoryLiability,
   Subscription,
+  Task,
+  TaskCreateBody,
+  TaskStatus,
+  TaskUpdateBody,
   TokenResponse,
   TrainingCourse,
   TrainingCourseAttachment,
@@ -270,6 +276,24 @@ export const employeesApi = {
     return uploadFile<Employee>("/employees/me/photo", formData);
   },
   deleteMyPhoto: () => apiFetch<Employee>("/employees/me/photo", { method: "DELETE" }),
+  createLogin: (id: string, body: CreateEmployeeLoginBody) =>
+    apiFetch<CreateEmployeeLoginOut>(`/employees/${id}/create-login`, {
+      method: "POST",
+      body,
+    }),
+};
+
+// --- tasks ---
+
+export const tasksApi = {
+  list: (scope: "mine" | "all" = "mine", status?: TaskStatus) =>
+    apiFetch<Task[]>(
+      `/tasks?scope=${scope}${status ? `&status=${status}` : ""}`,
+    ),
+  create: (body: TaskCreateBody) => apiFetch<Task>("/tasks", { method: "POST", body }),
+  update: (id: string, body: TaskUpdateBody) =>
+    apiFetch<Task>(`/tasks/${id}`, { method: "PATCH", body }),
+  remove: (id: string) => apiFetch<void>(`/tasks/${id}`, { method: "DELETE" }),
 };
 
 // --- departments ---

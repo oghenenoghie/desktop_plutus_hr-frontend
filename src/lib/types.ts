@@ -143,6 +143,18 @@ export interface EmployeeCreateBody {
   shift_id?: string;
 }
 
+export interface CreateEmployeeLoginBody {
+  email: string;
+  password: string;
+}
+
+export interface CreateEmployeeLoginOut {
+  account_id: string;
+  email: string;
+  login_code: string | null;
+  role: Role;
+}
+
 // PATCH /employees/{id} — mirrors app.schemas.employees.EmployeeUpdate. Every
 // field optional and independently settable; the UI only exercises the
 // subset a given drawer edits.
@@ -2094,4 +2106,42 @@ export interface OrganisationUpdateBody {
   default_pay_frequency?: PayFrequency;
   default_pfa?: string;
   states_of_operation?: string[];
+}
+
+export type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string | null;
+  assigned_to_account_id: string;
+  assigned_to_email: string;
+  created_by_account_id: string;
+  created_by_email: string;
+  related_employee_id: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface TaskCreateBody {
+  title: string;
+  description?: string;
+  assigned_to_account_id?: string;
+  priority?: TaskPriority;
+  due_date?: string;
+  related_employee_id?: string;
+}
+
+export interface TaskUpdateBody {
+  title?: string;
+  description?: string;
+  assigned_to_account_id?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  due_date?: string;
 }

@@ -30,6 +30,7 @@ import { NIGERIA_STATES } from "@/lib/nigeria-states";
 import type {
   ChecklistItem,
   ChecklistType,
+  CreateEmployeeLoginOut,
   DocumentCategory,
   Employee,
   EmployeeHistoryEvent,
@@ -51,6 +52,8 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const canManage = user?.role === "admin" || user?.role === "payroll_manager";
   const employee = useApiResource(() => employeesApi.get(id), [id]);
   const [editing, setEditing] = useState(false);
+  const [creatingLogin, setCreatingLogin] = useState(false);
+  const [createdLogin, setCreatedLogin] = useState<CreateEmployeeLoginOut | null>(null);
 
   return (
     <div>
@@ -72,6 +75,11 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                 <Avatar name={employee.data.full_name} size="lg" src={employee.data.photo_url} />
                 <StatusBadge status={employee.data.lifecycle_stage} />
                 <Badge tone="neutral">{titleCase(employee.data.employment_type)}</Badge>
+                {user?.role === "admin" && !employee.data.account_id ? (
+                  <Button size="md" variant="secondary" onClick={() => setCreatingLogin(true)}>
+                    Create Login
+                  </Button>
+                ) : null}
                 {canManage ? (
                   <Button size="md" variant="secondary" onClick={() => setEditing(true)}>
                     Edit Details
@@ -91,6 +99,22 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               }}
               onPhotoChanged={() => employee.reload()}
             />
+          ) : null}
+
+          {creatingLogin ? (
+            <CreateLoginDrawer
+              employee={employee.data}
+              onClose={() => setCreatingLogin(false)}
+              onCreated={(result) => {
+                setCreatingLogin(false);
+                setCreatedLogin(result);
+                employee.reload();
+              }}
+            />
+          ) : null}
+
+          {createdLogin ? (
+            <LoginCredentialsDialog login={createdLogin} onClose={() => setCreatedLogin(null)} />
           ) : null}
 
           <Tabs
@@ -243,6 +267,104 @@ function EditDetailsDrawer({
           </Button>
         </div>
       </form>
+    </Drawer>
+  );
+}
+
+function CreateLoginDrawer({
+  employee,
+  onClose,
+  onCreated,
+}: {
+  employee: Employee;
+  onClose: () => void;
+  onCreated: (login: CreateEmployeeLoginOut) => void;
+}) {
+  const { showToast } = useToast();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      const result = await employeesApi.createLogin(employee.id, { email, password });
+      showToast("Login created", "good");
+      onCreated(result);
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Drawer title={`Create Login — ${employee.full_name}`} onClose={onClose}>
+      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+        <div>
+          <Label htmlFor="login-email">Email</Label>
+          <Input
+            id="login-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="name@company.com"
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="login-password">Initial Password</Label>
+          <Input
+            id="login-password"
+            type="text"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="At least 8 characters"
+            minLength={8}
+            required
+          />
+        </div>
+        <div className="mt-auto flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Creating…" : "Create Login"}
+          </Button>
+        </div>
+      </form>
+    </Drawer>
+  );
+}
+
+function LoginCredentialsDialog({
+  login,
+  onClose,
+}: {
+  login: CreateEmployeeLoginOut;
+  onClose: () => void;
+}) {
+  return (
+    <Drawer title="Login Created" onClose={onClose}>
+      <div className="flex flex-1 flex-col gap-4">
+        <p className="text-[13px] text-ink-soft">
+          Share these sign-in details with <span className="font-bold text-ink">{login.email}</span> now — they
+          won&apos;t be shown again.
+        </p>
+        <dl className="grid grid-cols-[120px_1fr] gap-y-2.5 text-[13px]">
+          <dt className="text-ink-soft">Email</dt>
+          <dd className="font-mono font-bold">{login.email}</dd>
+          {login.login_code ? (
+            <>
+              <dt className="text-ink-soft">Login Code</dt>
+              <dd className="font-mono font-bold">{login.login_code}</dd>
+            </>
+          ) : null}
+        </dl>
+        <div className="mt-auto flex justify-end pt-4">
+          <Button onClick={onClose}>Done</Button>
+        </div>
+      </div>
     </Drawer>
   );
 }

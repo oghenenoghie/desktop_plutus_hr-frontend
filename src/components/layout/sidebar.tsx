@@ -31,6 +31,7 @@ import {
   Laptop,
   LayoutDashboard,
   Link2,
+  ListChecks,
   Map,
   MapPin,
   Network,
@@ -108,6 +109,7 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   permissions: KeyRound,
   subscription: Sparkles,
   featureMap: Map,
+  tasks: ListChecks,
 };
 
 function isActiveHref(pathname: string, href: string): boolean {

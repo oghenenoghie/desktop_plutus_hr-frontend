@@ -49,7 +49,8 @@ export interface NavItem {
     | "payrollReports"
     | "documentGeneration"
     | "permissions"
-    | "subscription";
+    | "subscription"
+    | "tasks";
   roles: Role[];
 }
 
@@ -187,6 +188,20 @@ export const NAV_GROUPS: NavGroup[] = [
             label: "Overtime",
             icon: "overtime",
             roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
+          },
+          {
+            href: "/tasks",
+            label: "Tasks",
+            icon: "tasks",
+            roles: [
+              "admin",
+              "payroll_manager",
+              "manager",
+              "accountant",
+              "hr_manager",
+              "department_manager",
+              "auditor",
+            ],
           },
           {
             href: "/shift-roster",

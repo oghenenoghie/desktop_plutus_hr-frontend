@@ -112,6 +112,8 @@ import type {
   NotificationBroadcastBody,
   NotificationUnreadCount,
   Organisation,
+  OrganisationSignupBody,
+  OrganisationSignupOut,
   OrganisationUpdateBody,
   OrgSummary,
   Overtime,
@@ -1423,6 +1425,12 @@ export const organisationApi = {
   get: () => apiFetch<Organisation>("/organisation"),
   update: (body: OrganisationUpdateBody) =>
     apiFetch<Organisation>("/organisation", { method: "PUT", body }),
+  signup: (body: OrganisationSignupBody) =>
+    apiFetch<OrganisationSignupOut>("/organisation/signup", {
+      method: "POST",
+      body,
+      auth: false,
+    }),
 };
 
 // --- subscription / usage ---

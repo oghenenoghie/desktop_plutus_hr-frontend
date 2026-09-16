@@ -50,7 +50,9 @@ export interface NavItem {
     | "documentGeneration"
     | "permissions"
     | "subscription"
-    | "tasks";
+    | "tasks"
+    | "publicHolidays"
+    | "security";
   roles: Role[];
 }
 
@@ -407,6 +409,18 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Permissions",
         icon: "permissions",
         roles: ["admin"],
+      },
+      {
+        href: "/security",
+        label: "Security",
+        icon: "security",
+        roles: ["admin", "payroll_manager", "accountant"],
+      },
+      {
+        href: "/public-holidays",
+        label: "Public Holidays",
+        icon: "publicHolidays",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager"],
       },
       {
         href: "/subscription",

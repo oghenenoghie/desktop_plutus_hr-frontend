@@ -2108,6 +2108,20 @@ export interface OrganisationUpdateBody {
   states_of_operation?: string[];
 }
 
+export interface OrganisationSignupBody {
+  org_name: string;
+  admin_email: string;
+  admin_password: string;
+}
+
+export interface OrganisationSignupOut {
+  org_id: string;
+  account_id: string;
+  email: string;
+  totp_secret: string;
+  totp_provisioning_uri: string;
+}
+
 export type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";
 export type TaskPriority = "low" | "medium" | "high";
 

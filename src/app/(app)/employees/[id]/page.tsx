@@ -2,6 +2,7 @@
 
 import { use, useState } from "react";
 
+import { EmployeePhotoField } from "@/components/employee-photo-field";
 import { PageHeader } from "@/components/layout/page-header";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -88,6 +89,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                 setEditing(false);
                 employee.reload();
               }}
+              onPhotoChanged={() => employee.reload()}
             />
           ) : null}
 
@@ -126,18 +128,20 @@ function EditDetailsDrawer({
   employee,
   onClose,
   onSaved,
+  onPhotoChanged,
 }: {
   employee: Employee;
   onClose: () => void;
   onSaved: () => void;
+  onPhotoChanged: () => void;
 }) {
   const { showToast } = useToast();
   const branches = useApiResource(() => branchesApi.list());
   const [stateOfOrigin, setStateOfOrigin] = useState(employee.state_of_origin ?? "");
   const [branchId, setBranchId] = useState(employee.branch_id ?? "");
   const [contractEndDate, setContractEndDate] = useState(employee.contract_end_date ?? "");
-  const [photoUrl, setPhotoUrl] = useState(employee.photo_url ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -147,13 +151,38 @@ function EditDetailsDrawer({
         state_of_origin: stateOfOrigin || null,
         branch_id: branchId || null,
         contract_end_date: contractEndDate || null,
-        photo_url: photoUrl || null,
       });
       showToast("Employee details updated", "good");
       onSaved();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
       setSubmitting(false);
+    }
+  }
+
+  async function onPhotoSelected(blob: Blob, consent: boolean) {
+    setPhotoBusy(true);
+    try {
+      await employeesApi.uploadPhoto(employee.id, blob, consent);
+      showToast("Photo updated", "good");
+      onPhotoChanged();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Photo upload failed.", "bad");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function onPhotoRemoved() {
+    setPhotoBusy(true);
+    try {
+      await employeesApi.deletePhoto(employee.id);
+      showToast("Photo removed", "good");
+      onPhotoChanged();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not remove photo.", "bad");
+    } finally {
+      setPhotoBusy(false);
     }
   }
 
@@ -196,12 +225,13 @@ function EditDetailsDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="edit-photo-url">Photo URL</Label>
-          <Input
-            id="edit-photo-url"
-            value={photoUrl}
-            onChange={(event) => setPhotoUrl(event.target.value)}
-            placeholder="https://…"
+          <Label>Photo</Label>
+          <EmployeePhotoField
+            name={employee.full_name}
+            previewUrl={employee.photo_url}
+            busy={photoBusy}
+            onSelect={onPhotoSelected}
+            onRemove={onPhotoRemoved}
           />
         </div>
         <div className="mt-auto flex justify-end gap-3 pt-4">

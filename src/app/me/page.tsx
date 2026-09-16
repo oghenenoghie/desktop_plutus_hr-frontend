@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
+import { EmployeePhotoField } from "@/components/employee-photo-field";
 import { PageHeader } from "@/components/layout/page-header";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -58,6 +58,31 @@ export default function MyWorkspacePage() {
   const [takingQuizFor, setTakingQuizFor] = useState<TrainingEnrollment | null>(null);
   const { showToast } = useToast();
   const [clockActionPending, setClockActionPending] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  async function onMyPhotoSelected(blob: Blob, consent: boolean) {
+    setPhotoBusy(true);
+    try {
+      await employeesApi.uploadMyPhoto(blob, consent);
+      employee.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Photo upload failed.", "bad");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function onMyPhotoRemoved() {
+    setPhotoBusy(true);
+    try {
+      await employeesApi.deleteMyPhoto();
+      employee.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not remove photo.", "bad");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const today = new Date().toISOString().slice(0, 10);
   const todayRecord = (attendance.data ?? []).find((record) => record.work_date === today);
@@ -99,7 +124,13 @@ export default function MyWorkspacePage() {
       {employee.data ? (
         <Card className="mb-6">
           <div className="flex items-center gap-4">
-            <Avatar name={employee.data.full_name} size="lg" />
+            <EmployeePhotoField
+              name={employee.data.full_name}
+              previewUrl={employee.data.photo_url}
+              busy={photoBusy}
+              onSelect={onMyPhotoSelected}
+              onRemove={onMyPhotoRemoved}
+            />
             <div>
               <div className="text-[15px] font-extrabold text-ink">{employee.data.full_name}</div>
               <div className="text-[12px] text-ink-soft">

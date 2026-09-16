@@ -1,4 +1,4 @@
-import { apiFetch, downloadAuthenticatedFile } from "@/lib/api/client";
+import { apiFetch, downloadAuthenticatedFile, uploadFile } from "@/lib/api/client";
 import type {
   AgingLine,
   AnnualTaxReconciliationLine,
@@ -255,6 +255,21 @@ export const employeesApi = {
       method: "POST",
       body,
     }),
+  uploadPhoto: (id: string, photo: Blob, consent: boolean) => {
+    const formData = new FormData();
+    formData.set("file", photo, "photo.webp");
+    formData.set("consent", String(consent));
+    return uploadFile<Employee>(`/employees/${id}/photo`, formData);
+  },
+  deletePhoto: (id: string) =>
+    apiFetch<Employee>(`/employees/${id}/photo`, { method: "DELETE" }),
+  uploadMyPhoto: (photo: Blob, consent: boolean) => {
+    const formData = new FormData();
+    formData.set("file", photo, "photo.webp");
+    formData.set("consent", String(consent));
+    return uploadFile<Employee>("/employees/me/photo", formData);
+  },
+  deleteMyPhoto: () => apiFetch<Employee>("/employees/me/photo", { method: "DELETE" }),
 };
 
 // --- departments ---

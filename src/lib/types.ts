@@ -82,7 +82,11 @@ export interface Employee {
   date_of_joining: string;
   contract_end_date: string | null;
   job_title: string | null;
+  // Freshly minted signed URLs, not raw stored values — expire after a
+  // few minutes, so always re-fetch the employee rather than caching
+  // these across a long-lived session.
   photo_url: string | null;
+  photo_thumbnail_url: string | null;
   manager_id: string | null;
   department_id: string | null;
   branch_id: string | null;
@@ -132,7 +136,6 @@ export interface EmployeeCreateBody {
   rsa_pin?: string;
   nhf_number?: string;
   job_title?: string;
-  photo_url?: string;
   manager_id?: string;
   department_id?: string;
   branch_id?: string;
@@ -148,7 +151,6 @@ export interface EmployeeUpdateBody {
   state_of_residence?: string;
   state_of_origin?: string | null;
   job_title?: string;
-  photo_url?: string | null;
   contract_end_date?: string | null;
   manager_id?: string | null;
   department_id?: string | null;

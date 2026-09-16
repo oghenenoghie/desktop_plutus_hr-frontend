@@ -1,7 +1,15 @@
 // Mirrors app/schemas/* and app/models/* in the plutus-hr-system (FastAPI) backend.
 // Money fields are minor units (kobo); dates are ISO date strings; datetimes are ISO strings.
 
-export type Role = "admin" | "payroll_manager" | "manager" | "employee";
+export type Role =
+  | "admin"
+  | "payroll_manager"
+  | "accountant"
+  | "hr_manager"
+  | "manager"
+  | "department_manager"
+  | "auditor"
+  | "employee";
 
 export type PayFrequency = "monthly" | "weekly" | "biweekly";
 export type EmploymentType =
@@ -31,6 +39,7 @@ export type LeaveType =
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ExpenseStatus = "pending" | "approved" | "rejected" | "reimbursed";
 export type LoanStatus = "active" | "paid_off" | "cancelled";
+export type OvertimeStatus = "pending" | "approved" | "rejected" | "paid";
 export type BenefitFrequency = "one_time" | "monthly" | "annual";
 export type LiabilityScheme =
   | "paye"
@@ -73,7 +82,11 @@ export interface Employee {
   date_of_joining: string;
   contract_end_date: string | null;
   job_title: string | null;
+  // Freshly minted signed URLs, not raw stored values — expire after a
+  // few minutes, so always re-fetch the employee rather than caching
+  // these across a long-lived session.
   photo_url: string | null;
+  photo_thumbnail_url: string | null;
   manager_id: string | null;
   department_id: string | null;
   branch_id: string | null;
@@ -123,12 +136,23 @@ export interface EmployeeCreateBody {
   rsa_pin?: string;
   nhf_number?: string;
   job_title?: string;
-  photo_url?: string;
   manager_id?: string;
   department_id?: string;
   branch_id?: string;
   job_grade_id?: string;
   shift_id?: string;
+}
+
+export interface CreateEmployeeLoginBody {
+  email: string;
+  password: string;
+}
+
+export interface CreateEmployeeLoginOut {
+  account_id: string;
+  email: string;
+  login_code: string | null;
+  role: Role;
 }
 
 // PATCH /employees/{id} — mirrors app.schemas.employees.EmployeeUpdate. Every
@@ -139,7 +163,6 @@ export interface EmployeeUpdateBody {
   state_of_residence?: string;
   state_of_origin?: string | null;
   job_title?: string;
-  photo_url?: string | null;
   contract_end_date?: string | null;
   manager_id?: string | null;
   department_id?: string | null;
@@ -808,6 +831,28 @@ export interface Loan {
   status: LoanStatus;
   outstanding_minor: number;
   created_at: string;
+}
+
+// --- overtime ---
+
+export interface Overtime {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  hours: string;
+  rate_multiplier: string;
+  amount_minor: number;
+  status: OvertimeStatus;
+  pay_run_id: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface OvertimeCreateBody {
+  work_date: string;
+  hours: number;
+  rate_multiplier: number;
+  amount_minor: number;
 }
 
 // --- benefits ---
@@ -1951,4 +1996,166 @@ export interface TrainingCourseAttachment {
   title: string;
   storage_url: string;
   created_at: string;
+}
+
+// --- compliance rules ---
+
+export interface PayeBand {
+  up_to_minor: number | null;
+  rate_ppm: number;
+}
+
+export interface PayeRule {
+  bands: PayeBand[];
+  tax_free_threshold_minor: number;
+  rent_relief_rate_ppm: number;
+  rent_relief_cap_minor: number;
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface PensionRule {
+  employee_rate_ppm: number;
+  employer_rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_working_days_after_payment: number;
+}
+
+export interface NhfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_days_after_payment: number;
+}
+
+export interface NsitfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface ItfRule {
+  rate_ppm: number;
+  borne_by: "employee" | "employer" | "both";
+  authority: string;
+  due_month: number;
+  due_day: number;
+}
+
+export interface WhtCategoryRule {
+  category: string;
+  rate_ppm: number;
+}
+
+export interface WhtRule {
+  categories: WhtCategoryRule[];
+  authority: string;
+  due_day_of_following_month: number;
+}
+
+export interface RuleVersion {
+  id: string;
+  country: string;
+  effective_from: string;
+  effective_to: string | null;
+  paye: PayeRule;
+  pension: PensionRule;
+  nhf: NhfRule;
+  nsitf: NsitfRule;
+  itf: ItfRule;
+  wht: WhtRule;
+}
+
+export interface PayeEstimateRequestBody {
+  annual_gross_minor: number;
+  annual_rent_minor?: number;
+}
+
+export interface PayeEstimateOut {
+  rule_version_id: string;
+  basic_minor: number;
+  housing_minor: number;
+  transport_minor: number;
+  gross_annual_minor: number;
+  pension_employee_annual_minor: number;
+  nhf_annual_minor: number;
+  rent_relief_annual_minor: number;
+  chargeable_income_annual_minor: number;
+  paye_annual_minor: number;
+  paye_monthly_minor: number;
+  net_annual_minor: number;
+  net_monthly_minor: number;
+}
+
+export interface Organisation {
+  id: string;
+  name: string;
+  rc_number: string | null;
+  company_tin: string | null;
+  default_pay_frequency: PayFrequency;
+  default_pfa: string | null;
+  states_of_operation: string[];
+}
+
+export interface OrganisationUpdateBody {
+  name?: string;
+  rc_number?: string;
+  company_tin?: string;
+  default_pay_frequency?: PayFrequency;
+  default_pfa?: string;
+  states_of_operation?: string[];
+}
+
+export interface OrganisationSignupBody {
+  org_name: string;
+  admin_email: string;
+  admin_password: string;
+}
+
+export interface OrganisationSignupOut {
+  org_id: string;
+  account_id: string;
+  email: string;
+  totp_secret: string;
+  totp_provisioning_uri: string;
+}
+
+export type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string | null;
+  assigned_to_account_id: string;
+  assigned_to_email: string;
+  created_by_account_id: string;
+  created_by_email: string;
+  related_employee_id: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface TaskCreateBody {
+  title: string;
+  description?: string;
+  assigned_to_account_id?: string;
+  priority?: TaskPriority;
+  due_date?: string;
+  related_employee_id?: string;
+}
+
+export interface TaskUpdateBody {
+  title?: string;
+  description?: string;
+  assigned_to_account_id?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  due_date?: string;
 }

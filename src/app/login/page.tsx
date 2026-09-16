@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <Label htmlFor="totp">MFA code (Admin / Payroll Manager)</Label>
+            <Label htmlFor="totp">MFA code (Super Admin / Payroll Manager / Accountant)</Label>
             <Input
               id="totp"
               inputMode="numeric"
@@ -118,6 +119,13 @@ export default function LoginPage() {
             {submitting ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+
+        <p className="mt-5 text-center text-[12px] text-ink-soft">
+          New company?{" "}
+          <Link href="/signup" className="font-bold text-primary hover:underline">
+            Set up your workspace
+          </Link>
+        </p>
       </div>
     </div>
   );

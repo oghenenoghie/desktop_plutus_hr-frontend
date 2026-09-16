@@ -9,6 +9,13 @@ export function nairaToMinor(value: string): number {
   return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
 }
 
+// The backend expresses statutory rates in parts-per-million (1,000,000 =
+// 100%) so PAYE band boundaries stay exact integers — 150000 ppm = 15%.
+export function formatPpmAsPercent(ppm: number): string {
+  const percent = ppm / 10_000;
+  return `${Number.isInteger(percent) ? percent : percent.toFixed(2)}%`;
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);

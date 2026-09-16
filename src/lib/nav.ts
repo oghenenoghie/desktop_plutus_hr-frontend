@@ -14,6 +14,13 @@ export interface NavItem {
     | "shifts"
     | "shiftRoster"
     | "attendance"
+    | "overtime"
+    | "compliance"
+    | "payeCalculator"
+    | "setup"
+    | "notifications"
+    | "myTeam"
+    | "featureMap"
     | "recruitment"
     | "performance"
     | "learning"
@@ -42,7 +49,11 @@ export interface NavItem {
     | "payrollReports"
     | "documentGeneration"
     | "permissions"
-    | "subscription";
+    | "subscription"
+    | "tasks"
+    | "calendar"
+    | "publicHolidays"
+    | "security";
   roles: Role[];
 }
 
@@ -76,7 +87,19 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/dashboard",
         label: "Overview",
         icon: "dashboard",
-        roles: ["admin", "payroll_manager"],
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/notifications",
+        label: "Notifications",
+        icon: "notifications",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/my-team",
+        label: "My Team",
+        icon: "myTeam",
+        roles: ["manager", "department_manager"],
       },
     ],
   },
@@ -90,43 +113,43 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/employees",
             label: "Employees",
             icon: "employees",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "department_manager", "auditor"],
           },
           {
             href: "/org-chart",
             label: "Org Chart",
             icon: "orgChart",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "department_manager", "auditor"],
           },
           {
             href: "/departments",
             label: "Departments",
             icon: "departments",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
           {
             href: "/branches",
             label: "Branches",
             icon: "branches",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
           {
             href: "/job-grades",
             label: "Job Grades",
             icon: "jobGrades",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
           {
             href: "/recruitment",
             label: "Recruitment",
             icon: "recruitment",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
           {
             href: "/employee-relations",
             label: "Employee Relations",
             icon: "employeeRelations",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
         ],
       },
@@ -137,49 +160,83 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/leave",
             label: "Leave",
             icon: "leave",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "department_manager", "auditor"],
           },
           {
             href: "/expenses",
             label: "Expenses",
             icon: "expenses",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
           },
           {
             href: "/loans",
             label: "Loans & Advances",
             icon: "loans",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
           },
           {
             href: "/benefits",
             label: "Benefits",
             icon: "benefits",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
           {
             href: "/attendance",
             label: "Attendance",
             icon: "attendance",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "department_manager", "auditor"],
+          },
+          {
+            href: "/overtime",
+            label: "Overtime",
+            icon: "overtime",
+            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
+          },
+          {
+            href: "/tasks",
+            label: "Tasks",
+            icon: "tasks",
+            roles: [
+              "admin",
+              "payroll_manager",
+              "manager",
+              "accountant",
+              "hr_manager",
+              "department_manager",
+              "auditor",
+            ],
+          },
+          {
+            href: "/calendar",
+            label: "Calendar",
+            icon: "calendar",
+            roles: [
+              "admin",
+              "payroll_manager",
+              "manager",
+              "accountant",
+              "hr_manager",
+              "department_manager",
+              "auditor",
+            ],
           },
           {
             href: "/shift-roster",
             label: "Shift Roster",
             icon: "shiftRoster",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
           },
           {
             href: "/shifts",
             label: "Shifts",
             icon: "shifts",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
           },
           {
             href: "/union-dues",
             label: "Union Dues",
             icon: "unionDues",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
       },
@@ -190,25 +247,25 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/policies",
             label: "Policies",
             icon: "policies",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
           {
             href: "/assets",
             label: "Company Assets",
             icon: "assets",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
           },
           {
             href: "/learning",
             label: "Learning",
             icon: "learning",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
           {
             href: "/performance",
             label: "Performance",
             icon: "performance",
-            roles: ["admin", "payroll_manager", "manager"],
+            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
           },
         ],
       },
@@ -224,31 +281,43 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/payroll",
             label: "Payroll Runs",
             icon: "payroll",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/compliance",
+            label: "Compliance Engine",
+            icon: "compliance",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/calculator",
+            label: "PAYE Calculator",
+            icon: "payeCalculator",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/payroll-reports",
             label: "Payroll Reports",
             icon: "payrollReports",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/settlement",
             label: "Final Settlement",
             icon: "settlement",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/simulation",
             label: "Simulation",
             icon: "simulation",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/contractors",
             label: "Contractors",
             icon: "contractors",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
       },
@@ -259,19 +328,19 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/bills",
             label: "Bills",
             icon: "bills",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/invoices",
             label: "Invoices",
             icon: "invoices",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/reports",
             label: "Financial Reports",
             icon: "reports",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
       },
@@ -282,19 +351,19 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/general-ledger",
             label: "General Ledger",
             icon: "generalLedger",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/financial-statements",
             label: "Financial Statements",
             icon: "financialStatements",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/bank-reconciliation",
             label: "Bank Reconciliation",
             icon: "bankReconciliation",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
       },
@@ -305,13 +374,13 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/fixed-assets",
             label: "Fixed Assets",
             icon: "fixedAssets",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/budgets",
             label: "Budgets",
             icon: "budgets",
-            roles: ["admin", "payroll_manager"],
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
       },
@@ -320,6 +389,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: "Company Info",
     items: [
+      {
+        href: "/setup",
+        label: "Setup & Onboarding",
+        icon: "setup",
+        roles: ["admin"],
+      },
       {
         href: "/integrations",
         label: "Integrations",
@@ -336,13 +411,13 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/audit-log",
         label: "Audit Log",
         icon: "auditLog",
-        roles: ["admin", "payroll_manager"],
+        roles: ["admin", "payroll_manager", "accountant", "auditor"],
       },
       {
         href: "/document-generation",
         label: "Documents",
         icon: "documentGeneration",
-        roles: ["admin", "payroll_manager"],
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager"],
       },
       {
         href: "/permissions",
@@ -351,10 +426,36 @@ export const NAV_GROUPS: NavGroup[] = [
         roles: ["admin"],
       },
       {
+        href: "/security",
+        label: "Security",
+        icon: "security",
+        roles: ["admin", "payroll_manager", "accountant"],
+      },
+      {
+        href: "/public-holidays",
+        label: "Public Holidays",
+        icon: "publicHolidays",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager"],
+      },
+      {
         href: "/subscription",
         label: "Subscription",
         icon: "subscription",
         roles: ["admin"],
+      },
+      {
+        href: "/feature-map",
+        label: "Full Feature Map",
+        icon: "featureMap",
+        roles: [
+          "admin",
+          "payroll_manager",
+          "accountant",
+          "hr_manager",
+          "manager",
+          "department_manager",
+          "auditor",
+        ],
       },
     ],
   },
@@ -400,8 +501,12 @@ export function navForRole(role: Role): NavItem[] {
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
-  admin: "Admin",
+  admin: "Super Admin",
   payroll_manager: "Payroll Manager",
+  accountant: "Accountant",
+  hr_manager: "HR Manager",
   manager: "Manager",
+  department_manager: "Department Manager",
+  auditor: "Auditor",
   employee: "Employee",
 };

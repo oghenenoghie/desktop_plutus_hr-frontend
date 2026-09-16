@@ -108,6 +108,34 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+// Multipart upload (a photo, eventually other files) — apiFetch always
+// JSON-encodes its body, which can't carry a File/Blob, so this is a
+// separate path, same shape as downloadAuthenticatedFile below for binary
+// responses. Content-Type is deliberately left unset: the browser fills in
+// multipart/form-data with the right boundary only when it sets the header
+// itself.
+export async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
+  if (MOCK_MODE) {
+    throw new ApiError(501, "Uploads are disabled in mock preview mode.");
+  }
+
+  const token = getAccessToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: formData,
+  });
+  if (!res.ok) {
+    const detail = await res
+      .json()
+      .then((data) => data?.detail ?? data)
+      .catch(() => res.statusText);
+    throw new ApiError(res.status, detail);
+  }
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
 // Triggers a browser download for an authenticated binary endpoint (a PDF,
 // for instance) that apiFetch can't handle since it always parses JSON.
 export async function downloadAuthenticatedFile(path: string, filename: string): Promise<void> {

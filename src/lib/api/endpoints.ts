@@ -1,4 +1,4 @@
-import { apiFetch, downloadAuthenticatedFile } from "@/lib/api/client";
+import { apiFetch, downloadAuthenticatedFile, uploadFile } from "@/lib/api/client";
 import type {
   AgingLine,
   AnnualTaxReconciliationLine,
@@ -49,6 +49,8 @@ import type {
   ContractorInvoice,
   ContractorInvoiceCreateBody,
   ContractorInvoicePayRequest,
+  CreateEmployeeLoginBody,
+  CreateEmployeeLoginOut,
   CreditNote,
   CreditNoteCreateBody,
   Customer,
@@ -109,12 +111,20 @@ import type {
   Notification,
   NotificationBroadcastBody,
   NotificationUnreadCount,
+  Organisation,
+  OrganisationSignupBody,
+  OrganisationSignupOut,
+  OrganisationUpdateBody,
   OrgSummary,
+  Overtime,
+  OvertimeCreateBody,
   PayRun,
   PayRunCreateBody,
   PayRunSimulationOut,
   PayRunSimulationRequestBody,
   PayeByStateLine,
+  PayeEstimateOut,
+  PayeEstimateRequestBody,
   PayrollRegisterLine,
   Payslip,
   PayslipDelivery,
@@ -145,6 +155,7 @@ import type {
   RecurringInvoice,
   RecurringInvoiceCreateBody,
   RemindersSummary,
+  RuleVersion,
   Shift,
   ShiftCreateBody,
   ShiftRosterEntry,
@@ -155,6 +166,10 @@ import type {
   SimulationRequestBody,
   StatutoryLiability,
   Subscription,
+  Task,
+  TaskCreateBody,
+  TaskStatus,
+  TaskUpdateBody,
   TokenResponse,
   TrainingCourse,
   TrainingCourseAttachment,
@@ -203,6 +218,14 @@ export const authApi = {
 
 // --- dashboard ---
 
+// --- compliance ---
+
+export const complianceApi = {
+  currentRules: () => apiFetch<RuleVersion>("/compliance/current-rules"),
+  payeEstimate: (body: PayeEstimateRequestBody) =>
+    apiFetch<PayeEstimateOut>("/compliance/paye-estimate", { method: "POST", body }),
+};
+
 export const dashboardApi = {
   summary: () => apiFetch<OrgSummary>("/dashboard/summary"),
   deadlines: (withinDays = 30) =>
@@ -240,6 +263,39 @@ export const employeesApi = {
       method: "POST",
       body,
     }),
+  uploadPhoto: (id: string, photo: Blob, consent: boolean) => {
+    const formData = new FormData();
+    formData.set("file", photo, "photo.webp");
+    formData.set("consent", String(consent));
+    return uploadFile<Employee>(`/employees/${id}/photo`, formData);
+  },
+  deletePhoto: (id: string) =>
+    apiFetch<Employee>(`/employees/${id}/photo`, { method: "DELETE" }),
+  uploadMyPhoto: (photo: Blob, consent: boolean) => {
+    const formData = new FormData();
+    formData.set("file", photo, "photo.webp");
+    formData.set("consent", String(consent));
+    return uploadFile<Employee>("/employees/me/photo", formData);
+  },
+  deleteMyPhoto: () => apiFetch<Employee>("/employees/me/photo", { method: "DELETE" }),
+  createLogin: (id: string, body: CreateEmployeeLoginBody) =>
+    apiFetch<CreateEmployeeLoginOut>(`/employees/${id}/create-login`, {
+      method: "POST",
+      body,
+    }),
+};
+
+// --- tasks ---
+
+export const tasksApi = {
+  list: (scope: "mine" | "all" = "mine", status?: TaskStatus) =>
+    apiFetch<Task[]>(
+      `/tasks?scope=${scope}${status ? `&status=${status}` : ""}`,
+    ),
+  create: (body: TaskCreateBody) => apiFetch<Task>("/tasks", { method: "POST", body }),
+  update: (id: string, body: TaskUpdateBody) =>
+    apiFetch<Task>(`/tasks/${id}`, { method: "PATCH", body }),
+  remove: (id: string) => apiFetch<void>(`/tasks/${id}`, { method: "DELETE" }),
 };
 
 // --- departments ---
@@ -786,6 +842,19 @@ export const expensesApi = {
     apiFetch<Expense>(`/expenses/${id}/reject`, { method: "POST" }),
   reimburse: (id: string) =>
     apiFetch<Expense>(`/expenses/${id}/reimburse`, { method: "POST" }),
+};
+
+// --- overtime ---
+
+export const overtimeApi = {
+  list: () => apiFetch<Overtime[]>("/overtime"),
+  mine: () => apiFetch<Overtime[]>("/overtime/me"),
+  submit: (body: OvertimeCreateBody) =>
+    apiFetch<Overtime>("/overtime/me", { method: "POST", body }),
+  approve: (id: string) =>
+    apiFetch<Overtime>(`/overtime/${id}/approve`, { method: "POST" }),
+  reject: (id: string) =>
+    apiFetch<Overtime>(`/overtime/${id}/reject`, { method: "POST" }),
 };
 
 // --- loans ---
@@ -1348,6 +1417,20 @@ export const membershipsApi = {
       `/memberships/${membershipId}/permissions/override/${permission}`,
       { method: "DELETE" },
     ),
+};
+
+// --- organisation ---
+
+export const organisationApi = {
+  get: () => apiFetch<Organisation>("/organisation"),
+  update: (body: OrganisationUpdateBody) =>
+    apiFetch<Organisation>("/organisation", { method: "PUT", body }),
+  signup: (body: OrganisationSignupBody) =>
+    apiFetch<OrganisationSignupOut>("/organisation/signup", {
+      method: "POST",
+      body,
+      auth: false,
+    }),
 };
 
 // --- subscription / usage ---

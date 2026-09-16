@@ -75,6 +75,8 @@ const STATUS_TONE: Record<string, Tone> = {
   sent: "warn",
   // fixed assets
   disposed: "neutral",
+  // tasks
+  todo: "neutral",
 };
 
 export function StatusBadge({ status }: { status: string }) {

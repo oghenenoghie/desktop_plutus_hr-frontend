@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
+import { EmployeePhotoField } from "@/components/employee-photo-field";
 import { PageHeader } from "@/components/layout/page-header";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -26,6 +26,7 @@ import {
   performanceReviewsApi,
   policiesApi,
   quizzesApi,
+  tasksApi,
   trainingCourseAttachmentsApi,
   trainingCoursesApi,
   trainingEnrollmentsApi,
@@ -33,7 +34,7 @@ import {
 } from "@/lib/api/endpoints";
 import { formatDate, formatDateTime, formatNaira, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { PerformanceReview, TrainingEnrollment } from "@/lib/types";
+import type { PerformanceReview, Task, TrainingEnrollment } from "@/lib/types";
 
 export default function MyWorkspacePage() {
   const employee = useApiResource(() => employeesApi.me());
@@ -54,10 +55,45 @@ export default function MyWorkspacePage() {
   const assetsById = new Map((allAssets.data ?? []).map((asset) => [asset.id, asset]));
   const attendance = useApiResource(() => attendanceApi.mine());
   const myDocuments = useApiResource(() => generatedDocumentsApi.mine());
+  const myTasks = useApiResource(() => tasksApi.list("mine"));
   const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null);
   const [takingQuizFor, setTakingQuizFor] = useState<TrainingEnrollment | null>(null);
   const { showToast } = useToast();
   const [clockActionPending, setClockActionPending] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  async function onMyPhotoSelected(blob: Blob, consent: boolean) {
+    setPhotoBusy(true);
+    try {
+      await employeesApi.uploadMyPhoto(blob, consent);
+      employee.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Photo upload failed.", "bad");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function onMyPhotoRemoved() {
+    setPhotoBusy(true);
+    try {
+      await employeesApi.deleteMyPhoto();
+      employee.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not remove photo.", "bad");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function toggleTaskDone(task: Task) {
+    try {
+      await tasksApi.update(task.id, { status: task.status === "done" ? "todo" : "done" });
+      myTasks.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+    }
+  }
 
   const today = new Date().toISOString().slice(0, 10);
   const todayRecord = (attendance.data ?? []).find((record) => record.work_date === today);
@@ -99,7 +135,13 @@ export default function MyWorkspacePage() {
       {employee.data ? (
         <Card className="mb-6">
           <div className="flex items-center gap-4">
-            <Avatar name={employee.data.full_name} size="lg" />
+            <EmployeePhotoField
+              name={employee.data.full_name}
+              previewUrl={employee.data.photo_url}
+              busy={photoBusy}
+              onSelect={onMyPhotoSelected}
+              onRemove={onMyPhotoRemoved}
+            />
             <div>
               <div className="text-[15px] font-extrabold text-ink">{employee.data.full_name}</div>
               <div className="text-[12px] text-ink-soft">
@@ -445,6 +487,40 @@ export default function MyWorkspacePage() {
                 ))}
               </tbody>
             </Table>
+          ) : null}
+        </Card>
+
+        <Card>
+          <CardHeader title="My Tasks" />
+          {myTasks.loading ? <LoadingState /> : null}
+          {myTasks.error ? <ErrorState message={myTasks.error} /> : null}
+          {myTasks.data && myTasks.data.length === 0 ? (
+            <EmptyState label="No tasks assigned to or created by you." />
+          ) : null}
+          {myTasks.data && myTasks.data.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {myTasks.data.map((task) => (
+                <div key={task.id} className="flex items-center justify-between gap-3 rounded-panel border border-border p-3">
+                  <div>
+                    <div className="font-bold text-ink">{task.title}</div>
+                    {task.description ? (
+                      <div className="mt-0.5 text-[12px] text-ink-soft">{task.description}</div>
+                    ) : null}
+                    <div className="mt-1 flex items-center gap-2">
+                      <StatusBadge status={task.status} />
+                      {task.due_date ? (
+                        <span className="text-[11px] text-ink-soft">Due {formatDate(task.due_date)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  {task.status !== "cancelled" ? (
+                    <Button size="md" variant="secondary" onClick={() => toggleTaskDone(task)}>
+                      {task.status === "done" ? "Reopen" : "Mark Done"}
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           ) : null}
         </Card>
 

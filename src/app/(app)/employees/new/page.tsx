@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { EmployeePicker } from "@/components/employee-picker";
+import { EmployeePhotoField } from "@/components/employee-photo-field";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { branchesApi, employeesApi } from "@/lib/api/endpoints";
 import { nairaToMinor } from "@/lib/format";
@@ -29,7 +31,6 @@ interface FormState {
   date_of_joining: string;
   contract_end_date: string;
   job_title: string;
-  photo_url: string;
   manager_id: string;
   branch_id: string;
   basic: string;
@@ -63,7 +64,6 @@ const INITIAL_STATE: FormState = {
   date_of_joining: "",
   contract_end_date: "",
   job_title: "",
-  photo_url: "",
   manager_id: "",
   branch_id: "",
   basic: "",
@@ -90,9 +90,15 @@ const INITIAL_STATE: FormState = {
 
 export default function NewEmployeePage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<{
+    blob: Blob;
+    consent: boolean;
+    previewUrl: string;
+  } | null>(null);
   const branches = useApiResource(() => branchesApi.list());
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -122,7 +128,6 @@ export default function NewEmployeePage() {
           ? Number(form.annual_leave_entitlement_days)
           : undefined,
         job_title: form.job_title || undefined,
-        photo_url: form.photo_url || undefined,
         manager_id: form.manager_id || undefined,
         branch_id: form.branch_id || undefined,
         tin: form.tin || undefined,
@@ -139,6 +144,18 @@ export default function NewEmployeePage() {
         next_of_kin_name: form.next_of_kin_name || undefined,
         next_of_kin_phone: form.next_of_kin_phone || undefined,
       });
+      if (pendingPhoto) {
+        try {
+          await employeesApi.uploadPhoto(employee.id, pendingPhoto.blob, pendingPhoto.consent);
+        } catch (photoErr) {
+          showToast(
+            photoErr instanceof ApiError
+              ? String(photoErr.detail ?? photoErr.message)
+              : "Employee created, but the photo upload failed — add it from the employee's page.",
+            "bad",
+          );
+        }
+      }
       router.push(`/employees?created=${employee.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not create employee.");
@@ -289,11 +306,16 @@ export default function NewEmployeePage() {
             <Field label="Residential Address" full>
               <Input value={form.residential_address} onChange={(e) => set("residential_address", e.target.value)} />
             </Field>
-            <Field label="Photo URL" full>
-              <Input
-                value={form.photo_url}
-                onChange={(e) => set("photo_url", e.target.value)}
-                placeholder="https://…"
+            <Field label="Photo" full>
+              <EmployeePhotoField
+                name={form.full_name}
+                previewUrl={pendingPhoto?.previewUrl ?? null}
+                onSelect={(blob, consent) =>
+                  setPendingPhoto((prev) => {
+                    if (prev) URL.revokeObjectURL(prev.previewUrl);
+                    return { blob, consent, previewUrl: URL.createObjectURL(blob) };
+                  })
+                }
               />
             </Field>
             <Field label="Next of Kin Name">

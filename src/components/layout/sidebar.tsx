@@ -13,6 +13,7 @@ import {
   Building2,
   Calculator,
   CalendarCheck,
+  CalendarOff,
   ChevronDown,
   Clock,
   ClipboardList,
@@ -31,6 +32,8 @@ import {
   Laptop,
   LayoutDashboard,
   Link2,
+  ListChecks,
+  Lock,
   Map,
   MapPin,
   Network,
@@ -108,6 +111,9 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   permissions: KeyRound,
   subscription: Sparkles,
   featureMap: Map,
+  tasks: ListChecks,
+  publicHolidays: CalendarOff,
+  security: Lock,
 };
 
 function isActiveHref(pathname: string, href: string): boolean {

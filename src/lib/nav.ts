@@ -49,7 +49,10 @@ export interface NavItem {
     | "payrollReports"
     | "documentGeneration"
     | "permissions"
-    | "subscription";
+    | "subscription"
+    | "tasks"
+    | "publicHolidays"
+    | "security";
   roles: Role[];
 }
 
@@ -187,6 +190,20 @@ export const NAV_GROUPS: NavGroup[] = [
             label: "Overtime",
             icon: "overtime",
             roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
+          },
+          {
+            href: "/tasks",
+            label: "Tasks",
+            icon: "tasks",
+            roles: [
+              "admin",
+              "payroll_manager",
+              "manager",
+              "accountant",
+              "hr_manager",
+              "department_manager",
+              "auditor",
+            ],
           },
           {
             href: "/shift-roster",
@@ -392,6 +409,18 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Permissions",
         icon: "permissions",
         roles: ["admin"],
+      },
+      {
+        href: "/security",
+        label: "Security",
+        icon: "security",
+        roles: ["admin", "payroll_manager", "accountant"],
+      },
+      {
+        href: "/public-holidays",
+        label: "Public Holidays",
+        icon: "publicHolidays",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager"],
       },
       {
         href: "/subscription",

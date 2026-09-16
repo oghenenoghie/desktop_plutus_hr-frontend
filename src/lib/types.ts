@@ -82,7 +82,11 @@ export interface Employee {
   date_of_joining: string;
   contract_end_date: string | null;
   job_title: string | null;
+  // Freshly minted signed URLs, not raw stored values — expire after a
+  // few minutes, so always re-fetch the employee rather than caching
+  // these across a long-lived session.
   photo_url: string | null;
+  photo_thumbnail_url: string | null;
   manager_id: string | null;
   department_id: string | null;
   branch_id: string | null;
@@ -132,12 +136,23 @@ export interface EmployeeCreateBody {
   rsa_pin?: string;
   nhf_number?: string;
   job_title?: string;
-  photo_url?: string;
   manager_id?: string;
   department_id?: string;
   branch_id?: string;
   job_grade_id?: string;
   shift_id?: string;
+}
+
+export interface CreateEmployeeLoginBody {
+  email: string;
+  password: string;
+}
+
+export interface CreateEmployeeLoginOut {
+  account_id: string;
+  email: string;
+  login_code: string | null;
+  role: Role;
 }
 
 // PATCH /employees/{id} — mirrors app.schemas.employees.EmployeeUpdate. Every
@@ -148,7 +163,6 @@ export interface EmployeeUpdateBody {
   state_of_residence?: string;
   state_of_origin?: string | null;
   job_title?: string;
-  photo_url?: string | null;
   contract_end_date?: string | null;
   manager_id?: string | null;
   department_id?: string | null;
@@ -2092,4 +2106,42 @@ export interface OrganisationUpdateBody {
   default_pay_frequency?: PayFrequency;
   default_pfa?: string;
   states_of_operation?: string[];
+}
+
+export type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string | null;
+  assigned_to_account_id: string;
+  assigned_to_email: string;
+  created_by_account_id: string;
+  created_by_email: string;
+  related_employee_id: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface TaskCreateBody {
+  title: string;
+  description?: string;
+  assigned_to_account_id?: string;
+  priority?: TaskPriority;
+  due_date?: string;
+  related_employee_id?: string;
+}
+
+export interface TaskUpdateBody {
+  title?: string;
+  description?: string;
+  assigned_to_account_id?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  due_date?: string;
 }

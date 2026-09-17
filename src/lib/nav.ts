@@ -53,6 +53,7 @@ export interface NavItem {
     | "tasks"
     | "calendar"
     | "publicHolidays"
+    | "balanceSheet"
     | "security";
   roles: Role[];
 }
@@ -257,7 +258,7 @@ export const NAV_GROUPS: NavGroup[] = [
           },
           {
             href: "/learning",
-            label: "Learning",
+            label: "Training and Development",
             icon: "learning",
             roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
@@ -345,7 +346,7 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
       {
-        heading: "Accounting",
+        heading: "Financial Information",
         items: [
           {
             href: "/general-ledger",
@@ -355,7 +356,7 @@ export const NAV_GROUPS: NavGroup[] = [
           },
           {
             href: "/financial-statements",
-            label: "Financial Statements",
+            label: "Profit and Loss Account",
             icon: "financialStatements",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
@@ -363,6 +364,12 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/bank-reconciliation",
             label: "Bank Reconciliation",
             icon: "bankReconciliation",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/audit-log",
+            label: "Audit Trail",
+            icon: "auditLog",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
@@ -380,6 +387,12 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/budgets",
             label: "Budgets",
             icon: "budgets",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/balance-sheet",
+            label: "Balance Sheet",
+            icon: "balanceSheet",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
@@ -406,12 +419,6 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Approval Workflows",
         icon: "approvalWorkflows",
         roles: ["admin"],
-      },
-      {
-        href: "/audit-log",
-        label: "Audit Log",
-        icon: "auditLog",
-        roles: ["admin", "payroll_manager", "accountant", "auditor"],
       },
       {
         href: "/document-generation",

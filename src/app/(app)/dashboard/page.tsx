@@ -98,7 +98,7 @@ export default function DashboardPage() {
       {summary.data ? (
         <Card className="mb-8">
           <CardHeader
-            title="Accounting"
+            title="Financial Information"
             subtitle="Cash and outstanding balances across the accounting suite"
             action={
               <Link href="/general-ledger">

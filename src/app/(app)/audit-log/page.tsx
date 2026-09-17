@@ -71,7 +71,7 @@ export default function AuditLogPage() {
   return (
     <div>
       <PageHeader
-        title="Audit Log"
+        title="Audit Trail"
         subtitle="Every recorded account action across the system, most recent first"
       />
 

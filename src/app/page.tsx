@@ -12,7 +12,7 @@ export default function RootPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/signup");
+      router.replace("/login");
     } else if (status === "authenticated" && user) {
       router.replace(homeForRole(user.role));
     }

@@ -42,24 +42,14 @@ export default function SignupPage() {
           <div className="mb-1 text-[15px] font-extrabold tracking-tight text-ink">Plutus</div>
           <h1 className="mt-3 text-[17px] font-extrabold text-ink">Your workspace is ready</h1>
           <p className="mt-2 text-[12.5px] text-ink-soft">
-            Save these details now — the authenticator secret won&apos;t be shown again. Super Admin logins
-            require an authenticator app on every sign-in.
+            You can sign in right away with your email and password. Multi-factor authentication is optional —
+            turn it on anytime from Security &amp; Access once you&apos;re in.
           </p>
 
           <dl className="mt-5 grid grid-cols-[110px_1fr] gap-y-2.5 text-[13px]">
             <dt className="text-ink-soft">Email</dt>
             <dd className="font-mono font-bold">{created.email}</dd>
           </dl>
-
-          <div className="mt-4 rounded-panel border border-border p-3">
-            <p className="text-[12.5px] text-ink-soft">
-              Add this secret to an authenticator app (Google Authenticator, Authy, 1Password, etc.) before you
-              sign in:
-            </p>
-            <p className="mt-2 break-all rounded-panel bg-bg p-2.5 font-mono text-[12px] font-bold text-ink">
-              {created.totp_secret}
-            </p>
-          </div>
 
           <Link href="/login">
             <Button size="lg" className="mt-6 w-full">

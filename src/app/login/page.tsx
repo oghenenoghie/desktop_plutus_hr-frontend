@@ -79,7 +79,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <Label htmlFor="totp">MFA code (Super Admin / Payroll Manager / Accountant)</Label>
+            <Label htmlFor="totp">MFA code (only if you&apos;ve enabled it)</Label>
             <Input
               id="totp"
               inputMode="numeric"

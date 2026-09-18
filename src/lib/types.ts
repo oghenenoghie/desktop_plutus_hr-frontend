@@ -63,6 +63,7 @@ export interface MeResponse {
   org_id: string;
   role: Role;
   org_name: string;
+  mfa_enabled: boolean;
 }
 
 // --- employees ---
@@ -1887,10 +1888,7 @@ export interface MembershipCreateBody {
   role: Role;
 }
 
-export interface MembershipCreateOut extends MembershipOut {
-  totp_secret: string | null;
-  totp_provisioning_uri: string | null;
-}
+export type MembershipCreateOut = MembershipOut;
 
 export interface EffectivePermissions {
   membership_id: string;
@@ -2118,8 +2116,6 @@ export interface OrganisationSignupOut {
   org_id: string;
   account_id: string;
   email: string;
-  totp_secret: string;
-  totp_provisioning_uri: string;
 }
 
 export type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";

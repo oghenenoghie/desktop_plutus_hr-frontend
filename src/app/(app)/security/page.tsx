@@ -12,14 +12,9 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { authApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { ROLE_LABELS } from "@/lib/nav";
-import type { Role } from "@/lib/types";
-
-const MFA_REQUIRED_ROLES: Role[] = ["admin", "payroll_manager", "accountant"];
 
 export default function SecurityPage() {
   const { user } = useAuth();
-  const mfaRequired = user ? MFA_REQUIRED_ROLES.includes(user.role) : false;
 
   return (
     <div>
@@ -29,7 +24,7 @@ export default function SecurityPage() {
       />
 
       <div className="flex flex-col gap-6">
-        {mfaRequired ? <MfaCard /> : null}
+        <MfaCard />
 
         <Card>
           <CardHeader
@@ -53,7 +48,7 @@ export default function SecurityPage() {
 }
 
 function MfaCard() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
   const [enrollment, setEnrollment] = useState<{ secret: string; provisioning_uri: string } | null>(
     null,
@@ -62,13 +57,15 @@ function MfaCard() {
   const [requesting, setRequesting] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
-  async function startReset() {
+  const mfaEnabled = user?.mfa_enabled ?? false;
+
+  async function startEnrollment() {
     setRequesting(true);
     try {
       const result = await authApi.totpSetup();
       setEnrollment(result);
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not start MFA reset.", "bad");
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not start MFA setup.", "bad");
     } finally {
       setRequesting(false);
     }
@@ -79,9 +76,10 @@ function MfaCard() {
     setVerifying(true);
     try {
       await authApi.totpVerify(code);
-      showToast("Authenticator confirmed — MFA is active again.", "good");
+      showToast("Authenticator confirmed — MFA is now active.", "good");
       setEnrollment(null);
       setCode("");
+      await refreshUser();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Invalid code.", "bad");
     } finally {
@@ -93,18 +91,20 @@ function MfaCard() {
     <Card>
       <CardHeader
         title="Multi-Factor Authentication"
-        subtitle={`Required for ${ROLE_LABELS.admin}, ${ROLE_LABELS.payroll_manager}, and ${ROLE_LABELS.accountant} logins`}
+        subtitle="Optional for every role — add an authenticator app for extra protection on this login"
       />
       <div className="flex items-center gap-3">
-        <Badge tone="good">Enabled for {user ? ROLE_LABELS[user.role] : "this role"}</Badge>
+        <Badge tone={mfaEnabled ? "good" : "neutral"}>{mfaEnabled ? "Enabled" : "Not enabled"}</Badge>
       </div>
 
       {enrollment ? (
         <div className="mt-4 rounded-panel border border-border p-4">
           <p className="text-[12.5px] text-ink-soft">
             Add this secret to an authenticator app (Google Authenticator, Authy, 1Password, etc.), then enter
-            the 6-digit code it generates to confirm. Your current authenticator stops working the moment you
-            requested this reset — finish this step now, or you won&apos;t be able to sign back in.
+            the 6-digit code it generates to confirm.
+            {mfaEnabled
+              ? " Your current authenticator stops working the moment you requested this reset — finish this step now, or you won't be able to provide a code on your next sign-in."
+              : ""}
           </p>
           <p className="mt-3 break-all rounded-panel bg-bg p-2.5 font-mono text-[12px] font-bold text-ink">
             {enrollment.secret}
@@ -139,11 +139,13 @@ function MfaCard() {
         </div>
       ) : (
         <div className="mt-4">
-          <Button variant="secondary" disabled={requesting} onClick={startReset}>
-            {requesting ? "Starting…" : "Reset MFA Device"}
+          <Button variant="secondary" disabled={requesting} onClick={startEnrollment}>
+            {requesting ? "Starting…" : mfaEnabled ? "Reset MFA Device" : "Enable MFA"}
           </Button>
           <p className="mt-2 text-[11.5px] text-ink-soft">
-            Use this if you lost your authenticator device or are switching to a new one.
+            {mfaEnabled
+              ? "Use this if you lost your authenticator device or are switching to a new one."
+              : "You'll need an authenticator app on your phone (Google Authenticator, Authy, 1Password, etc.)."}
           </p>
         </div>
       )}

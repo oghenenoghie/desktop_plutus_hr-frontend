@@ -182,15 +182,9 @@ function NewUserCredentialsDialog({
           <dt className="text-ink-soft">Role</dt>
           <dd className="font-bold">{ROLE_LABELS[membership.role]}</dd>
         </dl>
-        {membership.totp_secret ? (
-          <div className="rounded-panel border border-border p-3">
-            <p className="text-[12.5px] text-ink-soft">
-              {ROLE_LABELS[membership.role]} requires an authenticator app. Have them add this secret (Google
-              Authenticator, Authy, 1Password, etc.) before their first login:
-            </p>
-            <p className="mt-2 break-all font-mono text-[12px] font-bold text-ink">{membership.totp_secret}</p>
-          </div>
-        ) : null}
+        <p className="text-[12.5px] text-ink-soft">
+          They can turn on multi-factor authentication anytime from Security &amp; Access.
+        </p>
         <div className="mt-auto flex justify-end pt-4">
           <Button onClick={onClose}>Done</Button>
         </div>

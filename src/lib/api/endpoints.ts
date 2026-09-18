@@ -108,6 +108,7 @@ import type {
   MembershipCreateBody,
   MembershipCreateOut,
   MembershipOut,
+  MembershipRoleUpdateOut,
   Notification,
   NotificationBroadcastBody,
   NotificationUnreadCount,
@@ -155,6 +156,7 @@ import type {
   RecurringInvoice,
   RecurringInvoiceCreateBody,
   RemindersSummary,
+  Role,
   RuleVersion,
   Shift,
   ShiftCreateBody,
@@ -1402,6 +1404,11 @@ export const membershipsApi = {
   list: () => apiFetch<MembershipOut[]>("/memberships"),
   create: (body: MembershipCreateBody) =>
     apiFetch<MembershipCreateOut>("/memberships", { method: "POST", body }),
+  updateRole: (membershipId: string, role: Role) =>
+    apiFetch<MembershipRoleUpdateOut>(`/memberships/${membershipId}/role`, {
+      method: "PUT",
+      body: { role },
+    }),
   effectivePermissions: (membershipId: string) =>
     apiFetch<EffectivePermissions>(`/memberships/${membershipId}/permissions`),
   setOverride: (membershipId: string, body: PermissionOverrideBody) =>

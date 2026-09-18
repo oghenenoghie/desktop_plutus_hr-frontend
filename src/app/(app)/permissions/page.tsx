@@ -15,7 +15,7 @@ import { ApiError } from "@/lib/api/client";
 import { membershipsApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
 import { ROLE_LABELS } from "@/lib/nav";
-import type { MembershipCreateOut, Permission, Role } from "@/lib/types";
+import type { MembershipCreateOut, MembershipRoleUpdateOut, Permission, Role } from "@/lib/types";
 
 const ALL_PERMISSIONS: Permission[] = [
   "employees.view",
@@ -37,11 +37,17 @@ const ALL_PERMISSIONS: Permission[] = [
 // since it only makes sense attached to an existing employee record.
 const ROLES: Role[] = ["admin", "payroll_manager", "accountant", "hr_manager", "manager", "auditor"];
 
+// Changing an existing member's role can go anywhere the New User invite
+// can, plus back down to Employee — the plain-worker floor most demotions
+// land on. Department Manager stays out here too, same reasoning as above.
+const ROLE_CHANGE_OPTIONS: Role[] = [...ROLES, "employee"];
+
 export default function PermissionsPage() {
   const memberships = useApiResource(() => membershipsApi.list());
   const [membershipId, setMembershipId] = useState("");
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<MembershipCreateOut | null>(null);
+  const [roleChanged, setRoleChanged] = useState<MembershipRoleUpdateOut | null>(null);
   const selected = (memberships.data ?? []).find((m) => m.id === membershipId) ?? null;
 
   return (
@@ -69,6 +75,18 @@ export default function PermissionsPage() {
         ) : null}
       </Card>
 
+      {selected ? (
+        <ChangeRole
+          key={selected.id}
+          membershipId={selected.id}
+          currentRole={selected.role}
+          onChanged={(result) => {
+            setRoleChanged(result);
+            memberships.reload();
+          }}
+        />
+      ) : null}
+
       {selected ? <MembershipPermissions membershipId={selected.id} role={selected.role} /> : null}
 
       {creating ? (
@@ -83,7 +101,82 @@ export default function PermissionsPage() {
       ) : null}
 
       {created ? <NewUserCredentialsDialog membership={created} onClose={() => setCreated(null)} /> : null}
+
+      {roleChanged ? <RoleChangedDialog result={roleChanged} onClose={() => setRoleChanged(null)} /> : null}
     </div>
+  );
+}
+
+function ChangeRole({
+  membershipId,
+  currentRole,
+  onChanged,
+}: {
+  membershipId: string;
+  currentRole: Role;
+  onChanged: (result: MembershipRoleUpdateOut) => void;
+}) {
+  const { showToast } = useToast();
+  const [role, setRole] = useState<Role>(currentRole);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (role === currentRole) return;
+    setSubmitting(true);
+    try {
+      const result = await membershipsApi.updateRole(membershipId, role);
+      showToast(`Role changed to ${ROLE_LABELS[role]}`, "good");
+      onChanged(result);
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      setRole(currentRole);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Card className="mb-6">
+      <CardHeader
+        title="Role"
+        subtitle="Changing this replaces the member's coarse role outright — it's the only way to promote or demote someone after their login already exists. Takes effect on their next sign-in."
+      />
+      <form onSubmit={onSubmit} className="flex items-end gap-3">
+        <div className="w-64">
+          <Label htmlFor="member-role">Role</Label>
+          <Select id="member-role" value={role} onChange={(event) => setRole(event.target.value as Role)}>
+            {ROLE_CHANGE_OPTIONS.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Button type="submit" disabled={submitting || role === currentRole}>
+          {submitting ? "Updating…" : "Update Role"}
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+function RoleChangedDialog({ result, onClose }: { result: MembershipRoleUpdateOut; onClose: () => void }) {
+  return (
+    <Drawer title="Role Updated" onClose={onClose}>
+      <div className="flex flex-1 flex-col gap-4">
+        <p className="text-[13px] text-ink-soft">
+          <span className="font-bold text-ink">{result.email}</span> is now{" "}
+          <span className="font-bold text-ink">{ROLE_LABELS[result.role]}</span>.
+        </p>
+        <p className="text-[12.5px] text-ink-soft">
+          The new role takes effect the next time {result.email} signs in.
+        </p>
+        <div className="mt-auto flex justify-end pt-4">
+          <Button onClick={onClose}>Done</Button>
+        </div>
+      </div>
+    </Drawer>
   );
 }
 

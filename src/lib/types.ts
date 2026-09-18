@@ -1890,6 +1890,13 @@ export interface MembershipCreateBody {
 
 export type MembershipCreateOut = MembershipOut;
 
+export interface MembershipRoleUpdateOut {
+  id: string;
+  account_id: string;
+  email: string;
+  role: Role;
+}
+
 export interface EffectivePermissions {
   membership_id: string;
   role: string;

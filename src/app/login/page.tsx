@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +9,18 @@ import { Input, Label } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/auth-context";
 import { homeForRole } from "@/lib/auth/auth-gate";
 import { ApiError } from "@/lib/api/client";
+
+// Matches app/api/v1/auth.py's structured 401 for a TOTP-enrolled account
+// that submitted no code — distinct from a plain-string error, which is a
+// real failure (wrong credentials, wrong code).
+function isTotpRequired(detail: unknown): boolean {
+  return (
+    typeof detail === "object" &&
+    detail !== null &&
+    "code" in detail &&
+    (detail as { code?: unknown }).code === "totp_required"
+  );
+}
 
 export default function LoginPage() {
   const { login, status, user } = useAuth();
@@ -19,14 +31,20 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState("");
   const [orgId, setOrgId] = useState("");
   const [showOrgField, setShowOrgField] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const totpInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (status === "authenticated" && user) {
       router.replace(homeForRole(user.role));
     }
   }, [status, user, router]);
+
+  useEffect(() => {
+    if (mfaRequired) totpInputRef.current?.focus();
+  }, [mfaRequired]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +54,11 @@ export default function LoginPage() {
       const me = await login({ identifier, password, totpCode, orgId });
       router.replace(homeForRole(me.role));
     } catch (err) {
-      setError(err instanceof ApiError ? String(err.detail ?? err.message) : "Unable to sign in.");
+      if (err instanceof ApiError && isTotpRequired(err.detail)) {
+        setMfaRequired(true);
+      } else {
+        setError(err instanceof ApiError ? String(err.detail ?? err.message) : "Unable to sign in.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -59,6 +81,7 @@ export default function LoginPage() {
               type="text"
               autoComplete="username"
               required
+              disabled={mfaRequired}
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder="you@company.com or ABCD2345"
@@ -72,42 +95,63 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               required
+              disabled={mfaRequired}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
           </div>
 
-          <div>
-            <Label htmlFor="totp">MFA code (Super Admin / Payroll Manager / Accountant)</Label>
-            <Input
-              id="totp"
-              inputMode="numeric"
-              value={totpCode}
-              onChange={(e) => setTotpCode(e.target.value)}
-              placeholder="6-digit code"
-            />
-          </div>
-
-          {showOrgField ? (
+          {mfaRequired ? (
             <div>
-              <Label htmlFor="org">Organisation ID</Label>
+              <Label htmlFor="totp">Authenticator code</Label>
+              <p className="mb-1.5 text-[11.5px] text-ink-soft">
+                Enter the 6-digit code from your authenticator app to finish signing in.
+              </p>
               <Input
-                id="org"
-                value={orgId}
-                onChange={(e) => setOrgId(e.target.value)}
-                placeholder="org-uuid"
+                id="totp"
+                ref={totpInputRef}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value)}
+                placeholder="6-digit code"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  setMfaRequired(false);
+                  setTotpCode("");
+                  setError(null);
+                }}
+                className="mt-1.5 text-[11.5px] font-bold text-primary hover:underline"
+              >
+                Use a different account
+              </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowOrgField(true)}
-              className="text-[11.5px] font-bold text-primary hover:underline"
-            >
-              Belong to multiple organisations?
-            </button>
-          )}
+          ) : null}
+
+          {!mfaRequired &&
+            (showOrgField ? (
+              <div>
+                <Label htmlFor="org">Organisation ID</Label>
+                <Input
+                  id="org"
+                  value={orgId}
+                  onChange={(e) => setOrgId(e.target.value)}
+                  placeholder="org-uuid"
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowOrgField(true)}
+                className="text-[11.5px] font-bold text-primary hover:underline"
+              >
+                Belong to multiple organisations?
+              </button>
+            ))}
 
           {error ? (
             <div className="rounded-panel bg-bad-tint px-3 py-2.5 text-[12.5px] font-bold text-bad">
@@ -116,7 +160,7 @@ export default function LoginPage() {
           ) : null}
 
           <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? "Signing in…" : mfaRequired ? "Verify code" : "Sign in"}
           </Button>
         </form>
 

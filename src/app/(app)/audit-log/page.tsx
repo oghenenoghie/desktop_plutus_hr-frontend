@@ -27,6 +27,13 @@ const ENTITY_TYPES = [
   "statutory_liability",
   "wht_payment",
   "final_settlement",
+  "bill",
+  "invoice",
+  "credit_note",
+  "budget",
+  "ledger_entry",
+  "fixed_asset",
+  "ledger_statement_line",
 ];
 
 interface Filters {

@@ -23,7 +23,7 @@ export default function LearningPage() {
   return (
     <div>
       <PageHeader
-        title="Learning"
+        title="Training and Development"
         subtitle="Training course catalogue and enrollments"
         action={<Button onClick={() => setCreating(true)}>New Course</Button>}
       />

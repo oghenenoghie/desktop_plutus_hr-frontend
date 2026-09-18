@@ -8,6 +8,7 @@ import {
   Banknote,
   BarChart3,
   Bell,
+  BookOpenCheck,
   BookText,
   Boxes,
   Building2,
@@ -115,6 +116,7 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   tasks: ListChecks,
   calendar: CalendarDays,
   publicHolidays: CalendarOff,
+  balanceSheet: BookOpenCheck,
   security: Lock,
 };
 

@@ -221,7 +221,7 @@ GitHub Actions, per PR and on merge:
 Payroll means employee PII, salary, bank details and tax IDs. Treat as high-sensitivity throughout.
 
 - RLS + org-scoping on every tenant table; least-privilege DB roles; no broad admin in application connections.
-- **MFA required for Admin and Payroll Manager roles** (product requirement per `product-and-ia.md` §2).
+- **MFA is opt-in for every role**, never a login precondition (see `product-and-ia.md` §2).
 - Encrypt sensitive columns at rest where warranted; TLS everywhere; secrets never in the repo.
 - Full audit trail per pay cycle — who ran what, which rule version, what changed. This is simultaneously a compliance control and a product feature.
 - NDPR (Nigeria Data Protection) awareness for personal data; document retention and data-residency posture.

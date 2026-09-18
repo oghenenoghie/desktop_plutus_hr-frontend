@@ -53,7 +53,7 @@ Plus **auth screens**: sign-in ("Sign in to your compliance-native payroll works
 |---|---|---|
 | Super Admin (`admin`) | Company setup · All payroll runs · All employees · Reports · Integrations, Billing & Subscription, Approval Workflows, Security | Full nav |
 | Payroll Manager | Create/process runs · View employees · Compliance & reports | overview, payroll, compliance, reports, loans, expenses, settlement, calculator, simulation, notifications |
-| **Accountant** *(new)* | **Full Payroll Manager parity** — everywhere `payroll_manager` appears in an RLS policy or authorization check (pay runs, ledger, loan/expense/overtime approval, leave encashment, salary-masking bypass), `accountant` was added alongside it. Same MFA requirement as Payroll Manager. | Same as Payroll Manager |
+| **Accountant** *(new)* | **Full Payroll Manager parity** — everywhere `payroll_manager` appears in an RLS policy or authorization check (pay runs, ledger, loan/expense/overtime approval, leave encashment, salary-masking bypass), `accountant` was added alongside it. | Same as Payroll Manager |
 | HR Manager | Employees & onboarding · Leave & attendance · Benefits | overview, setup, employees, attendance, leave, manager, benefits, notifications |
 | **Department Manager** *(new)* | Scoped to **one department**, via a new `departments.manager_id` — view that department's employees, approve that department's leave requests. Distinct from the existing generic "reporting manager" concept (`core.is_manager_of()`, keyed off `employees.manager_id`, unaffected by this addition). Assignable only by Super Admin, from the Departments page. | overview, employees (dept-scoped by RLS), org-chart, leave & attendance only — no payroll, company or tools |
 | **Auditor** *(new)* | **Strictly read-only, everywhere** — added only to `SELECT` policies, never to `INSERT`/`UPDATE`/`DELETE`, across payroll, compliance, and lifecycle-audit tables, including the Security & Access audit log (widened from Super-Admin-only). Salary stays masked for Auditor the same as for HR Manager — read-only access doesn't imply seeing real compensation figures. | Same broad nav as non-admin roles, plus Security & Access (no Integrations, no Billing) |
@@ -61,7 +61,7 @@ Plus **auth screens**: sign-in ("Sign in to your compliance-native payroll works
 
 The Employee role does not get a filtered admin nav — it gets a distinct self-service surface showing leave balance, TIN status, pension PFA, latest payslip breakdown (gross / PAYE / pension / NHF / net), leave requests, expense claims, loans, and benefits.
 
-**MFA is required for Super Admin, Payroll Manager and Accountant.** This is stated as a product requirement, not a setting.
+**MFA is optional for every role**, opted into from Security & Access — it is never a login precondition, including for Super Admin, Payroll Manager and Accountant.
 
 A **team-invite flow** (Security & Access, Super Admin only) grants any of Super Admin/Payroll Manager/HR Manager/Accountant/Auditor to a new login — deliberately excludes Employee (that self-service invite stays tied to a specific employee record, via the pre-existing `employees/[id]/edit` flow) and Department Manager (granted from the department it heads instead, alongside the `manager_id` assignment, since it only makes sense attached to an existing employee record).
 

@@ -354,6 +354,12 @@ export const NAV_GROUPS: NavGroup[] = [
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
+            href: "/balance-sheet",
+            label: "Balance Sheet",
+            icon: "balanceSheet",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
             href: "/bank-reconciliation",
             label: "Bank Reconciliation",
             icon: "bankReconciliation",
@@ -365,11 +371,6 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: "auditLog",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
-        ],
-      },
-      {
-        heading: "Assets & Budgets",
-        items: [
           {
             href: "/fixed-assets",
             label: "Fixed Assets",
@@ -380,12 +381,6 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/budgets",
             label: "Budgets",
             icon: "budgets",
-            roles: ["admin", "payroll_manager", "accountant", "auditor"],
-          },
-          {
-            href: "/balance-sheet",
-            label: "Balance Sheet",
-            icon: "balanceSheet",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],

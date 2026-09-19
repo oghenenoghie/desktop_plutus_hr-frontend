@@ -14,20 +14,29 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { departmentsApi, fixedAssetOpsApi, fixedAssetsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
+import { departmentsApi, employeesApi, fixedAssetOpsApi, fixedAssetsApi } from "@/lib/api/endpoints";
+import { formatDate, formatNaira, nairaToMinor, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { FixedAsset } from "@/lib/types";
+import type { FixedAsset, FixedAssetCategory } from "@/lib/types";
+
+const CATEGORIES: FixedAssetCategory[] = ["laptop", "phone", "vehicle", "furniture", "other"];
+// A laptop/phone/vehicle doesn't just exist — it's issued to someone from
+// day one, the same rule the backend's register_fixed_asset enforces.
+const REQUIRES_ASSIGNEE = new Set<FixedAssetCategory>(["laptop", "phone", "vehicle"]);
 
 export default function FixedAssetsPage() {
   const assets = useApiResource(() => fixedAssetsApi.list());
   const departments = useApiResource(() => departmentsApi.list());
   const departmentsById = new Map((departments.data ?? []).map((department) => [department.id, department]));
+  const employees = useApiResource(() => employeesApi.list());
+  const employeesById = new Map((employees.data ?? []).map((employee) => [employee.id, employee]));
   const { showToast } = useToast();
   const [creating, setCreating] = useState(false);
   const [disposing, setDisposing] = useState<FixedAsset | null>(null);
   const [transferring, setTransferring] = useState<FixedAsset | null>(null);
   const [revaluing, setRevaluing] = useState<FixedAsset | null>(null);
+  const [assigning, setAssigning] = useState<FixedAsset | null>(null);
+  const [returning, setReturning] = useState<FixedAsset | null>(null);
 
   async function depreciate(asset: FixedAsset) {
     try {
@@ -80,7 +89,9 @@ export default function FixedAssetsPage() {
               <tr>
                 <Th>Tag</Th>
                 <Th>Name</Th>
+                <Th>Category</Th>
                 <Th>Department</Th>
+                <Th>Assigned To</Th>
                 <Th>Acquired</Th>
                 <Th align="right">Cost</Th>
                 <Th align="right">Accum. Depreciation</Th>
@@ -94,8 +105,14 @@ export default function FixedAssetsPage() {
                 <tr key={asset.id}>
                   <Td className="font-mono text-[12px]">{asset.asset_tag}</Td>
                   <Td className="font-bold">{asset.name}</Td>
+                  <Td>{asset.category ? titleCase(asset.category) : "—"}</Td>
                   <Td>
                     {asset.department_id ? (departmentsById.get(asset.department_id)?.name ?? "—") : "—"}
+                  </Td>
+                  <Td>
+                    {asset.assigned_employee_id
+                      ? (employeesById.get(asset.assigned_employee_id)?.full_name ?? "—")
+                      : "—"}
                   </Td>
                   <Td>{formatDate(asset.acquisition_date)}</Td>
                   <Td align="right">{formatNaira(asset.cost_minor)}</Td>
@@ -109,6 +126,16 @@ export default function FixedAssetsPage() {
                   <Td align="right">
                     {asset.status === "active" ? (
                       <div className="flex flex-wrap justify-end gap-2">
+                        {asset.assignment_status === "available" ? (
+                          <Button size="md" variant="secondary" onClick={() => setAssigning(asset)}>
+                            Assign
+                          </Button>
+                        ) : null}
+                        {asset.assignment_status === "assigned" ? (
+                          <Button size="md" variant="secondary" onClick={() => setReturning(asset)}>
+                            Return
+                          </Button>
+                        ) : null}
                         <Button size="md" variant="secondary" onClick={() => setTransferring(asset)}>
                           Transfer
                         </Button>
@@ -176,6 +203,28 @@ export default function FixedAssetsPage() {
           onClose={() => setRevaluing(null)}
           onRevalued={() => {
             setRevaluing(null);
+            assets.reload();
+          }}
+        />
+      ) : null}
+
+      {assigning ? (
+        <AssignFixedAssetDrawer
+          asset={assigning}
+          onClose={() => setAssigning(null)}
+          onAssigned={() => {
+            setAssigning(null);
+            assets.reload();
+          }}
+        />
+      ) : null}
+
+      {returning ? (
+        <ReturnFixedAssetDrawer
+          asset={returning}
+          onClose={() => setReturning(null)}
+          onReturned={() => {
+            setReturning(null);
             assets.reload();
           }}
         />
@@ -334,15 +383,167 @@ function RevalueFixedAssetDrawer({
   );
 }
 
+function AssignFixedAssetDrawer({
+  asset,
+  onClose,
+  onAssigned,
+}: {
+  asset: FixedAsset;
+  onClose: () => void;
+  onAssigned: () => void;
+}) {
+  const { showToast } = useToast();
+  const employees = useApiResource(() => employeesApi.list());
+  const [employeeId, setEmployeeId] = useState("");
+  const [assignedDate, setAssignedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      await fixedAssetsApi.assign(asset.id, { employee_id: employeeId, assigned_date: assignedDate });
+      showToast("Asset assigned", "good");
+      onAssigned();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Drawer title={`Assign ${asset.name}`} onClose={onClose}>
+      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+        <div>
+          <Label htmlFor="assignEmployee">Employee</Label>
+          <Select
+            id="assignEmployee"
+            value={employeeId}
+            onChange={(event) => setEmployeeId(event.target.value)}
+            required
+          >
+            <option value="">Select an employee</option>
+            {(employees.data ?? []).map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.full_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="assignDate">Assigned Date</Label>
+          <Input
+            id="assignDate"
+            type="date"
+            value={assignedDate}
+            onChange={(event) => setAssignedDate(event.target.value)}
+            required
+          />
+        </div>
+        <div className="mt-auto flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting || !employeeId}>
+            {submitting ? "Assigning…" : "Assign"}
+          </Button>
+        </div>
+      </form>
+    </Drawer>
+  );
+}
+
+function ReturnFixedAssetDrawer({
+  asset,
+  onClose,
+  onReturned,
+}: {
+  asset: FixedAsset;
+  onClose: () => void;
+  onReturned: () => void;
+}) {
+  const { showToast } = useToast();
+  const openAssignment = useApiResource(async () => {
+    const rows = await fixedAssetsApi.assignments(asset.id);
+    return rows.find((row) => row.returned_date === null) ?? null;
+  });
+  const [returnedDate, setReturnedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [conditionNotes, setConditionNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!openAssignment.data) return;
+    setSubmitting(true);
+    try {
+      await fixedAssetsApi.returnAssignment(openAssignment.data.id, {
+        returned_date: returnedDate,
+        condition_notes: conditionNotes || null,
+      });
+      showToast("Asset returned", "good");
+      onReturned();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Drawer title={`Return ${asset.name}`} onClose={onClose}>
+      {openAssignment.loading ? <LoadingState /> : null}
+      {openAssignment.error ? <ErrorState message={openAssignment.error} /> : null}
+      {!openAssignment.loading && !openAssignment.data ? (
+        <EmptyState label="No open assignment found for this asset." />
+      ) : null}
+      {openAssignment.data ? (
+        <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+          <div>
+            <Label htmlFor="returnDate">Returned Date</Label>
+            <Input
+              id="returnDate"
+              type="date"
+              value={returnedDate}
+              onChange={(event) => setReturnedDate(event.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="conditionNotes">Condition Notes</Label>
+            <Input
+              id="conditionNotes"
+              value={conditionNotes}
+              onChange={(event) => setConditionNotes(event.target.value)}
+              placeholder="Optional"
+            />
+          </div>
+          <div className="mt-auto flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Returning…" : "Return"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </Drawer>
+  );
+}
+
 function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { showToast } = useToast();
+  const employees = useApiResource(() => employeesApi.list());
   const [name, setName] = useState("");
   const [assetTag, setAssetTag] = useState("");
   const [acquisitionDate, setAcquisitionDate] = useState("");
   const [cost, setCost] = useState("");
   const [salvageValue, setSalvageValue] = useState("");
   const [usefulLifeMonths, setUsefulLifeMonths] = useState("");
+  const [category, setCategory] = useState<FixedAssetCategory | "">("");
+  const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const assigneeRequired = category !== "" && REQUIRES_ASSIGNEE.has(category);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -355,6 +556,8 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
         cost_minor: nairaToMinor(cost),
         salvage_value_minor: salvageValue ? nairaToMinor(salvageValue) : 0,
         useful_life_months: Number(usefulLifeMonths),
+        category: category || null,
+        assigned_employee_id: assignedEmployeeId || null,
       });
       onCreated();
     } catch (err) {
@@ -416,11 +619,48 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
             required
           />
         </div>
+        <div>
+          <Label htmlFor="category">Category</Label>
+          <Select
+            id="category"
+            value={category}
+            onChange={(event) => {
+              const value = event.target.value as FixedAssetCategory | "";
+              setCategory(value);
+              if (!value || !REQUIRES_ASSIGNEE.has(value)) setAssignedEmployeeId("");
+            }}
+          >
+            <option value="">None — not a tracked device</option>
+            {CATEGORIES.map((value) => (
+              <option key={value} value={value}>
+                {titleCase(value)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {assigneeRequired ? (
+          <div>
+            <Label htmlFor="assignedEmployee">Assigned To</Label>
+            <Select
+              id="assignedEmployee"
+              value={assignedEmployeeId}
+              onChange={(event) => setAssignedEmployeeId(event.target.value)}
+              required
+            >
+              <option value="">Select an employee</option>
+              {(employees.data ?? []).map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.full_name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
         <div className="mt-auto flex justify-end gap-3 pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || (assigneeRequired && !assignedEmployeeId)}>
             {submitting ? "Creating…" : "Create Asset"}
           </Button>
         </div>

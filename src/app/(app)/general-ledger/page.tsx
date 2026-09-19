@@ -14,7 +14,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { chartAccountsApi, departmentsApi, generalLedgerApi } from "@/lib/api/endpoints";
-import { formatDateTime, formatNaira, nairaToMinor } from "@/lib/format";
+import { formatDateTime, formatLedgerBalance, formatNaira, nairaToMinor } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { ChartAccount } from "@/lib/types";
 
@@ -68,7 +68,7 @@ export default function GeneralLedgerPage() {
                   <Td align="right">{formatNaira(line.total_debit_minor)}</Td>
                   <Td align="right">{formatNaira(line.total_credit_minor)}</Td>
                   <Td align="right" className="font-bold">
-                    {formatNaira(line.balance_minor)}
+                    {formatLedgerBalance(line.balance_minor)}
                   </Td>
                 </tr>
               ))}

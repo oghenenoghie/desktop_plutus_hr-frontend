@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { notificationsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDateTime } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { Notification } from "@/lib/types";
+import type { Notification, NotificationAudience } from "@/lib/types";
 
 const CAN_BROADCAST = ["admin", "payroll_manager", "accountant"];
 
@@ -27,6 +28,7 @@ export default function NotificationsPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [link, setLink] = useState("");
+  const [audience, setAudience] = useState<NotificationAudience>("everyone");
   const [sending, setSending] = useState(false);
 
   async function openNotification(notification: Notification) {
@@ -58,11 +60,16 @@ export default function NotificationsPage() {
         title,
         body: body || null,
         link: link || null,
+        audience,
       });
-      showToast("Broadcast sent to the organisation.", "good");
+      showToast(
+        audience === "hr_admin" ? "Broadcast sent to HR & Admin." : "Broadcast sent to the organisation.",
+        "good",
+      );
       setTitle("");
       setBody("");
       setLink("");
+      setAudience("everyone");
       notifications.reload();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Broadcast failed.", "bad");
@@ -91,9 +98,20 @@ export default function NotificationsPage() {
         <Card className="mb-6">
           <CardHeader
             title="Broadcast"
-            subtitle="Send a notification to everyone in the organisation"
+            subtitle="Send a notification to the whole organisation, or just HR & Admin"
           />
           <form onSubmit={broadcast} className="flex flex-col gap-4">
+            <div>
+              <Label htmlFor="broadcast-audience">Send to</Label>
+              <Select
+                id="broadcast-audience"
+                value={audience}
+                onChange={(event) => setAudience(event.target.value as NotificationAudience)}
+              >
+                <option value="everyone">Everyone</option>
+                <option value="hr_admin">HR &amp; Admin only</option>
+              </Select>
+            </div>
             <div>
               <Label htmlFor="broadcast-title">Title</Label>
               <Input
@@ -123,7 +141,7 @@ export default function NotificationsPage() {
             </div>
             <div>
               <Button type="submit" disabled={sending}>
-                {sending ? "Sending…" : "Send to organisation"}
+                {sending ? "Sending…" : audience === "hr_admin" ? "Send to HR & Admin" : "Send to organisation"}
               </Button>
             </div>
           </form>

@@ -603,69 +603,6 @@ export interface UnionMembershipTerminateBody {
   terminated_date: string;
 }
 
-// --- company assets ---
-
-export type CompanyAssetCategory =
-  | "laptop"
-  | "phone"
-  | "vehicle"
-  | "furniture"
-  | "other";
-export type CompanyAssetStatus =
-  | "available"
-  | "assigned"
-  | "maintenance"
-  | "retired";
-
-export interface CompanyAsset {
-  id: string;
-  org_id: string;
-  name: string;
-  asset_tag: string;
-  category: CompanyAssetCategory;
-  status: CompanyAssetStatus;
-  purchase_date: string | null;
-  purchase_value_minor: number | null;
-  created_at: string;
-}
-
-export interface CompanyAssetCreateBody {
-  name: string;
-  asset_tag: string;
-  category: CompanyAssetCategory;
-  purchase_date?: string | null;
-  purchase_value_minor?: number | null;
-}
-
-export interface CompanyAssetUpdateBody {
-  name?: string;
-  category?: CompanyAssetCategory;
-  status?: CompanyAssetStatus;
-  purchase_date?: string | null;
-  purchase_value_minor?: number | null;
-}
-
-export interface AssetAssignment {
-  id: string;
-  org_id: string;
-  asset_id: string;
-  employee_id: string;
-  assigned_date: string;
-  returned_date: string | null;
-  condition_notes: string | null;
-  created_at: string;
-}
-
-export interface AssetAssignmentCreateBody {
-  employee_id: string;
-  assigned_date: string;
-}
-
-export interface AssetAssignmentReturnBody {
-  returned_date: string;
-  condition_notes?: string | null;
-}
-
 // --- api keys ---
 
 export interface ApiKey {
@@ -1270,6 +1207,12 @@ export interface IncomeStatement {
 
 export type FixedAssetStatus = "active" | "disposed";
 
+// Categories a fixed asset can carry when it's also a device or piece of
+// property issued to an employee — folded in from HR's retired Company
+// Assets tracking, which used to be a separate, unlinked record.
+export type FixedAssetCategory = "laptop" | "phone" | "vehicle" | "furniture" | "other";
+export type AssetAssignmentStatus = "available" | "assigned" | "maintenance";
+
 export interface FixedAsset {
   id: string;
   org_id: string;
@@ -1285,6 +1228,9 @@ export interface FixedAsset {
   status: FixedAssetStatus;
   disposed_at: string | null;
   disposal_proceeds_minor: number | null;
+  category: FixedAssetCategory | null;
+  assignment_status: AssetAssignmentStatus | null;
+  assigned_employee_id: string | null;
   created_at: string;
 }
 
@@ -1295,10 +1241,45 @@ export interface FixedAssetCreateBody {
   cost_minor: number;
   salvage_value_minor?: number;
   useful_life_months: number;
+  category?: FixedAssetCategory | null;
+  assigned_employee_id?: string | null;
 }
 
 export interface FixedAssetDisposeBody {
   proceeds_minor?: number;
+}
+
+export interface FixedAssetAssignment {
+  id: string;
+  org_id: string;
+  fixed_asset_id: string;
+  employee_id: string;
+  assigned_date: string;
+  returned_date: string | null;
+  condition_notes: string | null;
+  created_at: string;
+}
+
+export interface FixedAssetAssignmentCreateBody {
+  employee_id: string;
+  assigned_date: string;
+}
+
+export interface FixedAssetAssignmentReturnBody {
+  returned_date: string;
+  condition_notes?: string | null;
+}
+
+// What an employee sees of their own currently-held assets via
+// /fixed-assets/me — deliberately excludes cost/depreciation, which stays
+// finance-only.
+export interface MyFixedAsset {
+  assignment_id: string;
+  fixed_asset_id: string;
+  name: string;
+  asset_tag: string;
+  category: FixedAssetCategory | null;
+  assigned_date: string;
 }
 
 // --- budgets ---

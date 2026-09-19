@@ -16,9 +16,9 @@ import { ApiError } from "@/lib/api/client";
 import {
   attendanceApi,
   benefitsApi,
-  companyAssetsApi,
   employeesApi,
   expensesApi,
+  fixedAssetsApi,
   generatedDocumentsApi,
   leaveApi,
   loansApi,
@@ -50,9 +50,7 @@ export default function MyWorkspacePage() {
   const courses = useApiResource(() => trainingCoursesApi.list());
   const coursesById = new Map((courses.data ?? []).map((course) => [course.id, course]));
   const unionMemberships = useApiResource(() => unionMembershipsApi.mine());
-  const myAssets = useApiResource(() => companyAssetsApi.mine());
-  const allAssets = useApiResource(() => companyAssetsApi.list());
-  const assetsById = new Map((allAssets.data ?? []).map((asset) => [asset.id, asset]));
+  const myAssets = useApiResource(() => fixedAssetsApi.mine());
   const attendance = useApiResource(() => attendanceApi.mine());
   const myDocuments = useApiResource(() => generatedDocumentsApi.mine());
   const myTasks = useApiResource(() => tasksApi.list("mine"));
@@ -466,7 +464,7 @@ export default function MyWorkspacePage() {
           {myAssets.loading ? <LoadingState /> : null}
           {myAssets.error ? <ErrorState message={myAssets.error} /> : null}
           {myAssets.data && myAssets.data.length === 0 ? (
-            <EmptyState label="No company assets currently assigned to you." />
+            <EmptyState label="No assets currently assigned to you." />
           ) : null}
           {myAssets.data && myAssets.data.length > 0 ? (
             <Table>
@@ -474,14 +472,16 @@ export default function MyWorkspacePage() {
                 <tr>
                   <Th>Asset</Th>
                   <Th>Tag</Th>
+                  <Th>Category</Th>
                   <Th>Assigned</Th>
                 </tr>
               </Thead>
               <tbody>
                 {myAssets.data.map((assignment) => (
-                  <tr key={assignment.id}>
-                    <Td>{assetsById.get(assignment.asset_id)?.name ?? "—"}</Td>
-                    <Td>{assetsById.get(assignment.asset_id)?.asset_tag ?? "—"}</Td>
+                  <tr key={assignment.assignment_id}>
+                    <Td>{assignment.name}</Td>
+                    <Td>{assignment.asset_tag}</Td>
+                    <Td>{assignment.category ? titleCase(assignment.category) : "—"}</Td>
                     <Td>{formatDate(assignment.assigned_date)}</Td>
                   </tr>
                 ))}

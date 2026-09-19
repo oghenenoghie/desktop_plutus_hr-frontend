@@ -26,7 +26,6 @@ export interface NavItem {
     | "learning"
     | "employeeRelations"
     | "unionDues"
-    | "assets"
     | "integrations"
     | "generalLedger"
     | "bills"
@@ -249,12 +248,6 @@ export const NAV_GROUPS: NavGroup[] = [
             label: "Policies",
             icon: "policies",
             roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
-          },
-          {
-            href: "/assets",
-            label: "Company Assets",
-            icon: "assets",
-            roles: ["admin", "payroll_manager", "manager", "accountant", "auditor"],
           },
           {
             href: "/learning",

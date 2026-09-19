@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { EmployeePicker } from "@/components/employee-picker";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,7 +18,16 @@ import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 export default function SettlementPage() {
-  const [employeeId, setEmployeeId] = useState("");
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <SettlementPageInner />
+    </Suspense>
+  );
+}
+
+function SettlementPageInner() {
+  const searchParams = useSearchParams();
+  const [employeeId, setEmployeeId] = useState(() => searchParams.get("employeeId") ?? "");
   const [processing, setProcessing] = useState(false);
   const settlements = useApiResource(
     () => (employeeId ? finalSettlementApi.forEmployee(employeeId) : Promise.resolve([])),

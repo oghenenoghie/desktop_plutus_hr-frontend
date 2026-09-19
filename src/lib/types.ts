@@ -555,10 +555,13 @@ export interface Notification {
   created_at: string;
 }
 
+export type NotificationAudience = "everyone" | "hr_admin";
+
 export interface NotificationBroadcastBody {
   title: string;
   body?: string | null;
   link?: string | null;
+  audience?: NotificationAudience;
 }
 
 export interface NotificationUnreadCount {
@@ -710,11 +713,17 @@ export interface PolicyUpdateBody {
 
 // --- payroll ---
 
+export type PayRunType = "regular" | "bonus" | "thirteenth_month" | "arrears" | "off_cycle";
+
 export interface PayRunCreateBody {
   period_start: string;
   period_end: string;
   frequency: PayFrequency;
   employee_ids?: string[];
+  run_type?: PayRunType;
+  // Per-employee one-off taxable amount for this run only (bonus,
+  // 13th-month, arrears) — any employee not listed gets 0.
+  extra_earnings_by_employee?: Record<string, number>;
 }
 
 export interface PayRun {
@@ -724,6 +733,7 @@ export interface PayRun {
   period_end: string;
   frequency: PayFrequency;
   status: PayRunStatus;
+  run_type: PayRunType;
   rule_version_id: string | null;
   employee_count: number;
   gross_minor: number;

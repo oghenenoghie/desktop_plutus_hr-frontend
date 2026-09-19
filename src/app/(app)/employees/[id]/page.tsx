@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { EmployeePhotoField } from "@/components/employee-photo-field";
 import { PageHeader } from "@/components/layout/page-header";
@@ -48,6 +49,7 @@ const DOCUMENT_CATEGORIES: DocumentCategory[] = [
 
 export default function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const { user } = useAuth();
   const canManage = user?.role === "admin" || user?.role === "payroll_manager";
   const employee = useApiResource(() => employeesApi.get(id), [id]);
@@ -83,6 +85,15 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                 {canManage ? (
                   <Button size="md" variant="secondary" onClick={() => setEditing(true)}>
                     Edit Details
+                  </Button>
+                ) : null}
+                {canManage && employee.data.lifecycle_state === "active" ? (
+                  <Button
+                    size="md"
+                    variant="secondary"
+                    onClick={() => router.push(`/settlement?employeeId=${employee.data!.id}`)}
+                  >
+                    Offboard
                   </Button>
                 ) : null}
               </div>

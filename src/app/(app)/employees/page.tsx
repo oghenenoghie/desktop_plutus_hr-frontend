@@ -156,6 +156,15 @@ export default function EmployeesPage() {
                         <Button size="md" variant="secondary" onClick={() => setBankAccountFor(employee)}>
                           Bank Account
                         </Button>
+                        {employee.lifecycle_state === "active" ? (
+                          <Button
+                            size="md"
+                            variant="secondary"
+                            onClick={() => router.push(`/settlement?employeeId=${employee.id}`)}
+                          >
+                            Offboard
+                          </Button>
+                        ) : null}
                       </div>
                     </Td>
                   </tr>

@@ -248,6 +248,18 @@ jobs:
             } else {
               Write-Host "(does not exist — startup never reached fs.mkdirSync(userDataDir))"
             }
+
+            # electron/main.js writes a timestamped line to this file at
+            # every await point in the boot sequence (importing
+            # embedded-postgres, initialise(), start(), createDatabase(),
+            # spawning the backend/frontend) — this is the ground truth for
+            # where startup actually got to, independent of whether
+            # console.log made it out to this redirected stdout at all (a
+            # packaged Electron app is a GUI-subsystem executable with no
+            # attached console, so that's not guaranteed).
+            $startupLog = Join-Path $userDataDir 'startup.log'
+            Write-Host "----- startup.log ($startupLog) -----"
+            if (Test-Path $startupLog) { Get-Content $startupLog } else { Write-Host "(does not exist)" }
           }
 
           Get-Process -Name Plutus,plutus-backend,postgres -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

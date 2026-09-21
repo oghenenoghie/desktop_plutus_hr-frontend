@@ -1,5 +1,5 @@
 diff --git a/node_modules/embedded-postgres/dist/index.js b/node_modules/embedded-postgres/dist/index.js
-index d80bf0b..15e3002 100644
+index d80bf0b..ce2377a 100644
 --- a/node_modules/embedded-postgres/dist/index.js
 +++ b/node_modules/embedded-postgres/dist/index.js
 @@ -156,7 +156,7 @@ class EmbeddedPostgres {
@@ -11,7 +11,17 @@ index d80bf0b..15e3002 100644
                      // Connect to stderr, as that is where the messages get sent
                      let stderrOutput = '';
                      (_a = childProcess.stdout) === null || _a === void 0 ? void 0 : _a.on('data', (chunk) => {
-@@ -209,7 +209,7 @@ class EmbeddedPostgres {
+@@ -176,6 +176,9 @@ class EmbeddedPostgres {
+                             reject(new Error(`Postgres init script failed (code: ${code !== null && code !== void 0 ? code : 'null'}, signal: ${signal !== null && signal !== void 0 ? signal : 'null'}). ERROR OUTPUT: ${stderrOutput}`));
+                         }
+                     });
++                    childProcess.on('error', (err) => {
++                        reject(new Error(`Failed to spawn initdb process: ${err.message}`));
++                    });
+                 });
+             }
+             finally {
+@@ -209,7 +212,7 @@ class EmbeddedPostgres {
                      '-p',
                      this.options.port.toString(),
                      ...this.options.postgresFlags,
@@ -20,3 +30,15 @@ index d80bf0b..15e3002 100644
                  // Connect to stderr, as that is where the messages get sent
                  (_a = this.process.stderr) === null || _a === void 0 ? void 0 : _a.on('data', (chunk) => {
                      // Parse the data as a string and log it
+@@ -222,7 +225,10 @@ class EmbeddedPostgres {
+                 });
+                 // In case the process exits early, the promise is rejected.
+                 this.process.on('close', () => {
+-                    reject();
++                    reject(new Error('Postgres server process closed before reporting ready'));
++                });
++                this.process.on('error', (err) => {
++                    reject(new Error(`Failed to spawn postgres process: ${err.message}`));
+                 });
+             });
+         });

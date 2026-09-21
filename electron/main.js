@@ -20,6 +20,25 @@ let backendProcess = null;
 let frontendProcess = null;
 let mainWindow = null;
 let shuttingDown = false;
+let startupLogPath = null;
+
+// Writes straight to a file rather than console.log/console.error: a
+// packaged Electron app is a Windows GUI-subsystem executable with no
+// attached console, so stdout/stderr redirection from an external launcher
+// (e.g. `Start-Process -RedirectStandardOutput`) is not reliable evidence
+// of what actually happened during startup. This file is the source of
+// truth for diagnosing a hang or crash before the window ever opens.
+function logStartup(message) {
+  const line = `[${new Date().toISOString()}] ${message}`;
+  console.log(line);
+  if (startupLogPath) {
+    try {
+      fs.appendFileSync(startupLogPath, line + "\n");
+    } catch {
+      // Best-effort — never let logging itself take down startup.
+    }
+  }
+}
 
 function resourcePath(...segments) {
   const base = app.isPackaged ? process.resourcesPath : path.join(__dirname, "..", "resources");
@@ -53,10 +72,12 @@ async function waitForHttpOk(url, { timeoutMs = 60_000, intervalMs = 400 } = {})
 }
 
 async function startPostgres(userDataDir) {
+  logStartup("startPostgres: importing embedded-postgres...");
   // embedded-postgres ships ESM-only; this file stays CommonJS (Electron's
   // own convention for main.js) so it needs a dynamic import here rather
   // than a top-level require.
   const { default: EmbeddedPostgres } = await import("embedded-postgres");
+  logStartup("startPostgres: embedded-postgres imported.");
 
   const databaseDir = path.join(userDataDir, "pgdata");
   const wasAlreadyInitialised = fs.existsSync(databaseDir);
@@ -69,13 +90,20 @@ async function startPostgres(userDataDir) {
     port: PG_PORT,
     persistent: true,
   });
+  logStartup(`startPostgres: instance created (wasAlreadyInitialised=${wasAlreadyInitialised}).`);
 
   if (!wasAlreadyInitialised) {
+    logStartup("startPostgres: calling initialise()...");
     await postgres.initialise();
+    logStartup("startPostgres: initialise() resolved.");
   }
+  logStartup("startPostgres: calling start()...");
   await postgres.start();
+  logStartup("startPostgres: start() resolved.");
   if (!wasAlreadyInitialised) {
+    logStartup("startPostgres: calling createDatabase()...");
     await postgres.createDatabase("plutus");
+    logStartup("startPostgres: createDatabase() resolved.");
   }
 
   return password;
@@ -108,8 +136,11 @@ function startBackend(userDataDir, pgPassword) {
 
   backendProcess.on("exit", (code) => {
     if (!shuttingDown && code !== 0) {
-      console.error(`Backend process exited unexpectedly with code ${code}`);
+      logStartup(`Backend process exited unexpectedly with code ${code}`);
     }
+  });
+  backendProcess.on("error", (error) => {
+    logStartup(`Backend process failed to spawn: ${error}`);
   });
 }
 
@@ -132,8 +163,11 @@ function startFrontend() {
 
   frontendProcess.on("exit", (code) => {
     if (!shuttingDown && code !== 0) {
-      console.error(`Frontend process exited unexpectedly with code ${code}`);
+      logStartup(`Frontend process exited unexpectedly with code ${code}`);
     }
+  });
+  frontendProcess.on("error", (error) => {
+    logStartup(`Frontend process failed to spawn: ${error}`);
   });
 }
 
@@ -160,7 +194,7 @@ async function shutdown() {
     try {
       await postgres.stop();
     } catch (error) {
-      console.error("Error stopping embedded Postgres:", error);
+      logStartup(`Error stopping embedded Postgres: ${error}`);
     }
   }
 }
@@ -185,18 +219,24 @@ if (!gotSingleInstanceLock) {
   app.whenReady().then(async () => {
     const userDataDir = app.getPath("userData");
     fs.mkdirSync(userDataDir, { recursive: true });
+    startupLogPath = path.join(userDataDir, "startup.log");
+    logStartup("app.whenReady: starting boot sequence.");
 
     try {
       const pgPassword = await startPostgres(userDataDir);
+      logStartup("Postgres ready. Starting backend...");
       startBackend(userDataDir, pgPassword);
       await waitForHttpOk(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`);
+      logStartup("Backend healthy. Starting frontend...");
 
       startFrontend();
       await waitForHttpOk(`http://127.0.0.1:${FRONTEND_PORT}`);
+      logStartup("Frontend healthy. Creating window...");
 
       await createWindow();
+      logStartup("Window created. Boot sequence complete.");
     } catch (error) {
-      console.error("Failed to start Plutus desktop:", error);
+      logStartup(`Failed to start Plutus desktop: ${error && error.stack ? error.stack : error}`);
       await shutdown();
       app.exit(1);
     }

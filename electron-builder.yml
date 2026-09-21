@@ -2,15 +2,23 @@ appId: com.plutustechnologies.hr
 productName: Plutus
 directories:
   output: release
+# embedded-postgres is a pure ESM package that resolves its native binary
+# paths via import.meta.url. Electron's asar<->asar.unpacked path
+# substitution is reliable for CommonJS require() but not for Node's
+# native ESM loader, so even with asarUnpack listing these packages, the
+# resolved spawn() path still points inside app.asar — a location
+# asarUnpack has *physically emptied* onto disk at app.asar.unpacked,
+# so the path is a dangling reference and spawn() fails with ENOENT.
+# Packaging without asar avoids the whole class of bug: every module
+# resolves to its real, actually-present path on disk, exactly as in
+# local dev.
+asar: false
 files:
   - electron/**/*
   - node_modules/**/*
   - package.json
   - "!node_modules/@embedded-postgres/**/postgres*/**/{doc,man,include}/**"
   - "!electron/entitlements.mac.plist"
-asarUnpack:
-  - node_modules/embedded-postgres/**
-  - node_modules/@embedded-postgres/**
 extraResources:
   - from: resources/frontend
     to: frontend

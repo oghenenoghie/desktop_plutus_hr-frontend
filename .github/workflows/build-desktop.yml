@@ -39,6 +39,11 @@ jobs:
         run: |
           Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE"
           Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs"
+          # electron/main.js's Postgres data dir and the initdb.exe it
+          # spawns to build it live under userData, i.e. %APPDATA%\<name>
+          # (Roaming) — a different directory tree from LOCALAPPDATA
+          # entirely, and one this exclusion list was missing.
+          Add-MpPreference -ExclusionPath "$env:APPDATA"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4

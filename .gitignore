@@ -20,6 +20,10 @@
 # production
 /build
 
+# desktop build (see electron/) — assembled/built artifacts, never committed
+/resources/
+/release/
+
 # misc
 .DS_Store
 *.pem

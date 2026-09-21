@@ -102,3 +102,56 @@ jobs:
             release/*.exe
             release/*.AppImage
           if-no-files-found: error
+
+      # Windows-only: nobody in this pipeline can otherwise run the .exe to
+      # confirm it actually works — the installer is unsigned, and outbound
+      # access to GitHub's artifact storage plus a real Windows machine
+      # aren't both guaranteed to be available wherever this is checked.
+      # Runs entirely on this job's own Windows runner instead: silently
+      # installs, launches the app, and confirms the full local stack
+      # (embedded Postgres -> bundled backend -> Next.js standalone server)
+      # actually comes up, not just that packaging succeeded.
+      - name: Smoke test installer (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path release -Filter *.exe | Select-Object -First 1
+          if (-not $installer) { throw "No .exe installer found in release/" }
+          Write-Host "Installing $($installer.FullName) silently..."
+          Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait
+
+          $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Plutus.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "Plutus.exe not found under $env:LOCALAPPDATA\Programs after install" }
+
+          # In case the installer's own "run after finish" already launched
+          # it (electron/main.js's single-instance lock makes this safe
+          # either way — a second launch just quits and hands focus back).
+          Write-Host "Launching $($exe.FullName)..."
+          Start-Process -FilePath $exe.FullName
+
+          $backendHealthUrl = 'http://127.0.0.1:47821/api/v1/health'
+          $frontendUrl = 'http://127.0.0.1:47822'
+          $deadline = (Get-Date).AddSeconds(180)
+          $backendOk = $false
+          $frontendOk = $false
+          while ((Get-Date) -lt $deadline -and (-not $backendOk -or -not $frontendOk)) {
+            if (-not $backendOk) {
+              try {
+                $response = Invoke-WebRequest -Uri $backendHealthUrl -UseBasicParsing -TimeoutSec 5
+                if ($response.StatusCode -eq 200) { $backendOk = $true; Write-Host "Backend healthy." }
+              } catch {}
+            }
+            if (-not $frontendOk) {
+              try {
+                $response = Invoke-WebRequest -Uri $frontendUrl -UseBasicParsing -TimeoutSec 5
+                if ($response.StatusCode -eq 200) { $frontendOk = $true; Write-Host "Frontend healthy." }
+              } catch {}
+            }
+            if (-not $backendOk -or -not $frontendOk) { Start-Sleep -Seconds 3 }
+          }
+
+          Get-Process -Name Plutus,plutus-backend,postgres -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+          if (-not $backendOk) { throw "Backend health check never succeeded — embedded Postgres or the bundled backend didn't come up" }
+          if (-not $frontendOk) { throw "Frontend never responded — the Next.js standalone server didn't come up" }
+          Write-Host "Smoke test passed: the installed app booted its full local stack successfully."

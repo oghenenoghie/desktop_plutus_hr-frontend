@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "patch-package",
     "electron:build-frontend": "node electron/build-frontend.js",
     "electron:prepare-resources": "node electron/prepare-resources.js",
     "electron:dev": "electron .",
@@ -32,6 +33,7 @@
     "electron-builder": "^25",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

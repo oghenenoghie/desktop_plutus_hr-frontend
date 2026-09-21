@@ -1,0 +1,22 @@
+diff --git a/node_modules/embedded-postgres/dist/index.js b/node_modules/embedded-postgres/dist/index.js
+index d80bf0b..15e3002 100644
+--- a/node_modules/embedded-postgres/dist/index.js
++++ b/node_modules/embedded-postgres/dist/index.js
+@@ -156,7 +156,7 @@ class EmbeddedPostgres {
+                         `--pwfile=${passwordFile}`,
+                         `--lc-messages=${locale}`,
+                         ...this.options.initdbFlags,
+-                    ], Object.assign(Object.assign({}, permissionIds), { env: Object.assign(Object.assign({}, process.env), { LC_MESSAGES: locale }) }));
++                    ], Object.assign(Object.assign({}, permissionIds), { env: Object.assign(Object.assign({}, process.env), { LC_MESSAGES: locale }), stdio: ['ignore', 'pipe', 'pipe'] }));
+                     // Connect to stderr, as that is where the messages get sent
+                     let stderrOutput = '';
+                     (_a = childProcess.stdout) === null || _a === void 0 ? void 0 : _a.on('data', (chunk) => {
+@@ -209,7 +209,7 @@ class EmbeddedPostgres {
+                     '-p',
+                     this.options.port.toString(),
+                     ...this.options.postgresFlags,
+-                ], Object.assign(Object.assign({}, permissionIds), { env: Object.assign(Object.assign({}, process.env), { LC_MESSAGES: locale }) }));
++                ], Object.assign(Object.assign({}, permissionIds), { env: Object.assign(Object.assign({}, process.env), { LC_MESSAGES: locale }), stdio: ['ignore', 'pipe', 'pipe'] }));
+                 // Connect to stderr, as that is where the messages get sent
+                 (_a = this.process.stderr) === null || _a === void 0 ? void 0 : _a.on('data', (chunk) => {
+                     // Parse the data as a string and log it

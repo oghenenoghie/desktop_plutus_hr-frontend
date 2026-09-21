@@ -59,6 +59,25 @@ jobs:
 
       - name: Package Electron installer
         run: npm run electron:package
+        env:
+          # macOS Developer ID signing (electron-builder reads CSC_LINK /
+          # CSC_KEY_PASSWORD directly — a base64-encoded .p12 or a URL to
+          # one, plus its password). Unset on this repo today, so mac and
+          # win both build unsigned exactly as before; add these as repo
+          # secrets to turn signing on with no further workflow changes.
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          # macOS notarization — electron-builder notarizes automatically
+          # once all three of these are set (no separate config needed).
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows Authenticode signing (a base64-encoded .pfx or a URL to
+          # one, plus its password). WIN_CSC_LINK takes priority over
+          # CSC_LINK on Windows, so this doesn't collide with the mac cert
+          # above even though both run in the same workflow.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4

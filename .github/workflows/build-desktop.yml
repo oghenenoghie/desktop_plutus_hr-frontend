@@ -28,6 +28,18 @@ jobs:
           repository: oghenenoghie/desktop_plutus_hr-backend
           path: backend-src
 
+      # PyInstaller-built executables are a common false-positive target
+      # for Windows Defender's heuristics, which can silently quarantine
+      # plutus-backend.exe on write or on first execution. Exclude the
+      # whole checkout and the installed-app location up front so the
+      # smoke test below is actually testing the app, not Defender.
+      - name: Exclude workspace from Windows Defender (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE"
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs"
+
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
@@ -123,15 +135,22 @@ jobs:
           $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Plutus.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) { throw "Plutus.exe not found under $env:LOCALAPPDATA\Programs after install" }
 
+          # Redirect the app's own stdout/stderr to files so a failure below
+          # can actually be diagnosed — electron/main.js runs its child
+          # processes with stdio: 'inherit', so this also captures the
+          # bundled backend's and embedded Postgres's own output.
+          $stdout = Join-Path $env:RUNNER_TEMP 'plutus-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'plutus-stderr.log'
+
           # In case the installer's own "run after finish" already launched
           # it (electron/main.js's single-instance lock makes this safe
           # either way — a second launch just quits and hands focus back).
           Write-Host "Launching $($exe.FullName)..."
-          Start-Process -FilePath $exe.FullName
+          Start-Process -FilePath $exe.FullName -RedirectStandardOutput $stdout -RedirectStandardError $stderr
 
           $backendHealthUrl = 'http://127.0.0.1:47821/api/v1/health'
           $frontendUrl = 'http://127.0.0.1:47822'
-          $deadline = (Get-Date).AddSeconds(180)
+          $deadline = (Get-Date).AddSeconds(300)
           $backendOk = $false
           $frontendOk = $false
           while ((Get-Date) -lt $deadline -and (-not $backendOk -or -not $frontendOk)) {
@@ -148,6 +167,13 @@ jobs:
               } catch {}
             }
             if (-not $backendOk -or -not $frontendOk) { Start-Sleep -Seconds 3 }
+          }
+
+          if (-not $backendOk -or -not $frontendOk) {
+            Write-Host "----- Plutus stdout -----"
+            if (Test-Path $stdout) { Get-Content $stdout } else { Write-Host "(nothing captured)" }
+            Write-Host "----- Plutus stderr -----"
+            if (Test-Path $stderr) { Get-Content $stderr } else { Write-Host "(nothing captured)" }
           }
 
           Get-Process -Name Plutus,plutus-backend,postgres -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

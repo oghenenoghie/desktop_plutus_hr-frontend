@@ -55,6 +55,28 @@ Roles are `admin`, `payroll_manager`, `manager`, `employee` (from `GET /auth/me`
 
 Colors, type scale, spacing and component patterns follow Plutus's "Ledger" design system — flat, bordered, institutional, no shadows, whole-naira currency. Tokens live as CSS custom properties in `src/app/globals.css` and are exposed to Tailwind via `@theme inline` (`bg-primary`, `text-good`, `rounded-card`, etc.).
 
+## Desktop app
+
+`electron/` packages this app as a fully offline desktop build: an
+Electron shell that spawns an embedded Postgres, the `plutus-hr-system`
+backend (bundled by that repo's `desktop/build.sh` into a standalone
+executable), and this app's own Next.js standalone server — all on
+127.0.0.1, no cloud backend or network access required.
+
+```bash
+# 1. Build the backend executable in a sibling checkout of
+#    desktop_plutus_hr-backend (or set BACKEND_DIST_DIR to point elsewhere):
+#    cd ../desktop_plutus_hr-backend && ./desktop/build.sh
+
+npm run electron:build-frontend    # next build with output: 'standalone'
+npm run electron:prepare-resources # copies both bundles into resources/
+npm run electron:package           # electron-builder -> release/
+```
+
+`npm run electron:dist` runs all three in sequence. `.github/workflows/build-desktop.yml`
+does the same for macOS/Windows/Linux on `workflow_dispatch` or a
+`desktop-v*` tag — the resulting installers aren't code-signed yet.
+
 ## What's scaffolded vs. stubbed
 
 Every backend list/read endpoint is wired up and rendering real data. Write actions are wired where they're a single click (leave/expense approvals, statutory filing/remittance, benefit lookups). Multi-field create forms are done for the two that unblock everything else — **New Employee** (`/employees/new`) and **New Pay Run** (`/payroll/new`). Still not built: new loan/expense/benefit application forms — that's the natural next slice of work on top of this scaffold.

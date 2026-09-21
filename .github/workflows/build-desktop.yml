@@ -1,0 +1,71 @@
+name: Build desktop app
+
+# Builds the fully offline Electron app (frontend + bundled backend +
+# embedded Postgres — see electron/) for macOS, Windows and Linux. Not
+# wired to run on every push: it's slow (a full PyInstaller build per OS)
+# and the installers aren't code-signed, so this is meant to be triggered
+# manually or from a release tag, not gate ordinary PRs.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "desktop-v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: oghenenoghie/desktop_plutus_hr-backend
+          path: backend-src
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install backend dependencies
+        working-directory: backend-src
+        run: uv sync --locked --dev
+
+      - name: Build backend executable (PyInstaller)
+        working-directory: backend-src
+        run: uv run pyinstaller desktop/plutus-backend.spec --noconfirm --distpath dist --workpath build
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Next.js standalone bundle
+        run: npm run electron:build-frontend
+
+      - name: Assemble desktop resources
+        run: npm run electron:prepare-resources
+        env:
+          BACKEND_DIST_DIR: ${{ github.workspace }}/backend-src/dist/plutus-backend
+
+      - name: Package Electron installer
+        run: npm run electron:package
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plutus-desktop-${{ matrix.os }}
+          path: |
+            release/*.dmg
+            release/*.exe
+            release/*.AppImage
+          if-no-files-found: error

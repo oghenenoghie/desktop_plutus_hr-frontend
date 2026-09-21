@@ -1,0 +1,25 @@
+appId: com.plutustechnologies.hr
+productName: Plutus
+directories:
+  output: release
+files:
+  - electron/**/*
+  - node_modules/**/*
+  - package.json
+  - "!node_modules/@embedded-postgres/**/postgres*/**/{doc,man,include}/**"
+asarUnpack:
+  - node_modules/embedded-postgres/**
+  - node_modules/@embedded-postgres/**
+extraResources:
+  - from: resources/frontend
+    to: frontend
+  - from: resources/backend
+    to: backend
+mac:
+  target: dmg
+  category: public.app-category.business
+win:
+  target: nsis
+linux:
+  target: AppImage
+  category: Office

@@ -2,13 +2,22 @@
   "name": "plutus-hr-system-frontend",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
+  "author": "Plutus Technologies",
+  "description": "Plutus HR — compliance-native HR and payroll platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron:build-frontend": "node electron/build-frontend.js",
+    "electron:prepare-resources": "node electron/prepare-resources.js",
+    "electron:dev": "electron .",
+    "electron:package": "electron-builder --publish=never",
+    "electron:dist": "npm run electron:build-frontend && npm run electron:prepare-resources && npm run electron:package"
   },
   "dependencies": {
+    "embedded-postgres": "^18.4.0-beta.17",
     "lucide-react": "^1.41.0",
     "next": "16.3.4",
     "react": "19.2.8",
@@ -19,6 +28,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^33",
+    "electron-builder": "^25",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",

@@ -66,6 +66,45 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # Isolates one variable at a time: does the OS itself stall/refuse to
+      # even start this specific unsigned binary, independent of Electron,
+      # the installer, or anything else in the app? Three smoke-test rounds
+      # now show electron/main.js's startPostgres() hanging at exactly the
+      # `postgres.initialise()` call (which runs initdb.exe) with zero
+      # output and no pgdata dir ever created — and excluding %APPDATA%
+      # from Defender (the most likely non-app cause) didn't change that
+      # at all, ruling it out. This runs the exact same binary directly,
+      # with a hard timeout, before any of the rest of the pipeline.
+      - name: Diagnose embedded-postgres initdb.exe directly (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $initdb = Join-Path (Get-Location) "node_modules\@embedded-postgres\windows-x64\native\bin\initdb.exe"
+          if (-not (Test-Path $initdb)) { throw "initdb.exe not found at $initdb" }
+
+          Write-Host "Running: $initdb --version"
+          $stdout1 = Join-Path $env:RUNNER_TEMP 'initdb-version-stdout.log'
+          $stderr1 = Join-Path $env:RUNNER_TEMP 'initdb-version-stderr.log'
+          $p1 = Start-Process -FilePath $initdb -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout1 -RedirectStandardError $stderr1
+          $done1 = $p1.WaitForExit(30000)
+          Write-Host "Completed within 30s: $done1"
+          if (-not $done1) { Stop-Process -Id $p1.Id -Force -ErrorAction SilentlyContinue } else { Write-Host "ExitCode: $($p1.ExitCode)" }
+          Write-Host "----- --version stdout -----"; Get-Content $stdout1 -ErrorAction SilentlyContinue
+          Write-Host "----- --version stderr -----"; Get-Content $stderr1 -ErrorAction SilentlyContinue
+
+          $dataDir = Join-Path $env:RUNNER_TEMP 'pgtest-data'
+          Write-Host "Running: $initdb -D $dataDir -U postgres -A trust"
+          $stdout2 = Join-Path $env:RUNNER_TEMP 'initdb-run-stdout.log'
+          $stderr2 = Join-Path $env:RUNNER_TEMP 'initdb-run-stderr.log'
+          $p2 = Start-Process -FilePath $initdb -ArgumentList "-D `"$dataDir`" -U postgres -A trust" -PassThru -RedirectStandardOutput $stdout2 -RedirectStandardError $stderr2
+          $done2 = $p2.WaitForExit(60000)
+          Write-Host "Completed within 60s: $done2"
+          if (-not $done2) { Stop-Process -Id $p2.Id -Force -ErrorAction SilentlyContinue } else { Write-Host "ExitCode: $($p2.ExitCode)" }
+          Write-Host "----- initdb run stdout -----"; Get-Content $stdout2 -ErrorAction SilentlyContinue
+          Write-Host "----- initdb run stderr -----"; Get-Content $stderr2 -ErrorAction SilentlyContinue
+          Write-Host "----- dataDir contents -----"
+          if (Test-Path $dataDir) { Get-ChildItem -Recurse $dataDir | Select-Object FullName | Format-Table -AutoSize | Out-String | Write-Host } else { Write-Host "(nothing created)" }
+
       - name: Build Next.js standalone bundle
         run: npm run electron:build-frontend
 

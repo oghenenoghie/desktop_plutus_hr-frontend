@@ -165,33 +165,51 @@ async function shutdown() {
   }
 }
 
-app.whenReady().then(async () => {
-  const userDataDir = app.getPath("userData");
-  fs.mkdirSync(userDataDir, { recursive: true });
+// A second launch (a user double-clicking the app again, or an installer
+// that auto-runs it right after our own explicit launch — as some silent
+// NSIS installs do) would otherwise try to bind the same fixed ports the
+// first instance already holds. Fail that second launch immediately and
+// hand focus back to the running window instead.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
-  try {
-    const pgPassword = await startPostgres(userDataDir);
-    startBackend(userDataDir, pgPassword);
-    await waitForHttpOk(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`);
-
-    startFrontend();
-    await waitForHttpOk(`http://127.0.0.1:${FRONTEND_PORT}`);
-
-    await createWindow();
-  } catch (error) {
-    console.error("Failed to start Plutus desktop:", error);
-    await shutdown();
-    app.exit(1);
-  }
-});
-
-app.on("window-all-closed", () => {
+if (!gotSingleInstanceLock) {
   app.quit();
-});
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
 
-app.on("before-quit", async (event) => {
-  if (shuttingDown) return;
-  event.preventDefault();
-  await shutdown();
-  app.exit(0);
-});
+  app.whenReady().then(async () => {
+    const userDataDir = app.getPath("userData");
+    fs.mkdirSync(userDataDir, { recursive: true });
+
+    try {
+      const pgPassword = await startPostgres(userDataDir);
+      startBackend(userDataDir, pgPassword);
+      await waitForHttpOk(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`);
+
+      startFrontend();
+      await waitForHttpOk(`http://127.0.0.1:${FRONTEND_PORT}`);
+
+      await createWindow();
+    } catch (error) {
+      console.error("Failed to start Plutus desktop:", error);
+      await shutdown();
+      app.exit(1);
+    }
+  });
+
+  app.on("window-all-closed", () => {
+    app.quit();
+  });
+
+  app.on("before-quit", async (event) => {
+    if (shuttingDown) return;
+    event.preventDefault();
+    await shutdown();
+    app.exit(0);
+  });
+}

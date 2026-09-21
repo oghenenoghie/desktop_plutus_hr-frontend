@@ -1,5 +1,5 @@
 diff --git a/node_modules/embedded-postgres/dist/index.js b/node_modules/embedded-postgres/dist/index.js
-index d80bf0b..ce2377a 100644
+index d80bf0b..6fbaa08 100644
 --- a/node_modules/embedded-postgres/dist/index.js
 +++ b/node_modules/embedded-postgres/dist/index.js
 @@ -156,7 +156,7 @@ class EmbeddedPostgres {
@@ -21,7 +21,77 @@ index d80bf0b..ce2377a 100644
                  });
              }
              finally {
-@@ -209,7 +212,7 @@ class EmbeddedPostgres {
+@@ -191,13 +194,68 @@ class EmbeddedPostgres {
+      */
+     start() {
+         return __awaiter(this, void 0, void 0, function* () {
+-            const { postgres } = yield bin;
++            const { postgres, pg_ctl } = yield bin;
+             const locale = getBestLocale();
+             // Optionally retrieve the uid and gid
+             const permissionIds = yield this.getUidAndGid()
+                 .catch(() => {
+                 throw new Error('Postgres cannot run as a root user. embedded-postgres could not find a postgres user to run as instead. Consider using the `createPostgresUser` option.');
+             });
++            if (platform() === 'win32') {
++                // postgres.exe refuses to run directly as a Windows
++                // Administrator ("Execution of PostgreSQL by a user with
++                // administrative permissions is not permitted") — an
++                // account many desktop users (and CI runners) are actually
++                // running as. pg_ctl has built-in handling for exactly
++                // this: it detects an elevated token and re-launches
++                // postgres under an automatically created restricted
++                // (non-admin) token instead. Spawn pg_ctl rather than
++                // postgres directly so that demotion happens.
++                ensureBinIsExecutable(pg_ctl);
++                const logFile = path.join(this.options.databaseDir, 'pg-server.log');
++                const extraOptions = [`-p ${this.options.port}`, ...this.options.postgresFlags].join(' ');
++                yield new Promise((resolve, reject) => {
++                    var _a, _b;
++                    const ctl = spawn(pg_ctl, [
++                        'start',
++                        '-D',
++                        this.options.databaseDir,
++                        '-l',
++                        logFile,
++                        '-w',
++                        '-o',
++                        extraOptions,
++                    ], Object.assign(Object.assign({}, permissionIds), { env: Object.assign(Object.assign({}, process.env), { LC_MESSAGES: locale }), stdio: ['ignore', 'pipe', 'pipe'] }));
++                    let stderrOutput = '';
++                    (_a = ctl.stdout) === null || _a === void 0 ? void 0 : _a.on('data', (chunk) => {
++                        this.options.onLog(chunk.toString('utf-8'));
++                    });
++                    (_b = ctl.stderr) === null || _b === void 0 ? void 0 : _b.on('data', (chunk) => {
++                        const message = chunk.toString('utf-8');
++                        stderrOutput += message;
++                        this.options.onLog(`[STDERR] ${message}`);
++                    });
++                    ctl.on('close', (code) => {
++                        if (code === 0) {
++                            resolve();
++                        }
++                        else {
++                            reject(new Error(`pg_ctl start failed (code: ${code !== null && code !== void 0 ? code : 'null'}). ERROR OUTPUT: ${stderrOutput}`));
++                        }
++                    });
++                    ctl.on('error', (err) => {
++                        reject(new Error(`Failed to spawn pg_ctl process: ${err.message}`));
++                    });
++                });
++                // pg_ctl detaches the actual postgres server from this
++                // process — there's no ChildProcess handle for it to keep.
++                // stop() recognises this marker and shuts the server down
++                // via `pg_ctl stop` (which reads the real pid itself from
++                // postmaster.pid) instead of signalling a handle we don't
++                // have.
++                this.process = { win32PgCtl: true };
++                return;
++            }
+             // Make the file executable, in case it is not
+             ensureBinIsExecutable(postgres);
+             yield new Promise((resolve, reject) => {
+@@ -209,7 +267,7 @@ class EmbeddedPostgres {
                      '-p',
                      this.options.port.toString(),
                      ...this.options.postgresFlags,
@@ -30,7 +100,7 @@ index d80bf0b..ce2377a 100644
                  // Connect to stderr, as that is where the messages get sent
                  (_a = this.process.stderr) === null || _a === void 0 ? void 0 : _a.on('data', (chunk) => {
                      // Parse the data as a string and log it
-@@ -222,7 +225,10 @@ class EmbeddedPostgres {
+@@ -222,7 +280,10 @@ class EmbeddedPostgres {
                  });
                  // In case the process exits early, the promise is rejected.
                  this.process.on('close', () => {
@@ -42,3 +112,28 @@ index d80bf0b..ce2377a 100644
                  });
              });
          });
+@@ -239,6 +300,24 @@ class EmbeddedPostgres {
+             if (!this.process) {
+                 return;
+             }
++            // The server was started via pg_ctl (see start()'s win32
++            // branch), which detached it from this process — there is no
++            // ChildProcess handle or reliable pid to signal/taskkill here.
++            // Shut it down the same way: pg_ctl reads the real pid itself
++            // from postmaster.pid in the data directory.
++            if (this.process.win32PgCtl) {
++                const { pg_ctl } = yield bin;
++                yield new Promise((resolve) => {
++                    const ctl = spawn(pg_ctl, ['stop', '-D', this.options.databaseDir, '-m', 'fast', '-w']);
++                    ctl.on('close', () => resolve());
++                    ctl.on('error', () => resolve());
++                });
++                this.process = undefined;
++                if (this.options.persistent === false) {
++                    yield fs.rm(this.options.databaseDir, { recursive: true, force: true });
++                }
++                return;
++            }
+             // Kill the existing postgres process
+             yield new Promise((resolve) => {
+                 var _a, _b, _c;

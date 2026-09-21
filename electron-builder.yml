@@ -7,6 +7,7 @@ files:
   - node_modules/**/*
   - package.json
   - "!node_modules/@embedded-postgres/**/postgres*/**/{doc,man,include}/**"
+  - "!electron/entitlements.mac.plist"
 asarUnpack:
   - node_modules/embedded-postgres/**
   - node_modules/@embedded-postgres/**
@@ -18,6 +19,14 @@ extraResources:
 mac:
   target: dmg
   category: public.app-category.business
+  # Required for notarization (see build-desktop.yml's APPLE_* secrets).
+  # electron-builder notarizes automatically when APPLE_ID/
+  # APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID are set; with no signing
+  # secrets configured, mac/win both just build unsigned as before.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: electron/entitlements.mac.plist
+  entitlementsInherit: electron/entitlements.mac.plist
 win:
   target: nsis
 linux:

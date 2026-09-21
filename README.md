@@ -75,7 +75,20 @@ npm run electron:package           # electron-builder -> release/
 
 `npm run electron:dist` runs all three in sequence. `.github/workflows/build-desktop.yml`
 does the same for macOS/Windows/Linux on `workflow_dispatch` or a
-`desktop-v*` tag — the resulting installers aren't code-signed yet.
+`desktop-v*` tag.
+
+### Code signing
+
+Unsigned by default — no repo secrets configured means mac/win builds are
+exactly as before (Gatekeeper/SmartScreen warnings on first launch). Add
+these as repo secrets to turn signing (and macOS notarization) on with no
+further workflow changes:
+
+| Secret | Purpose |
+| --- | --- |
+| `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD` | Developer ID Application cert (base64 `.p12`, or a URL to one) + its password |
+| `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` | Notarization — electron-builder notarizes automatically once all three are set |
+| `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` | Authenticode cert (base64 `.pfx`, or a URL to one) + its password |
 
 ## What's scaffolded vs. stubbed
 

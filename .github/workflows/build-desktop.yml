@@ -58,26 +58,40 @@ jobs:
           BACKEND_DIST_DIR: ${{ github.workspace }}/backend-src/dist/plutus-backend
 
       - name: Package Electron installer
-        run: npm run electron:package
+        shell: bash
+        run: |
+          # An unconfigured GitHub Actions secret resolves to an *empty
+          # string*, not an absent env var — and electron-builder's mac
+          # signing treats CSC_LINK="" differently from CSC_LINK being
+          # unset at all (it still tries to use it as an identity/file
+          # path and fails with "not a file"). So only export each var
+          # when its secret actually has a value, to fall back to the
+          # same unsigned build as before signing was wired up.
+          if [ -n "$MAC_CSC_LINK_RAW" ]; then export CSC_LINK="$MAC_CSC_LINK_RAW"; fi
+          if [ -n "$MAC_CSC_KEY_PASSWORD_RAW" ]; then export CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD_RAW"; fi
+          if [ -n "$APPLE_ID_RAW" ]; then export APPLE_ID="$APPLE_ID_RAW"; fi
+          if [ -n "$APPLE_APP_SPECIFIC_PASSWORD_RAW" ]; then export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_APP_SPECIFIC_PASSWORD_RAW"; fi
+          if [ -n "$APPLE_TEAM_ID_RAW" ]; then export APPLE_TEAM_ID="$APPLE_TEAM_ID_RAW"; fi
+          if [ -n "$WIN_CSC_LINK_RAW" ]; then export WIN_CSC_LINK="$WIN_CSC_LINK_RAW"; fi
+          if [ -n "$WIN_CSC_KEY_PASSWORD_RAW" ]; then export WIN_CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD_RAW"; fi
+          npm run electron:package
         env:
           # macOS Developer ID signing (electron-builder reads CSC_LINK /
-          # CSC_KEY_PASSWORD directly — a base64-encoded .p12 or a URL to
-          # one, plus its password). Unset on this repo today, so mac and
-          # win both build unsigned exactly as before; add these as repo
-          # secrets to turn signing on with no further workflow changes.
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          # CSC_KEY_PASSWORD — a base64-encoded .p12 or a URL to one, plus
+          # its password).
+          MAC_CSC_LINK_RAW: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD_RAW: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           # macOS notarization — electron-builder notarizes automatically
           # once all three of these are set (no separate config needed).
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_RAW: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD_RAW: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID_RAW: ${{ secrets.APPLE_TEAM_ID }}
           # Windows Authenticode signing (a base64-encoded .pfx or a URL to
           # one, plus its password). WIN_CSC_LINK takes priority over
           # CSC_LINK on Windows, so this doesn't collide with the mac cert
           # above even though both run in the same workflow.
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_CSC_LINK_RAW: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD_RAW: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4

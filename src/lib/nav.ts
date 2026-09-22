@@ -251,7 +251,7 @@ export const NAV_GROUPS: NavGroup[] = [
           },
           {
             href: "/learning",
-            label: "Training and Development",
+            label: "Learning and Development",
             icon: "learning",
             roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "auditor"],
           },
@@ -320,20 +320,14 @@ export const NAV_GROUPS: NavGroup[] = [
         items: [
           {
             href: "/bills",
-            label: "Bills",
+            label: "Vendors",
             icon: "bills",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {
             href: "/invoices",
-            label: "Invoices",
+            label: "Customers",
             icon: "invoices",
-            roles: ["admin", "payroll_manager", "accountant", "auditor"],
-          },
-          {
-            href: "/reports",
-            label: "Financial Reports",
-            icon: "reports",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],
@@ -345,6 +339,12 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/general-ledger",
             label: "General Ledger",
             icon: "generalLedger",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/reports",
+            label: "Financial Reports",
+            icon: "reports",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {

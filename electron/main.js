@@ -206,7 +206,7 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
-    title: "Plutus",
+    title: "Plutus Technology",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

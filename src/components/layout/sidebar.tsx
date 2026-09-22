@@ -251,7 +251,7 @@ export function Sidebar({
         <div className="flex items-center justify-between px-6 py-6">
           <div>
             <div className="text-[15px] font-extrabold tracking-tight">
-              Plutus
+              Plutus Technology
             </div>
             <div className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.03em] text-white/50">
               Ledger

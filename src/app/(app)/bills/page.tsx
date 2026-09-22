@@ -108,7 +108,7 @@ export default function BillsPage() {
   return (
     <div>
       <PageHeader
-        title="Bills"
+        title="Vendors"
         subtitle="Accounts payable — money this org owes its vendors"
         action={
           <div className="flex gap-3">

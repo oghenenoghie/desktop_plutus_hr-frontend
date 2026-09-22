@@ -14,7 +14,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Plutus — Payroll & Compliance",
+  title: "Plutus Technology — Payroll & Compliance",
   description: "The compliance-native payroll platform for Nigeria and Africa.",
 };
 

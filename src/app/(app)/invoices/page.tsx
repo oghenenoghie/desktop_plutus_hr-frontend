@@ -87,7 +87,7 @@ export default function InvoicesPage() {
   return (
     <div>
       <PageHeader
-        title="Invoices"
+        title="Customers"
         subtitle="Accounts receivable — money owed to this org by its customers"
         action={
           <div className="flex gap-3">

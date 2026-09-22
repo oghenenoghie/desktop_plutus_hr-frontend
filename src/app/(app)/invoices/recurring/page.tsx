@@ -41,7 +41,7 @@ export default function RecurringInvoicesPage() {
   async function generateDue() {
     try {
       const generated = await recurringInvoicesApi.generateDue();
-      showToast(`Generated ${generated.length} invoice(s)`, "good");
+      showToast(`Generated ${generated.length} customer invoice(s)`, "good");
       templates.reload();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
@@ -51,16 +51,16 @@ export default function RecurringInvoicesPage() {
   return (
     <div>
       <PageHeader
-        title="Recurring Invoices"
-        subtitle="Templates that generate a new invoice automatically on their schedule"
+        title="Recurring Customer Invoices"
+        subtitle="Templates that generate a new customer invoice automatically on their schedule"
         action={
           <div className="flex gap-3">
             <ConfirmActionButton
               action={generateDue}
-              label="Generate Due Invoices"
+              label="Generate Due Customer Invoices"
               tone="primary"
-              confirmTitle="Generate all due invoices now?"
-              confirmMessage="Creates a new invoice for every active template whose next run date has arrived."
+              confirmTitle="Generate all due customer invoices now?"
+              confirmMessage="Creates a new customer invoice for every active template whose next run date has arrived."
               confirmLabel="Generate"
             />
             <Button onClick={() => setCreating(true)}>New Template</Button>
@@ -72,7 +72,7 @@ export default function RecurringInvoicesPage() {
         {templates.loading ? <LoadingState /> : null}
         {templates.error ? <ErrorState message={templates.error} /> : null}
         {templates.data && templates.data.length === 0 ? (
-          <EmptyState label="No recurring invoice templates yet." />
+          <EmptyState label="No recurring customer invoice templates yet." />
         ) : null}
         {templates.data && templates.data.length > 0 ? (
           <Table>
@@ -157,7 +157,7 @@ function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void
         frequency,
         next_run_date: nextRunDate,
       });
-      showToast("Recurring invoice template created", "good");
+      showToast("Recurring customer invoice template created", "good");
       onCreated();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
@@ -166,7 +166,7 @@ function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void
   }
 
   return (
-    <Drawer title="New Recurring Invoice Template" onClose={onClose}>
+    <Drawer title="New Recurring Customer Invoice Template" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="customer">Customer</Label>
@@ -180,7 +180,7 @@ function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void
           </Select>
         </div>
         <div>
-          <Label htmlFor="invoiceNumberPrefix">Invoice Number Prefix</Label>
+          <Label htmlFor="invoiceNumberPrefix">Customer Invoice Number Prefix</Label>
           <Input
             id="invoiceNumberPrefix"
             value={invoiceNumberPrefix}

@@ -22,12 +22,12 @@ export default function CustomersPage() {
   return (
     <div>
       <PageHeader
-        title="Customers"
+        title="Customer List"
         subtitle="Who owes this org money for goods and services rendered"
         action={
           <div className="flex gap-3">
             <Link href="/invoices">
-              <Button variant="secondary">Back to Invoices</Button>
+              <Button variant="secondary">Back to Customers</Button>
             </Link>
             <Button onClick={() => setCreating(true)}>New Customer</Button>
           </div>

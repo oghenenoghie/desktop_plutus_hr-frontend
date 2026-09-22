@@ -22,12 +22,12 @@ export default function VendorsPage() {
   return (
     <div>
       <PageHeader
-        title="Vendors"
+        title="Vendor List"
         subtitle="Who this org owes money to for goods and services"
         action={
           <div className="flex gap-3">
             <Link href="/bills">
-              <Button variant="secondary">Back to Bills</Button>
+              <Button variant="secondary">Back to Vendors</Button>
             </Link>
             <Button onClick={() => setCreating(true)}>New Vendor</Button>
           </div>

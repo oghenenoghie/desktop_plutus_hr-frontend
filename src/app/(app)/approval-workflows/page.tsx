@@ -22,7 +22,7 @@ import type {
 const REQUEST_TYPES: { value: ApprovalRequestType; label: string }[] = [
   { value: "leave_request", label: "Leave Requests" },
   { value: "expense", label: "Expenses" },
-  { value: "bill", label: "Bills" },
+  { value: "bill", label: "Vendor Bills" },
 ];
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [

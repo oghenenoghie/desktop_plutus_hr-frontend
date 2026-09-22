@@ -113,12 +113,12 @@ export default function BillsPage() {
         action={
           <div className="flex gap-3">
             <Link href="/bills/vendors">
-              <Button variant="secondary">Vendors</Button>
+              <Button variant="secondary">Vendor List</Button>
             </Link>
             <Link href="/bills/recurring">
               <Button variant="secondary">Recurring</Button>
             </Link>
-            <Button onClick={() => setCreating(true)}>New Bill</Button>
+            <Button onClick={() => setCreating(true)}>New Vendor Bill</Button>
           </div>
         }
       />
@@ -127,13 +127,13 @@ export default function BillsPage() {
         {bills.loading ? <LoadingState /> : null}
         {bills.error ? <ErrorState message={bills.error} /> : null}
         {bills.data && bills.data.length === 0 ? (
-          <EmptyState label="No bills yet." />
+          <EmptyState label="No vendor bills yet." />
         ) : null}
         {bills.data && bills.data.length > 0 ? (
           <Table>
             <Thead>
               <tr>
-                <Th>Bill #</Th>
+                <Th>Vendor Bill #</Th>
                 <Th>Vendor</Th>
                 <Th>Due</Th>
                 <Th align="right">Amount</Th>
@@ -179,7 +179,7 @@ export default function BillsPage() {
                               action={() => act(billsApi.approve, bill)}
                               label="Approve"
                               tone="primary"
-                              confirmTitle="Approve this bill?"
+                              confirmTitle="Approve this vendor bill?"
                               confirmMessage={`This posts ${formatNaira(bill.amount_minor)} as an expense and a payable against "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`}
                               confirmLabel="Approve"
                             />
@@ -187,7 +187,7 @@ export default function BillsPage() {
                               action={() => act(billsApi.void, bill)}
                               label="Void"
                               tone="danger"
-                              confirmTitle="Void this bill?"
+                              confirmTitle="Void this vendor bill?"
                               confirmMessage="This can't be undone."
                               confirmLabel="Void"
                             />
@@ -198,7 +198,7 @@ export default function BillsPage() {
                             action={() => act(billsApi.pay, bill)}
                             label="Mark Paid"
                             tone="primary"
-                            confirmTitle="Mark this bill as paid?"
+                            confirmTitle="Mark this vendor bill as paid?"
                             confirmMessage={`This clears ${formatNaira(bill.amount_minor)} from accounts payable against cash.`}
                             confirmLabel="Mark Paid"
                           />
@@ -250,8 +250,8 @@ export default function BillsPage() {
 
       {emailingBill ? (
         <EmailPdfDrawer
-          title={`Email Bill ${emailingBill.bill_number}`}
-          description={`Sends bill ${emailingBill.bill_number} (${formatNaira(emailingBill.amount_minor)}) as a PDF attachment.`}
+          title={`Email Vendor Bill ${emailingBill.bill_number}`}
+          description={`Sends vendor bill ${emailingBill.bill_number} (${formatNaira(emailingBill.amount_minor)}) as a PDF attachment.`}
           defaultTo={vendorById.get(emailingBill.vendor_id)?.contact_email}
           onClose={() => setEmailingBill(null)}
           onSend={(to) => billsApi.email(emailingBill.id, to)}
@@ -324,7 +324,7 @@ function NewBillDrawer({
   }
 
   return (
-    <Drawer title="New Bill" onClose={onClose}>
+    <Drawer title="New Vendor Bill" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="vendor">Vendor</Label>
@@ -343,7 +343,7 @@ function NewBillDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="billNumber">Bill Number</Label>
+          <Label htmlFor="billNumber">Vendor Bill Number</Label>
           <Input
             id="billNumber"
             value={billNumber}
@@ -354,7 +354,7 @@ function NewBillDrawer({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="billDate">Bill Date</Label>
+            <Label htmlFor="billDate">Vendor Bill Date</Label>
             <Input
               id="billDate"
               type="date"
@@ -440,7 +440,7 @@ function NewBillDrawer({
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create Bill"}
+            {submitting ? "Creating…" : "Create Vendor Bill"}
           </Button>
         </div>
       </form>

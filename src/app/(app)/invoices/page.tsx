@@ -92,12 +92,12 @@ export default function InvoicesPage() {
         action={
           <div className="flex gap-3">
             <Link href="/invoices/customers">
-              <Button variant="secondary">Customers</Button>
+              <Button variant="secondary">Customer List</Button>
             </Link>
             <Link href="/invoices/recurring">
               <Button variant="secondary">Recurring</Button>
             </Link>
-            <Button onClick={() => setCreating(true)}>New Invoice</Button>
+            <Button onClick={() => setCreating(true)}>New Customer Invoice</Button>
           </div>
         }
       />
@@ -106,13 +106,13 @@ export default function InvoicesPage() {
         {invoices.loading ? <LoadingState /> : null}
         {invoices.error ? <ErrorState message={invoices.error} /> : null}
         {invoices.data && invoices.data.length === 0 ? (
-          <EmptyState label="No invoices yet." />
+          <EmptyState label="No customer invoices yet." />
         ) : null}
         {invoices.data && invoices.data.length > 0 ? (
           <Table>
             <Thead>
               <tr>
-                <Th>Invoice #</Th>
+                <Th>Customer Invoice #</Th>
                 <Th>Customer</Th>
                 <Th>Due</Th>
                 <Th align="right">Amount</Th>
@@ -138,7 +138,7 @@ export default function InvoicesPage() {
                             action={() => act(invoicesApi.send, invoice)}
                             label="Send"
                             tone="primary"
-                            confirmTitle="Send this invoice?"
+                            confirmTitle="Send this customer invoice?"
                             confirmMessage={`This posts ${formatNaira(invoice.amount_minor)} as revenue and a receivable against "${customerNameById.get(invoice.customer_id) ?? "this customer"}".`}
                             confirmLabel="Send"
                           />
@@ -146,7 +146,7 @@ export default function InvoicesPage() {
                             action={() => act(invoicesApi.void, invoice)}
                             label="Void"
                             tone="danger"
-                            confirmTitle="Void this invoice?"
+                            confirmTitle="Void this customer invoice?"
                             confirmMessage="This can't be undone."
                             confirmLabel="Void"
                           />
@@ -157,7 +157,7 @@ export default function InvoicesPage() {
                           action={() => act(invoicesApi.pay, invoice)}
                           label="Mark Paid"
                           tone="primary"
-                          confirmTitle="Mark this invoice as paid?"
+                          confirmTitle="Mark this customer invoice as paid?"
                           confirmMessage={`This clears ${formatNaira(invoice.amount_minor)} from accounts receivable against cash.`}
                           confirmLabel="Mark Paid"
                         />
@@ -201,8 +201,8 @@ export default function InvoicesPage() {
 
       {emailingInvoice ? (
         <EmailPdfDrawer
-          title={`Email Invoice ${emailingInvoice.invoice_number}`}
-          description={`Sends invoice ${emailingInvoice.invoice_number} (${formatNaira(emailingInvoice.amount_minor)}) as a PDF attachment.`}
+          title={`Email Customer Invoice ${emailingInvoice.invoice_number}`}
+          description={`Sends customer invoice ${emailingInvoice.invoice_number} (${formatNaira(emailingInvoice.amount_minor)}) as a PDF attachment.`}
           defaultTo={
             customerById.get(emailingInvoice.customer_id)?.contact_email
           }
@@ -427,7 +427,7 @@ function NewInvoiceDrawer({
   }
 
   return (
-    <Drawer title="New Invoice" onClose={onClose}>
+    <Drawer title="New Customer Invoice" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="customer">Customer</Label>
@@ -446,7 +446,7 @@ function NewInvoiceDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="invoiceNumber">Invoice Number</Label>
+          <Label htmlFor="invoiceNumber">Customer Invoice Number</Label>
           <Input
             id="invoiceNumber"
             value={invoiceNumber}
@@ -517,7 +517,7 @@ function NewInvoiceDrawer({
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create Invoice"}
+            {submitting ? "Creating…" : "Create Customer Invoice"}
           </Button>
         </div>
       </form>

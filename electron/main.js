@@ -7,7 +7,7 @@
 // alembic migrations on every start), and the Next.js standalone server.
 // The BrowserWindow just points at the local Next server, same as any
 // browser tab.
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, dialog } = require("electron");
 const { spawn } = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -38,6 +38,41 @@ function logStartup(message) {
       // Best-effort — never let logging itself take down startup.
     }
   }
+}
+
+// Surfaces an unexpected process death instead of leaving the window open
+// on a UI that silently fails every request. The most common real-world
+// cause is antivirus quarantining the unsigned backend executable after
+// it already started — invisible from inside the renderer, which only
+// ever sees "Failed to fetch". Offers to relaunch, since a transient AV
+// scan-and-release often succeeds on retry once excluded.
+async function reportProcessCrash(processLabel, code, signal) {
+  // shutdown() below is what actually flips this flag — bail here only to
+  // avoid piling up a second dialog if both processes happen to die around
+  // the same time (e.g. the parent app itself is what's being killed).
+  if (shuttingDown) return;
+  logStartup(`${processLabel} process exited unexpectedly (code=${code}, signal=${signal}).`);
+  const detail =
+    `The ${processLabel} process stopped running unexpectedly ` +
+    `(exit code ${code ?? "unknown"}${signal ? `, signal ${signal}` : ""}).\n\n` +
+    "This is often caused by antivirus software quarantining the app's bundled executables, " +
+    "since they aren't code-signed yet. Try adding an exclusion for Plutus's install folder " +
+    "in your antivirus settings, then relaunch.\n\n" +
+    `Details were logged to:\n${startupLogPath}`;
+  const response = dialog.showMessageBoxSync(mainWindow ?? undefined, {
+    type: "error",
+    title: "Plutus stopped unexpectedly",
+    message: `${processLabel} stopped running`,
+    detail,
+    buttons: ["Relaunch", "Quit"],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  await shutdown();
+  if (response === 0) {
+    app.relaunch();
+  }
+  app.exit(1);
 }
 
 function resourcePath(...segments) {
@@ -134,10 +169,8 @@ function startBackend(userDataDir, pgPassword) {
     },
   });
 
-  backendProcess.on("exit", (code) => {
-    if (!shuttingDown && code !== 0) {
-      logStartup(`Backend process exited unexpectedly with code ${code}`);
-    }
+  backendProcess.on("exit", (code, signal) => {
+    if (code !== 0) reportProcessCrash("Backend", code, signal);
   });
   backendProcess.on("error", (error) => {
     logStartup(`Backend process failed to spawn: ${error}`);
@@ -161,10 +194,8 @@ function startFrontend() {
     },
   });
 
-  frontendProcess.on("exit", (code) => {
-    if (!shuttingDown && code !== 0) {
-      logStartup(`Frontend process exited unexpectedly with code ${code}`);
-    }
+  frontendProcess.on("exit", (code, signal) => {
+    if (code !== 0) reportProcessCrash("Frontend", code, signal);
   });
   frontendProcess.on("error", (error) => {
     logStartup(`Frontend process failed to spawn: ${error}`);

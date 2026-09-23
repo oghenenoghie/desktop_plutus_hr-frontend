@@ -41,7 +41,7 @@ export default function RecurringBillsPage() {
   async function generateDue() {
     try {
       const generated = await recurringBillsApi.generateDue();
-      showToast(`Generated ${generated.length} bill(s)`, "good");
+      showToast(`Generated ${generated.length} vendor bill(s)`, "good");
       templates.reload();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
@@ -51,16 +51,16 @@ export default function RecurringBillsPage() {
   return (
     <div>
       <PageHeader
-        title="Recurring Bills"
-        subtitle="Templates that generate a new bill automatically on their schedule"
+        title="Recurring Vendor Bills"
+        subtitle="Templates that generate a new vendor bill automatically on their schedule"
         action={
           <div className="flex gap-3">
             <ConfirmActionButton
               action={generateDue}
-              label="Generate Due Bills"
+              label="Generate Due Vendor Bills"
               tone="primary"
-              confirmTitle="Generate all due bills now?"
-              confirmMessage="Creates a new bill for every active template whose next run date has arrived."
+              confirmTitle="Generate all due vendor bills now?"
+              confirmMessage="Creates a new vendor bill for every active template whose next run date has arrived."
               confirmLabel="Generate"
             />
             <Button onClick={() => setCreating(true)}>New Template</Button>
@@ -72,7 +72,7 @@ export default function RecurringBillsPage() {
         {templates.loading ? <LoadingState /> : null}
         {templates.error ? <ErrorState message={templates.error} /> : null}
         {templates.data && templates.data.length === 0 ? (
-          <EmptyState label="No recurring bill templates yet." />
+          <EmptyState label="No recurring vendor bill templates yet." />
         ) : null}
         {templates.data && templates.data.length > 0 ? (
           <Table>
@@ -157,7 +157,7 @@ function NewRecurringBillDrawer({ onClose, onCreated }: { onClose: () => void; o
         frequency,
         next_run_date: nextRunDate,
       });
-      showToast("Recurring bill template created", "good");
+      showToast("Recurring vendor bill template created", "good");
       onCreated();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
@@ -166,7 +166,7 @@ function NewRecurringBillDrawer({ onClose, onCreated }: { onClose: () => void; o
   }
 
   return (
-    <Drawer title="New Recurring Bill Template" onClose={onClose}>
+    <Drawer title="New Recurring Vendor Bill Template" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="vendor">Vendor</Label>
@@ -180,7 +180,7 @@ function NewRecurringBillDrawer({ onClose, onCreated }: { onClose: () => void; o
           </Select>
         </div>
         <div>
-          <Label htmlFor="billNumberPrefix">Bill Number Prefix</Label>
+          <Label htmlFor="billNumberPrefix">Vendor Bill Number Prefix</Label>
           <Input
             id="billNumberPrefix"
             value={billNumberPrefix}

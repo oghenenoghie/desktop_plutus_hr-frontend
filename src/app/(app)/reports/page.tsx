@@ -392,7 +392,7 @@ function VendorStatementTab() {
             <Table>
               <Thead>
                 <tr>
-                  <Th>Bill #</Th>
+                  <Th>Vendor Bill #</Th>
                   <Th>Date</Th>
                   <Th>Status</Th>
                   <Th align="right">Amount</Th>
@@ -514,7 +514,7 @@ function CustomerStatementTab() {
             <Table>
               <Thead>
                 <tr>
-                  <Th>Invoice #</Th>
+                  <Th>Customer Invoice #</Th>
                   <Th>Date</Th>
                   <Th>Status</Th>
                   <Th align="right">Amount</Th>

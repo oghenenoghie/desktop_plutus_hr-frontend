@@ -67,7 +67,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="w-full max-w-[380px] rounded-lg border border-border bg-surface p-8">
-        <div className="mb-1 text-[15px] font-extrabold tracking-tight text-ink">Plutus</div>
+        <div className="mb-1 text-[15px] font-extrabold tracking-tight text-ink">Plutus Technologies</div>
         <h1 className="mt-3 text-[17px] font-extrabold text-ink">Sign in to your workspace</h1>
         <p className="mt-1 text-[12.5px] text-ink-soft">
           The compliance-native payroll platform for Nigeria and Africa.

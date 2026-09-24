@@ -40,8 +40,13 @@ mac:
   icon: electron/assets/icon.png
 win:
   target: nsis
-  # Same source PNG; electron-builder generates the multi-resolution .ico.
-  icon: electron/assets/icon.png
+  # A pre-built .ico (not the raw PNG) — electron-builder's own PNG-to-ICO
+  # conversion on this run produced something that made the NSIS installer
+  # fail near-instantly on launch (silent install completed in ~4s instead
+  # of the normal ~90s+, and the app was never actually installed). A
+  # proper multi-resolution ICO built directly (via Pillow) sidesteps
+  # whatever went wrong in that conversion step.
+  icon: electron/assets/icon.ico
 linux:
   target: AppImage
   category: Office

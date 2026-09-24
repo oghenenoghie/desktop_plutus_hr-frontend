@@ -35,8 +35,14 @@ mac:
   gatekeeperAssess: false
   entitlements: electron/entitlements.mac.plist
   entitlementsInherit: electron/entitlements.mac.plist
+  # electron-builder generates the .icns from this single 1024x1024 PNG —
+  # no separate .icns file needed.
+  icon: electron/assets/icon.png
 win:
   target: nsis
+  # Same source PNG; electron-builder generates the multi-resolution .ico.
+  icon: electron/assets/icon.png
 linux:
   target: AppImage
   category: Office
+  icon: electron/assets/icon.png

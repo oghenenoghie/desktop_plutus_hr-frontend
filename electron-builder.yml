@@ -1,5 +1,5 @@
 appId: com.plutustechnologies.hr
-productName: Plutus
+productName: Plutus Technologies
 directories:
   output: release
 # embedded-postgres is a pure ESM package that resolves its native binary

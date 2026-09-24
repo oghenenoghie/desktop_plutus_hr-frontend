@@ -61,7 +61,7 @@ async function reportProcessCrash(processLabel, code, signal) {
     `Details were logged to:\n${startupLogPath}`;
   const response = dialog.showMessageBoxSync(mainWindow ?? undefined, {
     type: "error",
-    title: "Plutus stopped unexpectedly",
+    title: "Plutus Technologies stopped unexpectedly",
     message: `${processLabel} stopped running`,
     detail,
     buttons: ["Relaunch", "Quit"],
@@ -206,7 +206,7 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
-    title: "Plutus Technology",
+    title: "Plutus Technologies",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

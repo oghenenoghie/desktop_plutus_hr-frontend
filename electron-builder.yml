@@ -24,8 +24,13 @@ extraResources:
     to: frontend
   - from: resources/backend
     to: backend
+# Fixed, version-free installer names. The "Build desktop app" workflow
+# attaches these to a GitHub release, and the marketing site links to
+# releases/latest/download/<name>, so the names must not change between
+# versions or the site's download links break.
 mac:
   target: dmg
+  artifactName: Plutus-Technologies-mac.${ext}
   category: public.app-category.business
   # Required for notarization (see build-desktop.yml's APPLE_* secrets).
   # electron-builder notarizes automatically when APPLE_ID/
@@ -40,6 +45,7 @@ mac:
   icon: electron/assets/icon.png
 win:
   target: nsis
+  artifactName: Plutus-Technologies-Setup.${ext}
   # A pre-built .ico (not the raw PNG) — electron-builder's own PNG-to-ICO
   # conversion on this run produced something that made the NSIS installer
   # fail near-instantly on launch (silent install completed in ~4s instead
@@ -49,5 +55,6 @@ win:
   icon: electron/assets/icon.ico
 linux:
   target: AppImage
+  artifactName: Plutus-Technologies-linux.${ext}
   category: Office
   icon: electron/assets/icon.png

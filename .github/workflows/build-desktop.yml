@@ -176,8 +176,11 @@ jobs:
           Write-Host "Installing $($installer.FullName) silently..."
           Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait
 
-          $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Plutus.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { throw "Plutus.exe not found under $env:LOCALAPPDATA\Programs after install" }
+          # Must match electron-builder.yml's productName exactly — that's
+          # what electron-builder names the built executable and process.
+          $productName = 'Plutus Technologies'
+          $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter "$productName.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "$productName.exe not found under $env:LOCALAPPDATA\Programs after install" }
 
           # Redirect the app's own stdout/stderr to files so a failure below
           # can actually be diagnosed — electron/main.js runs its child
@@ -196,8 +199,8 @@ jobs:
           $proc = Start-Process -FilePath $exe.FullName -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
 
           Start-Sleep -Seconds 5
-          Write-Host "Plutus.exe HasExited (after 5s): $($proc.HasExited)"
-          if ($proc.HasExited) { Write-Host "Plutus.exe ExitCode: $($proc.ExitCode)" }
+          Write-Host "$productName.exe HasExited (after 5s): $($proc.HasExited)"
+          if ($proc.HasExited) { Write-Host "$productName.exe ExitCode: $($proc.ExitCode)" }
 
           $backendHealthUrl = 'http://127.0.0.1:47821/api/v1/health'
           $frontendUrl = 'http://127.0.0.1:47822'
@@ -221,17 +224,17 @@ jobs:
           }
 
           if (-not $backendOk -or -not $frontendOk) {
-            Write-Host "----- Plutus.exe process state -----"
+            Write-Host "----- $productName.exe process state -----"
             Write-Host "HasExited: $($proc.HasExited)"
             if ($proc.HasExited) { Write-Host "ExitCode: $($proc.ExitCode)" }
 
-            Write-Host "----- Process snapshot (Plutus / plutus-backend / postgres) -----"
-            $snapshot = Get-Process -Name Plutus,plutus-backend,postgres -ErrorAction SilentlyContinue
+            Write-Host "----- Process snapshot ($productName / plutus-backend / postgres) -----"
+            $snapshot = Get-Process -Name $productName,plutus-backend,postgres -ErrorAction SilentlyContinue
             if ($snapshot) { $snapshot | Format-Table Name,Id,StartTime -AutoSize | Out-String | Write-Host } else { Write-Host "(none running)" }
 
-            Write-Host "----- Plutus stdout -----"
+            Write-Host "----- $productName stdout -----"
             if (Test-Path $stdout) { Get-Content $stdout } else { Write-Host "(nothing captured)" }
-            Write-Host "----- Plutus stderr -----"
+            Write-Host "----- $productName stderr -----"
             if (Test-Path $stderr) { Get-Content $stderr } else { Write-Host "(nothing captured)" }
 
             # electron/main.js writes secrets (jwt-secret.txt etc.) and the
@@ -262,7 +265,7 @@ jobs:
             if (Test-Path $startupLog) { Get-Content $startupLog } else { Write-Host "(does not exist)" }
           }
 
-          Get-Process -Name Plutus,plutus-backend,postgres -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process -Name $productName,plutus-backend,postgres -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
           if (-not $backendOk) { throw "Backend health check never succeeded — embedded Postgres or the bundled backend didn't come up" }
           if (-not $frontendOk) { throw "Frontend never responded — the Next.js standalone server didn't come up" }

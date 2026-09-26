@@ -39,7 +39,7 @@ export default function SignupPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg px-4">
         <div className="w-full max-w-[420px] rounded-lg border border-border bg-surface p-8">
-          <div className="mb-1 text-[15px] font-extrabold tracking-tight text-ink">Plutus Technology</div>
+          <div className="mb-1 text-[15px] font-extrabold tracking-tight text-ink">Plutus Technologies</div>
           <h1 className="mt-3 text-[17px] font-extrabold text-ink">Your workspace is ready</h1>
           <p className="mt-2 text-[12.5px] text-ink-soft">
             You can sign in right away with your email and password. Multi-factor authentication is optional —
@@ -64,7 +64,7 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="w-full max-w-[380px] rounded-lg border border-border bg-surface p-8">
-        <div className="mb-1 text-[15px] font-extrabold tracking-tight text-ink">Plutus Technology</div>
+        <div className="mb-1 text-[15px] font-extrabold tracking-tight text-ink">Plutus Technologies</div>
         <h1 className="mt-3 text-[17px] font-extrabold text-ink">Set up your workspace</h1>
         <p className="mt-1 text-[12.5px] text-ink-soft">
           The compliance-native payroll platform for Nigeria and Africa.

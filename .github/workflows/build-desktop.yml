@@ -270,3 +270,52 @@ jobs:
           if (-not $backendOk) { throw "Backend health check never succeeded — embedded Postgres or the bundled backend didn't come up" }
           if (-not $frontendOk) { throw "Frontend never responded — the Next.js standalone server didn't come up" }
           Write-Host "Smoke test passed: the installed app booted its full local stack successfully."
+
+  # Publishes the installers as a public GitHub release once every OS has
+  # built (and Windows has passed its smoke test). Release assets on a
+  # public repo download without a GitHub sign-in and never expire, unlike
+  # the Actions artifacts above. The release is marked "latest", so
+  # releases/latest/download/<name> always serves the newest build. The
+  # marketing site links there, which is why electron-builder.yml pins
+  # version-free artifactName values.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (for package.json version)
+        uses: actions/checkout@v4
+
+      - name: Download installers from the build jobs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: plutus-desktop-*
+          path: installers
+          merge-multiple: true
+
+      - name: Check the three installers are present
+        run: |
+          for f in Plutus-Technologies-Setup.exe Plutus-Technologies-mac.dmg Plutus-Technologies-linux.AppImage; do
+            test -f "installers/$f" || { echo "Missing installers/$f"; ls -la installers; exit 1; }
+          done
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            # Manual runs get a unique tag per build, on the commit that was built.
+            VERSION=$(node -p "require('./package.json').version")
+            TAG="desktop-v${VERSION}-build.${GITHUB_RUN_NUMBER}"
+          fi
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Plutus Desktop ${TAG#desktop-v}" \
+            --notes "Built by ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} from ${GITHUB_SHA}. Installers are not code-signed yet." \
+            --latest \
+            installers/Plutus-Technologies-Setup.exe \
+            installers/Plutus-Technologies-mac.dmg \
+            installers/Plutus-Technologies-linux.AppImage

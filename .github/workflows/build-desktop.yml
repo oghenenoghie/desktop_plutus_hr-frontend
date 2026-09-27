@@ -263,6 +263,15 @@ jobs:
             $startupLog = Join-Path $userDataDir 'startup.log'
             Write-Host "----- startup.log ($startupLog) -----"
             if (Test-Path $startupLog) { Get-Content $startupLog } else { Write-Host "(does not exist)" }
+
+            # The backend and frontend run with no console (windowsHide), so
+            # their own output goes to these files rather than to Plutus's
+            # redirected stdout/stderr above.
+            foreach ($name in 'backend', 'frontend') {
+              $procLog = Join-Path $userDataDir "$name.log"
+              Write-Host "----- $name.log ($procLog) -----"
+              if (Test-Path $procLog) { Get-Content $procLog } else { Write-Host "(does not exist)" }
+            }
           }
 
           Get-Process -Name $productName,plutus-backend,postgres -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

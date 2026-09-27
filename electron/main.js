@@ -21,6 +21,11 @@ let frontendProcess = null;
 let mainWindow = null;
 let shuttingDown = false;
 let startupLogPath = null;
+const processLogPaths = {};
+
+// 0xC000013A (STATUS_CONTROL_C_EXIT): Windows ended a console process
+// because its console window was closed or it received Ctrl+C.
+const WIN_CONTROL_C_EXIT = 3221225786;
 
 // Writes straight to a file rather than console.log/console.error: a
 // packaged Electron app is a Windows GUI-subsystem executable with no
@@ -52,13 +57,18 @@ async function reportProcessCrash(processLabel, code, signal) {
   // the same time (e.g. the parent app itself is what's being killed).
   if (shuttingDown) return;
   logStartup(`${processLabel} process exited unexpectedly (code=${code}, signal=${signal}).`);
+  const likelyCause =
+    code === WIN_CONTROL_C_EXIT
+      ? "Windows stopped it because its console window was closed or received Ctrl+C. Relaunching should fix this."
+      : "This is often caused by antivirus software quarantining the app's bundled executables, " +
+        "since they aren't code-signed yet. Try adding an exclusion for Plutus's install folder " +
+        "in your antivirus settings, then relaunch.";
+  const logs = [startupLogPath, processLogPaths[processLabel]].filter(Boolean).join("\n");
   const detail =
     `The ${processLabel} process stopped running unexpectedly ` +
     `(exit code ${code ?? "unknown"}${signal ? `, signal ${signal}` : ""}).\n\n` +
-    "This is often caused by antivirus software quarantining the app's bundled executables, " +
-    "since they aren't code-signed yet. Try adding an exclusion for Plutus's install folder " +
-    "in your antivirus settings, then relaunch.\n\n" +
-    `Details were logged to:\n${startupLogPath}`;
+    `${likelyCause}\n\n` +
+    `Details were logged to:\n${logs}`;
   const response = dialog.showMessageBoxSync(mainWindow ?? undefined, {
     type: "error",
     title: "Plutus Technologies stopped unexpectedly",
@@ -73,6 +83,20 @@ async function reportProcessCrash(processLabel, code, signal) {
     app.relaunch();
   }
   app.exit(1);
+}
+
+// Every child below is spawned with windowsHide (which on Windows sets
+// CREATE_NO_WINDOW) so it gets no console window of its own. Without it,
+// Windows gives each console-subsystem child (plutus-backend.exe is one)
+// a visible black console window, since this GUI app has none to share;
+// closing that window sends the child CTRL_CLOSE_EVENT and it dies with
+// exit code 0xC000013A (3221225786). With no console there is nothing to
+// inherit stdio from, so output goes to a per-process log file instead.
+function openProcessLog(userDataDir, name) {
+  const logPath = path.join(userDataDir, `${name}.log`);
+  const fd = fs.openSync(logPath, "a");
+  fs.writeSync(fd, `\n[${new Date().toISOString()}] --- starting ${name} ---\n`);
+  return { fd, logPath };
 }
 
 function resourcePath(...segments) {
@@ -153,9 +177,12 @@ function startBackend(userDataDir, pgPassword) {
   const backendDir = resourcePath("backend");
   const exeName = process.platform === "win32" ? "plutus-backend.exe" : "plutus-backend";
 
+  const backendLog = openProcessLog(userDataDir, "backend");
+  processLogPaths.Backend = backendLog.logPath;
   backendProcess = spawn(path.join(backendDir, exeName), [], {
     cwd: backendDir,
-    stdio: "inherit",
+    windowsHide: true,
+    stdio: ["ignore", backendLog.fd, backendLog.fd],
     env: {
       ...process.env,
       DATABASE_URL: `postgresql+psycopg://plutus:${pgPassword}@127.0.0.1:${PG_PORT}/plutus`,
@@ -169,6 +196,8 @@ function startBackend(userDataDir, pgPassword) {
     },
   });
 
+  fs.closeSync(backendLog.fd);
+
   backendProcess.on("exit", (code, signal) => {
     if (code !== 0) reportProcessCrash("Backend", code, signal);
   });
@@ -177,15 +206,18 @@ function startBackend(userDataDir, pgPassword) {
   });
 }
 
-function startFrontend() {
+function startFrontend(userDataDir) {
   const frontendDir = resourcePath("frontend");
+  const frontendLog = openProcessLog(userDataDir, "frontend");
+  processLogPaths.Frontend = frontendLog.logPath;
 
   // Electron's own binary can run plain Node scripts via
   // ELECTRON_RUN_AS_NODE — this is what lets Next's standalone server.js
   // run without bundling a separate Node runtime for it.
   frontendProcess = spawn(process.execPath, [path.join(frontendDir, "server.js")], {
     cwd: frontendDir,
-    stdio: "inherit",
+    windowsHide: true,
+    stdio: ["ignore", frontendLog.fd, frontendLog.fd],
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
@@ -193,6 +225,8 @@ function startFrontend() {
       HOSTNAME: "127.0.0.1",
     },
   });
+
+  fs.closeSync(frontendLog.fd);
 
   frontendProcess.on("exit", (code, signal) => {
     if (code !== 0) reportProcessCrash("Frontend", code, signal);
@@ -260,7 +294,7 @@ if (!gotSingleInstanceLock) {
       await waitForHttpOk(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`);
       logStartup("Backend healthy. Starting frontend...");
 
-      startFrontend();
+      startFrontend(userDataDir);
       await waitForHttpOk(`http://127.0.0.1:${FRONTEND_PORT}`);
       logStartup("Frontend healthy. Creating window...");
 

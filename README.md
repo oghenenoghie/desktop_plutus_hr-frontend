@@ -90,6 +90,13 @@ further workflow changes:
 | `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` | Notarization — electron-builder notarizes automatically once all three are set |
 | `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` | Authenticode cert (base64 `.pfx`, or a URL to one) + its password |
 
+## Accounting audit
+
+The accounting / chart-of-accounts audit and implementation plan lives in one place, the backend repo:
+[`ACCOUNTING_IMPLEMENTATION_AUDIT.md`](https://github.com/oghenenoghie/plutus-hr-system/blob/main/ACCOUNTING_IMPLEMENTATION_AUDIT.md).
+It covers this desktop edition too, because `desktop_plutus_hr-backend` runs the same code and migrations as `plutus-hr-system` (see its §2.4).
+Any accounting UI change planned there applies to this app and to `plutus-hr-system-frontend` alike.
+
 ## What's scaffolded vs. stubbed
 
 Every backend list/read endpoint is wired up and rendering real data. Write actions are wired where they're a single click (leave/expense approvals, statutory filing/remittance, benefit lookups). Multi-field create forms are done for the two that unblock everything else — **New Employee** (`/employees/new`) and **New Pay Run** (`/payroll/new`). Still not built: new loan/expense/benefit application forms — that's the natural next slice of work on top of this scaffold.

@@ -27,6 +27,7 @@ export default function SetupPage() {
 
   const [rcNumber, setRcNumber] = useState("");
   const [companyTin, setCompanyTin] = useState("");
+  const [address, setAddress] = useState("");
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
   const [pfa, setPfa] = useState("");
   const [states, setStates] = useState<string[]>([]);
@@ -39,6 +40,7 @@ export default function SetupPage() {
     if (organisation.data) {
       setRcNumber(organisation.data.rc_number ?? "");
       setCompanyTin(organisation.data.company_tin ?? "");
+      setAddress(organisation.data.address ?? "");
       setPayFrequency(organisation.data.default_pay_frequency);
       setPfa(organisation.data.default_pfa ?? "");
       setStates(organisation.data.states_of_operation);
@@ -59,6 +61,7 @@ export default function SetupPage() {
       await organisationApi.update({
         rc_number: rcNumber,
         company_tin: companyTin,
+        address,
         default_pay_frequency: payFrequency,
         default_pfa: pfa,
         states_of_operation: states,
@@ -106,6 +109,16 @@ export default function SetupPage() {
                   value={companyTin}
                   onChange={(event) => setCompanyTin(event.target.value)}
                   placeholder="12345678-0001"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="company-address">Company address</Label>
+                <Input
+                  id="company-address"
+                  maxLength={500}
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                  placeholder="12 Adeola Odeku Street, Victoria Island, Lagos"
                 />
               </div>
             </div>

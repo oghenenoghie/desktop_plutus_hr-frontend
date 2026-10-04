@@ -11,6 +11,7 @@ import type { OrganisationSignupOut } from "@/lib/types";
 
 export default function SignupPage() {
   const [orgName, setOrgName] = useState("");
+  const [orgAddress, setOrgAddress] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export default function SignupPage() {
     try {
       const result = await organisationApi.signup({
         org_name: orgName,
+        org_address: orgAddress.trim() || undefined,
         admin_email: email,
         admin_password: password,
       });
@@ -80,6 +82,19 @@ export default function SignupPage() {
               value={orgName}
               onChange={(e) => setOrgName(e.target.value)}
               placeholder="Acme Nigeria Ltd"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="org-address">Company Address</Label>
+            <Input
+              id="org-address"
+              type="text"
+              autoComplete="street-address"
+              maxLength={500}
+              value={orgAddress}
+              onChange={(e) => setOrgAddress(e.target.value)}
+              placeholder="12 Adeola Odeku Street, Victoria Island, Lagos"
             />
           </div>
 

@@ -2090,6 +2090,7 @@ export interface Organisation {
   name: string;
   rc_number: string | null;
   company_tin: string | null;
+  address: string | null;
   default_pay_frequency: PayFrequency;
   default_pfa: string | null;
   states_of_operation: string[];
@@ -2099,6 +2100,7 @@ export interface OrganisationUpdateBody {
   name?: string;
   rc_number?: string;
   company_tin?: string;
+  address?: string;
   default_pay_frequency?: PayFrequency;
   default_pfa?: string;
   states_of_operation?: string[];
@@ -2106,6 +2108,7 @@ export interface OrganisationUpdateBody {
 
 export interface OrganisationSignupBody {
   org_name: string;
+  org_address?: string;
   admin_email: string;
   admin_password: string;
 }

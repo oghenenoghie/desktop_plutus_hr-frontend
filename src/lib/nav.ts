@@ -336,15 +336,15 @@ export const NAV_GROUPS: NavGroup[] = [
         heading: "Financial Information",
         items: [
           {
-            href: "/general-ledger",
-            label: "General Ledger",
-            icon: "generalLedger",
-            roles: ["admin", "payroll_manager", "accountant", "auditor"],
-          },
-          {
             href: "/reports",
             label: "Financial Reports",
             icon: "reports",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/general-ledger",
+            label: "General Ledger",
+            icon: "generalLedger",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {

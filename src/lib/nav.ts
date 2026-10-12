@@ -64,7 +64,8 @@ export interface NavItem {
     | "goodsReceipts"
     | "stockIssues"
     | "stockTransfers"
-    | "inventorySettings";
+    | "inventorySettings"
+    | "accountingSettings";
   roles: Role[];
 }
 
@@ -380,6 +381,14 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/audit-log",
             label: "Audit Trail",
             icon: "auditLog",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            // The accounting lock date (D13) and automatic-posting switches.
+            // Read by these roles; changed by admin and accountant only.
+            href: "/accounting-settings",
+            label: "Accounting Settings",
+            icon: "accountingSettings",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {

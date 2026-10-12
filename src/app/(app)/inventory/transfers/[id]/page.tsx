@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import { ApprovalCard, DocumentMovements, Field, errorText } from "@/components/inventory/document-ui";
+import { ApprovalCard, DocumentJournals, DocumentMovements, Field, errorText } from "@/components/inventory/document-ui";
 import { InventoryError } from "@/components/inventory/inventory-ui";
 import { StockTransferForm } from "@/components/inventory/stock-transfer-form";
 import { PageHeader } from "@/components/layout/page-header";
@@ -20,7 +20,13 @@ import { inventoryApi, stockTransfersApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { canManageInventory, canOperateInventory, formatQuantity, todayInLagos } from "@/lib/inventory";
+import {
+  canManageInventory,
+  canOperateInventory,
+  canSeeInventoryValues,
+  formatQuantity,
+  todayInLagos,
+} from "@/lib/inventory";
 import type { StockTransfer } from "@/lib/types";
 
 export default function StockTransferDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -205,6 +211,9 @@ export default function StockTransferDetailPage({ params }: { params: Promise<{ 
         </Card>
 
         {dispatched ? <DocumentMovements sourceId={doc.id} version={doc.status} /> : null}
+        {doc.status === "received" && doc.discrepancy_reason && canSeeInventoryValues(user?.role) ? (
+          <DocumentJournals documentType="stock_transfer" documentId={doc.id} version={doc.status} />
+        ) : null}
 
         {doc.submitted_at ? (
           <ApprovalCard

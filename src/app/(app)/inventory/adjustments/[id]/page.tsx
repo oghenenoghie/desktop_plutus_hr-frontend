@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
 import { AdjustmentForm, postOrSubmit } from "@/components/inventory/adjustment-form";
-import { ApprovalCard } from "@/components/inventory/document-ui";
+import { ApprovalCard, DocumentJournals } from "@/components/inventory/document-ui";
 import { InventoryError, MoneyOrHidden, MovementsTable } from "@/components/inventory/inventory-ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ import {
   canAdjustInventory,
   canManageInventory,
   canOperateInventory,
+  canSeeInventoryValues,
   formatQuantity,
   formatSignedQuantity,
 } from "@/lib/inventory";
@@ -270,6 +271,10 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
             {movements.loading ? <LoadingState /> : null}
             {movements.data ? <MovementsTable movements={movements.data.items} /> : null}
           </Card>
+        ) : null}
+
+        {hasMovements && canSeeInventoryValues(user?.role) ? (
+          <DocumentJournals documentType="stock_adjustment" documentId={data.id} version={data.status} />
         ) : null}
       </div>
 

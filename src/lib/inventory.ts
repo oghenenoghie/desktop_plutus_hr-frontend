@@ -30,6 +30,12 @@ export function canRequestStock(role: Role | undefined): boolean {
   return role !== undefined && [...INVENTORY_WRITERS, "department_manager"].includes(role);
 }
 
+// inventory.valuation by default: values, journals and the GL
+// reconciliation (the auditor reads them but changes nothing).
+export function canSeeInventoryValues(role: Role | undefined): boolean {
+  return role !== undefined && [...INVENTORY_WRITERS, "auditor"].includes(role);
+}
+
 export function isRequesterOnly(role: Role | undefined): boolean {
   return role === "department_manager";
 }

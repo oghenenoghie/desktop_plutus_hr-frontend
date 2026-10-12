@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import { DocumentMovements, Field, ReasonDrawer, errorText } from "@/components/inventory/document-ui";
+import { DocumentJournals, DocumentMovements, Field, ReasonDrawer, errorText } from "@/components/inventory/document-ui";
 import { GoodsReceiptForm } from "@/components/inventory/goods-receipt-form";
 import { InventoryError } from "@/components/inventory/inventory-ui";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,7 +19,7 @@ import { goodsReceiptsApi, purchaseOrdersApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatDateTime, formatNaira } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { canManageInventory, canOperateInventory, formatQuantity } from "@/lib/inventory";
+import { canManageInventory, canOperateInventory, canSeeInventoryValues, formatQuantity } from "@/lib/inventory";
 
 export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -130,6 +130,17 @@ export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ i
             <Field label="Delivery note">{grn.supplier_reference ?? "—"}</Field>
             <Field label="Stock value">{grn.value_minor === null ? "—" : formatNaira(grn.value_minor)}</Field>
             <Field label="Posted">{formatDateTime(grn.posted_at)}</Field>
+            {grn.accrued_minor !== null ? (
+              <Field label="Accrued to GRNI">{formatNaira(grn.accrued_minor)}</Field>
+            ) : null}
+            {grn.bill_number ? (
+              <Field label="Invoiced by">
+                <Link href="/bills" className="font-bold text-primary hover:underline">
+                  {grn.bill_number}
+                </Link>{" "}
+                <span className="text-[11px] text-ink-soft">({grn.bill_status})</span>
+              </Field>
+            ) : null}
             {grn.reversed_at ? <Field label="Reversed">{formatDateTime(grn.reversed_at)}</Field> : null}
             {grn.reversal_reason ? (
               <div className="col-span-2 sm:col-span-4">
@@ -180,6 +191,9 @@ export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ i
         </Card>
 
         {grn.status !== "draft" ? <DocumentMovements sourceId={grn.id} version={grn.status} /> : null}
+        {grn.status !== "draft" && canSeeInventoryValues(user?.role) ? (
+          <DocumentJournals documentType="goods_receipt" documentId={grn.id} version={grn.status} />
+        ) : null}
       </div>
 
       {reversing ? (

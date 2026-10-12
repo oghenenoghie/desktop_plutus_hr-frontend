@@ -1059,6 +1059,39 @@ export interface JournalEntryCreateBody {
   lines: JournalEntryLineCreateBody[];
 }
 
+// One journal header with its lines (GET /general-ledger/journals/{id}
+// and the inventory document journals).
+export interface JournalEntry {
+  id: string;
+  entry_date: string;
+  source_type: string;
+  source_id: string | null;
+  source_event: string;
+  reference: string | null;
+  description: string;
+  currency: string;
+  reversal_of_id: string | null;
+  reversal_reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  lines: LedgerEntry[];
+}
+
+// --- accounting settings ---
+
+export interface AccountingSettings {
+  post_statutory_remittances: boolean;
+  // D13: nothing may be posted on or before this day.
+  lock_date: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
+}
+
+export interface AccountingSettingsUpdateBody {
+  post_statutory_remittances?: boolean;
+  lock_date?: string | null;
+}
+
 // --- vendors / bills ---
 
 export interface Vendor {
@@ -1105,6 +1138,8 @@ export interface Bill {
   wht_amount_minor: number;
   net_payable_minor: number;
   description: string | null;
+  // D2: the goods receipt this bill invoices, if any.
+  goods_receipt_id: string | null;
   status: BillStatus;
   paid_at: string | null;
   created_at: string;
@@ -1120,6 +1155,7 @@ export interface BillCreateBody {
   vat_minor?: number;
   wht_category?: WhtCategoryCode | null;
   description?: string | null;
+  goods_receipt_id?: string | null;
 }
 
 // --- customers / invoices ---
@@ -2224,15 +2260,44 @@ export interface InventorySettings {
   adjustment_gain_approval_limit_minor: number | null;
   require_issue_approval: boolean;
   require_transfer_approval: boolean;
+  // Phase 3: posted documents also post journals, since gl_started_at.
+  post_to_gl: boolean;
+  gl_started_at: string | null;
 }
 
-export type InventorySettingsUpdateBody = Partial<Omit<InventorySettings, "costing_method">>;
+export type InventorySettingsUpdateBody = Partial<
+  Omit<InventorySettings, "costing_method" | "post_to_gl" | "gl_started_at">
+>;
+
+export type InventoryDocumentType =
+  | "goods_receipt"
+  | "stock_issue"
+  | "stock_adjustment"
+  | "stock_transfer";
+
+// Inventory against the GL; both differences are zero while every stock
+// change has posted its journal.
+export interface InventoryReconciliation {
+  post_to_gl: boolean;
+  gl_started_at: string | null;
+  lock_date: string | null;
+  stock_value_minor: number;
+  gl_inventory_minor: number;
+  inventory_difference_minor: number;
+  unbilled_receipts: number;
+  unbilled_receipts_minor: number;
+  gl_grni_minor: number;
+  grni_difference_minor: number;
+}
 
 export interface InventoryCategory {
   id: string;
   name: string;
   parent_id: string | null;
   is_active: boolean;
+  // D18: the expense account issues from this category are charged to;
+  // null inherits the parent's, then inventory_consumption.
+  expense_account_code: string | null;
   created_at: string;
 }
 
@@ -2240,6 +2305,7 @@ export interface InventoryCategoryBody {
   name?: string;
   parent_id?: string | null;
   is_active?: boolean;
+  expense_account_code?: string | null;
 }
 
 export interface InventoryUnit {
@@ -2593,6 +2659,13 @@ export interface GoodsReceipt {
   line_count: number;
   lines: GoodsReceiptLine[] | null;
   value_minor: number | null;
+  vendor_id: string;
+  // D2: what the receipt accrued to goods received not invoiced
+  // (valuation holders only), and the bill that invoices it.
+  accrued_minor: number | null;
+  bill_id: string | null;
+  bill_number: string | null;
+  bill_status: BillStatus | null;
 }
 
 export interface StockLineInput {

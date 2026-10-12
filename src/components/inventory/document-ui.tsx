@@ -11,10 +11,19 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api/client";
 import { MovementsTable } from "@/components/inventory/inventory-ui";
+import { Badge } from "@/components/ui/badge";
+import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { approvalInstancesApi, inventoryApi } from "@/lib/api/endpoints";
+import { formatDate, formatNaira } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { TRACKED_ITEM_TYPES, formatQuantity, isValidQuantityInput } from "@/lib/inventory";
-import type { ApprovalRequestType, InventoryItem, StockLineInput } from "@/lib/types";
+import type {
+  ApprovalRequestType,
+  InventoryDocumentType,
+  InventoryItem,
+  JournalEntry,
+  StockLineInput,
+} from "@/lib/types";
 
 export function errorText(err: unknown, fallback = "Action failed."): string {
   return err instanceof ApiError ? String(err.detail ?? err.message) : fallback;
@@ -112,6 +121,87 @@ export function DocumentMovements({ sourceId, version }: { sourceId: string; ver
       <CardHeader title="Stock movements" subtitle="What this document wrote to the stock ledger, including any reversal" />
       {movements.loading && !movements.data ? <LoadingState /> : null}
       {movements.data ? <MovementsTable movements={movements.data.items} /> : null}
+    </Card>
+  );
+}
+
+const JOURNAL_EVENTS: Record<string, string> = {
+  posted: "Posted",
+  reversal_variance: "Cost variance on reversal",
+  reversed: "Reversed",
+  transit_loss: "Transit loss",
+  "journal.reversed": "Reversal",
+};
+
+function JournalCard({ journal }: { journal: JournalEntry }) {
+  return (
+    <div className="rounded-panel border border-border p-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[12px]">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-ink">{JOURNAL_EVENTS[journal.source_event] ?? journal.source_event}</span>
+          {journal.reversal_of_id ? <Badge tone="warn">Reversal</Badge> : null}
+        </div>
+        <span className="text-ink-soft">{formatDate(journal.entry_date)}</span>
+      </div>
+      <p className="mb-2 text-[12px] text-ink-soft">{journal.description}</p>
+      <Table>
+        <Thead>
+          <tr>
+            <Th>Account</Th>
+            <Th align="right">Debit</Th>
+            <Th align="right">Credit</Th>
+          </tr>
+        </Thead>
+        <tbody>
+          {journal.lines.map((line) => (
+            <tr key={line.id}>
+              <Td>
+                <div className="font-bold">{line.account_name ?? line.account}</div>
+                <div className="text-[11px] text-ink-soft">{line.account}</div>
+              </Td>
+              <Td align="right">{line.debit_minor ? formatNaira(line.debit_minor) : ""}</Td>
+              <Td align="right">{line.credit_minor ? formatNaira(line.credit_minor) : ""}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </div>
+  );
+}
+
+// The journals a document posted to the general ledger (Phase 3), with any
+// reversal. Values are financial: render this only for inventory.valuation
+// holders. `version` changes whenever the document does.
+export function DocumentJournals({
+  documentType,
+  documentId,
+  version,
+}: {
+  documentType: InventoryDocumentType;
+  documentId: string;
+  version: string;
+}) {
+  const journals = useApiResource(
+    () => inventoryApi.journals(documentType, documentId),
+    [documentType, documentId, version],
+  );
+  return (
+    <Card>
+      <CardHeader title="Accounting" subtitle="The journals this document posted to the general ledger" />
+      {journals.loading && !journals.data ? <LoadingState /> : null}
+      {journals.error ? <p className="text-[13px] text-ink-soft">{journals.error}</p> : null}
+      {journals.data && journals.data.length === 0 ? (
+        <p className="text-[13px] text-ink-soft">
+          No journal: nothing of value moved, or the document was posted before inventory accounting started.
+        </p>
+      ) : null}
+      {journals.data && journals.data.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          {journals.data.map((journal) => (
+            <JournalCard key={journal.id} journal={journal} />
+          ))}
+        </div>
+      ) : null}
     </Card>
   );
 }

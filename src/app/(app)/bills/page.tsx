@@ -25,11 +25,12 @@ import {
   approvalInstancesApi,
   billsApi,
   chartAccountsApi,
+  goodsReceiptsApi,
   vendorsApi,
 } from "@/lib/api/endpoints";
 import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { ApprovalInstance, Bill } from "@/lib/types";
+import type { ApprovalInstance, Bill, GoodsReceipt } from "@/lib/types";
 
 export default function BillsPage() {
   const bills = useApiResource(() => billsApi.list());
@@ -146,7 +147,17 @@ export default function BillsPage() {
               {bills.data.map((bill) => (
                 <Fragment key={bill.id}>
                   <tr>
-                    <Td className="font-bold">{bill.bill_number}</Td>
+                    <Td>
+                      <div className="font-bold">{bill.bill_number}</div>
+                      {bill.goods_receipt_id ? (
+                        <Link
+                          href={`/inventory/goods-receipts/${bill.goods_receipt_id}`}
+                          className="text-[11px] font-bold text-primary hover:underline"
+                        >
+                          For a goods receipt
+                        </Link>
+                      ) : null}
+                    </Td>
                     <Td>{vendorNameById.get(bill.vendor_id) ?? "—"}</Td>
                     <Td>{formatDate(bill.due_date)}</Td>
                     <Td align="right">{formatNaira(bill.amount_minor)}</Td>
@@ -180,7 +191,11 @@ export default function BillsPage() {
                               label="Approve"
                               tone="primary"
                               confirmTitle="Approve this vendor bill?"
-                              confirmMessage={`This posts ${formatNaira(bill.amount_minor)} as an expense and a payable against "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`}
+                              confirmMessage={
+                                bill.goods_receipt_id
+                                  ? `This clears the goods receipt's accrual, posts any price difference to the expense account, and records ${formatNaira(bill.amount_minor)} as payable to "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
+                                  : `This posts ${formatNaira(bill.amount_minor)} as an expense and a payable against "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
+                              }
                               confirmLabel="Approve"
                             />
                             <ConfirmActionButton
@@ -290,7 +305,19 @@ function NewBillDrawer({
   const [vat, setVat] = useState("");
   const [whtCategory, setWhtCategory] = useState<"" | "goods" | "services">("");
   const [description, setDescription] = useState("");
+  const [goodsReceiptId, setGoodsReceiptId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // D2: posted goods receipts from this vendor that no bill invoices yet.
+  // Fails (and the field hides) when inventory is off or not visible.
+  const receipts = useApiResource(
+    () =>
+      vendorId
+        ? goodsReceiptsApi.list({ vendorId, unbilled: true })
+        : Promise.resolve([] as GoodsReceipt[]),
+    [vendorId],
+  );
+  const linkable = (receipts.data ?? []).filter((receipt) => receipt.accrued_minor);
+  const linked = linkable.find((receipt) => receipt.id === goodsReceiptId);
 
   const expenseAccounts = (accounts.data ?? []).filter(
     (account) => account.type === "expense" && account.is_active,
@@ -310,6 +337,7 @@ function NewBillDrawer({
         vat_minor: vat ? nairaToMinor(vat) : 0,
         wht_category: whtCategory || null,
         description: description || null,
+        goods_receipt_id: goodsReceiptId || null,
       });
       onCreated();
     } catch (err) {
@@ -331,7 +359,10 @@ function NewBillDrawer({
           <Select
             id="vendor"
             value={vendorId}
-            onChange={(event) => setVendorId(event.target.value)}
+            onChange={(event) => {
+              setVendorId(event.target.value);
+              setGoodsReceiptId("");
+            }}
             required
           >
             <option value="">Select vendor</option>
@@ -342,6 +373,32 @@ function NewBillDrawer({
             ))}
           </Select>
         </div>
+        {vendorId && !receipts.error && linkable.length > 0 ? (
+          <div>
+            <Label htmlFor="goodsReceipt">Goods receipt</Label>
+            <Select
+              id="goodsReceipt"
+              value={goodsReceiptId}
+              onChange={(event) => {
+                const receipt = linkable.find((option) => option.id === event.target.value);
+                setGoodsReceiptId(event.target.value);
+                if (receipt?.accrued_minor && !amount) setAmount(String(receipt.accrued_minor / 100));
+              }}
+            >
+              <option value="">Not for a goods receipt</option>
+              {linkable.map((receipt) => (
+                <option key={receipt.id} value={receipt.id}>
+                  {receipt.grn_number} · {receipt.po_number} · {formatNaira(receipt.accrued_minor ?? 0)}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-[11px] text-ink-soft">
+              {linked
+                ? `Approving clears the ${formatNaira(linked.accrued_minor ?? 0)} accrued as goods received not invoiced. Any difference from the amount below (a price change, delivery or non-stock lines) goes to the expense account.`
+                : "Link the delivery this bill invoices so approving it clears goods received not invoiced instead of expensing the stock twice."}
+            </p>
+          </div>
+        ) : null}
         <div>
           <Label htmlFor="billNumber">Vendor Bill Number</Label>
           <Input
@@ -375,7 +432,7 @@ function NewBillDrawer({
           </div>
         </div>
         <div>
-          <Label htmlFor="expenseAccount">Expense Account</Label>
+          <Label htmlFor="expenseAccount">{linked ? "Price Difference Account" : "Expense Account"}</Label>
           <Select
             id="expenseAccount"
             value={expenseAccountCode}

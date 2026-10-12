@@ -3,7 +3,14 @@
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import { ApprovalCard, DocumentMovements, Field, ReasonDrawer, errorText } from "@/components/inventory/document-ui";
+import {
+  ApprovalCard,
+  DocumentJournals,
+  DocumentMovements,
+  Field,
+  ReasonDrawer,
+  errorText,
+} from "@/components/inventory/document-ui";
 import { InventoryError } from "@/components/inventory/inventory-ui";
 import { StockIssueForm } from "@/components/inventory/stock-issue-form";
 import { PageHeader } from "@/components/layout/page-header";
@@ -22,6 +29,7 @@ import {
   canManageInventory,
   canOperateInventory,
   canRequestStock,
+  canSeeInventoryValues,
   formatQuantity,
   isRequesterOnly,
 } from "@/lib/inventory";
@@ -214,6 +222,9 @@ export default function StockIssueDetailPage({ params }: { params: Promise<{ id:
         </Card>
 
         {!requesterOnly && (doc.status === "posted" || doc.status === "reversed") ? <DocumentMovements sourceId={doc.id} version={doc.status} /> : null}
+        {canSeeInventoryValues(user?.role) && (doc.status === "posted" || doc.status === "reversed") ? (
+          <DocumentJournals documentType="stock_issue" documentId={doc.id} version={doc.status} />
+        ) : null}
 
         {doc.submitted_at ? (
           <ApprovalCard

@@ -7,6 +7,7 @@ import {
   ArrowLeftRight,
   ArrowUpDown,
   Banknote,
+  BookLock,
   BarChart3,
   Bell,
   BookOpenCheck,
@@ -137,6 +138,7 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   stockIssues: PackageMinus,
   stockTransfers: Truck,
   inventorySettings: SlidersHorizontal,
+  accountingSettings: BookLock,
 };
 
 function isActiveHref(pathname: string, href: string): boolean {

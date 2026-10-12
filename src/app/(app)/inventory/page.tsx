@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { MovementsTable, InventoryError, InventoryOffNotice } from "@/components/inventory/inventory-ui";
+import { ReconciliationCard } from "@/components/inventory/reconciliation-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/data-state";
@@ -11,7 +12,7 @@ import { inventoryApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatNaira } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { canAdjustInventory, canManageInventory } from "@/lib/inventory";
+import { canAdjustInventory, canManageInventory, canSeeInventoryValues } from "@/lib/inventory";
 
 export default function InventoryOverviewPage() {
   const { user } = useAuth();
@@ -84,6 +85,8 @@ export default function InventoryOverviewPage() {
               caption="Dispatched, not yet received"
             />
           </div>
+
+          {canSeeInventoryValues(user?.role) ? <ReconciliationCard /> : null}
 
           <Card>
             <CardHeader

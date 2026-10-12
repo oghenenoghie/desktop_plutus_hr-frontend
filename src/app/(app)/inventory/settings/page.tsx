@@ -14,11 +14,11 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { inventoryApi } from "@/lib/api/endpoints";
+import { chartAccountsApi, inventoryApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory } from "@/lib/inventory";
-import { formatNaira, nairaToMinor } from "@/lib/format";
+import { formatDateTime, formatNaira, nairaToMinor } from "@/lib/format";
 import type { InventoryCategory, InventorySettings, InventoryUnit } from "@/lib/types";
 
 function errorText(err: unknown): string {
@@ -88,6 +88,7 @@ export default function InventorySettingsPage() {
 
         {settings.data?.enabled ? (
           <>
+            <AccountingCard settings={settings.data} canManage={canManage} onStarted={settings.reload} />
             <OperationsCard settings={settings.data} canManage={canManage} onSaved={settings.reload} />
             <UnitsCard canManage={canManage} />
             <CategoriesCard canManage={canManage} />
@@ -95,6 +96,91 @@ export default function InventorySettingsPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+const INVENTORY_ACCOUNTS: { code: string; role: string }[] = [
+  { code: "inventory", role: "Stock on hand (asset)" },
+  { code: "grni", role: "Goods received, not yet invoiced (liability)" },
+  { code: "inventory_consumption", role: "Issues, unless the category names an account" },
+  { code: "inventory_adjustment", role: "Write-offs, gains, transit losses and cost variances" },
+  { code: "inventory_opening_balance", role: "Opening stock (equity)" },
+];
+
+// Phase 3: whether inventory documents post to the general ledger. An
+// organisation that started inventory before Phase 3 switches it on here,
+// once, which posts its existing stock as an opening balance.
+function AccountingCard({
+  settings,
+  canManage,
+  onStarted,
+}: {
+  settings: InventorySettings;
+  canManage: boolean;
+  onStarted: () => void;
+}) {
+  const { showToast } = useToast();
+
+  async function start() {
+    try {
+      await inventoryApi.startAccounting();
+      showToast("Inventory accounting started", "good");
+      onStarted();
+    } catch (err) {
+      showToast(errorText(err), "bad");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Accounting"
+        subtitle="Receipts, issues, adjustments and transit losses post balanced journals to the general ledger as they are posted. Transfers don't: they don't change what the stock is worth."
+      />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-[13px]">
+            Status:{" "}
+            <Badge tone={settings.post_to_gl ? "good" : "warn"}>
+              {settings.post_to_gl ? "Posting to the ledger" : "Not posting"}
+            </Badge>
+            {settings.post_to_gl && settings.gl_started_at ? (
+              <span className="ml-2 text-ink-soft">since {formatDateTime(settings.gl_started_at)}</span>
+            ) : null}
+          </div>
+          {!settings.post_to_gl && canManage ? (
+            <ConfirmActionButton
+              label="Start inventory accounting"
+              tone="primary"
+              confirmTitle="Start inventory accounting?"
+              confirmMessage="The stock you hold now is posted to the ledger as an opening balance (Dr Inventory, Cr Inventory Opening Balance), and every document from now on posts its journal. This can't be switched off again."
+              confirmLabel="Start"
+              action={start}
+            />
+          ) : null}
+        </div>
+        <Table>
+          <Thead>
+            <tr>
+              <Th>Account</Th>
+              <Th>Used for</Th>
+            </tr>
+          </Thead>
+          <tbody>
+            {INVENTORY_ACCOUNTS.map((account) => (
+              <tr key={account.code}>
+                <Td className="font-bold">{account.code}</Td>
+                <Td>{account.role}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+        <p className="text-[12px] text-ink-soft">
+          These accounts are added to your chart of accounts automatically. A posting is refused, and nothing
+          moves, if one of them has been deactivated or the date is on or before the accounting lock date.
+        </p>
+      </div>
+    </Card>
   );
 }
 
@@ -393,7 +479,7 @@ function CategoriesCard({ canManage }: { canManage: boolean }) {
     <Card>
       <CardHeader
         title="Item categories"
-        subtitle="Group items for filtering and reporting. Categories can be nested."
+        subtitle="Group items for filtering and reporting. Categories can be nested; each can name the expense account its stock issues are charged to."
         action={canManage ? <Button onClick={() => setEditing("new")}>New Category</Button> : undefined}
       />
       {categories.loading ? <LoadingState /> : null}
@@ -407,6 +493,7 @@ function CategoriesCard({ canManage }: { canManage: boolean }) {
             <tr>
               <Th>Name</Th>
               <Th>Parent</Th>
+              <Th>Issues charged to</Th>
               <Th>Status</Th>
               {canManage ? <Th align="right">Actions</Th> : null}
             </tr>
@@ -416,6 +503,9 @@ function CategoriesCard({ canManage }: { canManage: boolean }) {
               <tr key={category.id}>
                 <Td className="font-bold">{category.name}</Td>
                 <Td>{category.parent_id ? (byId.get(category.parent_id)?.name ?? "—") : "—"}</Td>
+                <Td>
+                  {category.expense_account_code ?? <span className="text-ink-soft">Inherited</span>}
+                </Td>
                 <Td>
                   <Badge tone={category.is_active ? "good" : "neutral"}>
                     {category.is_active ? "Active" : "Inactive"}
@@ -463,7 +553,12 @@ function CategoryDrawer({
   const [name, setName] = useState(category?.name ?? "");
   const [parentId, setParentId] = useState(category?.parent_id ?? "");
   const [isActive, setIsActive] = useState(category?.is_active ?? true);
+  const [expenseAccount, setExpenseAccount] = useState(category?.expense_account_code ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const accounts = useApiResource(() => chartAccountsApi.list());
+  const expenseAccounts = (accounts.data ?? []).filter(
+    (account) => account.type === "expense" && (account.is_active || account.code === expenseAccount),
+  );
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -474,10 +569,15 @@ function CategoryDrawer({
           name,
           parent_id: parentId || null,
           is_active: isActive,
+          expense_account_code: expenseAccount || null,
         });
         showToast("Category updated", "good");
       } else {
-        await inventoryApi.createCategory({ name, parent_id: parentId || null });
+        await inventoryApi.createCategory({
+          name,
+          parent_id: parentId || null,
+          expense_account_code: expenseAccount || null,
+        });
         showToast("Category created", "good");
       }
       onSaved();
@@ -517,6 +617,27 @@ function CategoryDrawer({
               </option>
             ))}
           </Select>
+        </div>
+        <div>
+          <Label htmlFor="category-account">Issues charged to</Label>
+          <Select
+            id="category-account"
+            value={expenseAccount}
+            onChange={(event) => setExpenseAccount(event.target.value)}
+          >
+            <option value="">
+              {parentId ? "The parent category's account" : "Inventory consumption (default)"}
+            </option>
+            {expenseAccounts.map((account) => (
+              <option key={account.id} value={account.code}>
+                {account.name} ({account.code})
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1 text-[11px] text-ink-soft">
+            The expense account debited when stock in this category is issued. Add accounts in Chart of
+            Accounts.
+          </p>
         </div>
         {category ? (
           <div>

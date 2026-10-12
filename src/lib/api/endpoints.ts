@@ -1,5 +1,7 @@
 import { apiFetch, downloadAuthenticatedFile, uploadFile } from "@/lib/api/client";
 import type {
+  AccountingSettings,
+  AccountingSettingsUpdateBody,
   AgingLine,
   AnnualTaxReconciliationLine,
   ApiKey,
@@ -84,16 +86,21 @@ import type {
   FixedAssetTransferBody,
   GeneratedDocument,
   GenerateDocumentRequestBody,
+  GoodsReceipt,
+  GoodsReceiptBody,
+  GoodsReceiptStatus,
   IncomeStatement,
   InventoryAdjustment,
   InventoryAdjustmentBody,
   InventoryAdjustmentStatus,
   InventoryCategory,
   InventoryCategoryBody,
+  InventoryDocumentType,
   InventoryItem,
   InventoryItemBody,
   InventoryItemType,
   InventoryMovementPage,
+  InventoryReconciliation,
   InventorySettings,
   InventorySettingsUpdateBody,
   InventoryStockRow,
@@ -103,28 +110,16 @@ import type {
   InventoryUnitUpdateBody,
   InventoryWarehouse,
   InventoryWarehouseBody,
-  GoodsReceipt,
-  GoodsReceiptBody,
-  GoodsReceiptStatus,
-  IssueDepartment,
-  PurchaseOrder,
-  PurchaseOrderBody,
-  PurchaseOrderStatus,
-  StockIssue,
-  StockIssueBody,
-  StockIssueStatus,
-  StockTransfer,
-  StockTransferBody,
-  StockTransferStatus,
-  TransferReceiveBody,
   Invoice,
   InvoiceCreateBody,
+  IssueDepartment,
   JobGrade,
   JobGradeCreateBody,
   JobGradeUpdateBody,
   JobPosting,
   JobPostingCreateBody,
   JobPostingUpdateBody,
+  JournalEntry,
   JournalEntryCreateBody,
   LeaveBalance,
   LeaveRequest,
@@ -133,11 +128,11 @@ import type {
   LedgerStatementLine,
   LedgerStatementLineImport,
   Loan,
-  MeResponse,
   MembershipCreateBody,
   MembershipCreateOut,
   MembershipOut,
   MembershipRoleUpdateOut,
+  MeResponse,
   MyFixedAsset,
   Notification,
   NotificationBroadcastBody,
@@ -149,14 +144,14 @@ import type {
   OrgSummary,
   Overtime,
   OvertimeCreateBody,
-  PayRun,
-  PayRunCreateBody,
-  PayRunSimulationOut,
-  PayRunSimulationRequestBody,
   PayeByStateLine,
   PayeEstimateOut,
   PayeEstimateRequestBody,
   PayrollRegisterLine,
+  PayRun,
+  PayRunCreateBody,
+  PayRunSimulationOut,
+  PayRunSimulationRequestBody,
   Payslip,
   PayslipDelivery,
   PerformanceReview,
@@ -173,6 +168,9 @@ import type {
   ProbationPeriodCreateBody,
   PublicHoliday,
   PublicHolidayCreateBody,
+  PurchaseOrder,
+  PurchaseOrderBody,
+  PurchaseOrderStatus,
   Quiz,
   QuizAttempt,
   QuizAttemptSubmitBody,
@@ -197,6 +195,12 @@ import type {
   SimulationOut,
   SimulationRequestBody,
   StatutoryLiability,
+  StockIssue,
+  StockIssueBody,
+  StockIssueStatus,
+  StockTransfer,
+  StockTransferBody,
+  StockTransferStatus,
   Subscription,
   Task,
   TaskCreateBody,
@@ -211,6 +215,7 @@ import type {
   TrainingEnrollment,
   TrainingEnrollmentCreateBody,
   TrainingEnrollmentUpdateBody,
+  TransferReceiveBody,
   TrialBalanceLine,
   UnionMembership,
   UnionMembershipCreateBody,
@@ -219,8 +224,8 @@ import type {
   UsageSummary,
   Vendor,
   VendorCreateBody,
-  VendorUpdateBody,
   VendorStatementLine,
+  VendorUpdateBody,
   WhtPayment,
   WhtPaymentCreateBody,
 } from "@/lib/types";
@@ -592,6 +597,14 @@ export const generalLedgerApi = {
       method: "POST",
       body,
     }),
+};
+
+// --- accounting settings ---
+
+export const accountingSettingsApi = {
+  get: () => apiFetch<AccountingSettings>("/accounting-settings"),
+  update: (body: AccountingSettingsUpdateBody) =>
+    apiFetch<AccountingSettings>("/accounting-settings", { method: "PATCH", body }),
 };
 
 // --- vendors ---
@@ -1538,12 +1551,20 @@ export const inventoryApi = {
   updateSettings: (body: InventorySettingsUpdateBody) =>
     apiFetch<InventorySettings>("/inventory/settings", { method: "PUT", body }),
   summary: () => apiFetch<InventorySummary>("/inventory/summary"),
+  // Phase 3: inventory accounting.
+  startAccounting: () =>
+    apiFetch<InventorySettings>("/inventory/accounting/start", { method: "POST" }),
+  reconciliation: () => apiFetch<InventoryReconciliation>("/inventory/reconciliation"),
+  journals: (documentType: InventoryDocumentType, documentId: string) =>
+    apiFetch<JournalEntry[]>(
+      withQuery("/inventory/journals", { document_type: documentType, document_id: documentId }),
+    ),
 
   categories: (includeInactive = false) =>
     apiFetch<InventoryCategory[]>(
       withQuery("/inventory/categories", { include_inactive: includeInactive }),
     ),
-  createCategory: (body: { name: string; parent_id?: string | null }) =>
+  createCategory: (body: { name: string; parent_id?: string | null; expense_account_code?: string | null }) =>
     apiFetch<InventoryCategory>("/inventory/categories", { method: "POST", body }),
   updateCategory: (id: string, body: InventoryCategoryBody) =>
     apiFetch<InventoryCategory>(`/inventory/categories/${id}`, { method: "PATCH", body }),
@@ -1698,11 +1719,18 @@ export const purchaseOrdersApi = {
 };
 
 export const goodsReceiptsApi = {
-  list: (params?: { status?: GoodsReceiptStatus | ""; purchaseOrderId?: string }) =>
+  list: (params?: {
+    status?: GoodsReceiptStatus | "";
+    purchaseOrderId?: string;
+    vendorId?: string;
+    unbilled?: boolean;
+  }) =>
     apiFetch<GoodsReceipt[]>(
       withQuery("/inventory/goods-receipts", {
         status: params?.status,
         purchase_order_id: params?.purchaseOrderId,
+        vendor_id: params?.vendorId,
+        unbilled: params?.unbilled,
       }),
     ),
   get: (id: string) => apiFetch<GoodsReceipt>(`/inventory/goods-receipts/${id}`),

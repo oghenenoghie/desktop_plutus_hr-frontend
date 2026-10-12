@@ -19,6 +19,8 @@ interface LineDraft {
   accepted: string;
   rejected: string;
   reason: string;
+  lot: string;
+  expiry: string;
 }
 
 const QUANTITY = /^\d+(\.\d{1,4})?$/;
@@ -41,8 +43,10 @@ function draftsFrom(po: PurchaseOrder, receipt?: GoodsReceipt): Record<string, L
           accepted: String(Number(existing.accepted_quantity)),
           rejected: Number(existing.rejected_quantity) ? String(Number(existing.rejected_quantity)) : "",
           reason: existing.rejection_reason ?? "",
+          lot: existing.lot_number ?? "",
+          expiry: existing.expiry_date ?? "",
         }
-      : { accepted: receipt ? "" : outstandingInLineUnit(line), rejected: "", reason: "" };
+      : { accepted: receipt ? "" : outstandingInLineUnit(line), rejected: "", reason: "", lot: "", expiry: "" };
   }
   return drafts;
 }
@@ -62,6 +66,12 @@ export function GoodsReceiptForm({
 }) {
   const { showToast } = useToast();
   const warehouses = useApiResource(() => inventoryApi.warehouses());
+  // Which ordered items are received by lot (D9).
+  const items = useApiResource(() => inventoryApi.items({ includeInactive: true }));
+  const lotItems = new Map(
+    (items.data ?? []).filter((item) => item.track_lots).map((item) => [item.id, item]),
+  );
+  const anyLots = (po.lines ?? []).some((line) => lotItems.has(line.item_id));
   const [warehouseId, setWarehouseId] = useState(receipt?.warehouse_id ?? po.warehouse_id ?? "");
   const [receiptDate, setReceiptDate] = useState(receipt?.receipt_date ?? todayInLagos());
   const [reference, setReference] = useState(receipt?.supplier_reference ?? "");
@@ -89,11 +99,17 @@ export function GoodsReceiptForm({
       if (Number(rejected) > 0 && !draft.reason.trim()) {
         return showToast(`${line.item_sku}: say why goods were rejected.`, "bad");
       }
+      const lotItem = lotItems.get(line.item_id);
+      if (lotItem && Number(accepted) > 0 && !draft.lot.trim()) {
+        return showToast(`${line.item_sku}: enter the lot number on the packaging.`, "bad");
+      }
       lines.push({
         po_line_id: line.id,
         accepted_quantity: accepted,
         rejected_quantity: rejected,
         rejection_reason: draft.reason.trim() || null,
+        lot_number: lotItem ? draft.lot.trim() || null : null,
+        expiry_date: lotItem?.track_expiry ? draft.expiry || null : null,
       });
     }
     if (lines.length === 0) return showToast("Enter what was received on at least one line.", "bad");
@@ -117,7 +133,7 @@ export function GoodsReceiptForm({
     }
   }
 
-  if (warehouses.loading) return <LoadingState />;
+  if (warehouses.loading || items.loading) return <LoadingState />;
 
   return (
     <form className="flex flex-col gap-6" onSubmit={onSubmit}>
@@ -163,6 +179,8 @@ export function GoodsReceiptForm({
               <Th>Accepted</Th>
               <Th>Rejected</Th>
               <Th>Rejection reason</Th>
+              {anyLots ? <Th>Lot</Th> : null}
+              {anyLots ? <Th>Expiry</Th> : null}
             </tr>
           </Thead>
           <tbody>
@@ -206,6 +224,34 @@ export function GoodsReceiptForm({
                       disabled={!Number(draft.rejected)}
                     />
                   </Td>
+                  {anyLots ? (
+                    <Td>
+                      {lotItems.has(line.item_id) ? (
+                        <Input
+                          aria-label={`Lot ${line.item_sku}`}
+                          value={draft.lot}
+                          onChange={(e) => update(line.id, { lot: e.target.value })}
+                          maxLength={64}
+                        />
+                      ) : (
+                        <span className="text-ink-soft">—</span>
+                      )}
+                    </Td>
+                  ) : null}
+                  {anyLots ? (
+                    <Td>
+                      {lotItems.get(line.item_id)?.track_expiry ? (
+                        <Input
+                          aria-label={`Expiry ${line.item_sku}`}
+                          type="date"
+                          value={draft.expiry}
+                          onChange={(e) => update(line.id, { expiry: e.target.value })}
+                        />
+                      ) : (
+                        <span className="text-ink-soft">—</span>
+                      )}
+                    </Td>
+                  ) : null}
                 </tr>
               );
             })}

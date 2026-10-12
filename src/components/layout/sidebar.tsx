@@ -20,6 +20,7 @@ import {
   CalendarOff,
   ChevronDown,
   Clock,
+  ClipboardCheck,
   ClipboardList,
   ClipboardPen,
   CreditCard,
@@ -47,6 +48,7 @@ import {
   PackageSearch,
   Percent,
   PiggyBank,
+  Repeat,
   Receipt,
   ReceiptText,
   Scale,
@@ -138,6 +140,9 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   stockIssues: PackageMinus,
   stockTransfers: Truck,
   inventorySettings: SlidersHorizontal,
+  stocktakes: ClipboardCheck,
+  reorder: Repeat,
+  inventoryReports: FileBarChart,
   accountingSettings: BookLock,
 };
 

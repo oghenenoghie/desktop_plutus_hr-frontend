@@ -65,6 +65,9 @@ export interface NavItem {
     | "stockIssues"
     | "stockTransfers"
     | "inventorySettings"
+    | "stocktakes"
+    | "reorder"
+    | "inventoryReports"
     | "accountingSettings";
   roles: Role[];
 }
@@ -483,6 +486,29 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/inventory/adjustments",
             label: "Stock Adjustments",
             icon: "stockAdjustments",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+        ],
+      },
+      {
+        heading: "Stock Control",
+        items: [
+          {
+            href: "/inventory/stocktakes",
+            label: "Stocktakes",
+            icon: "stocktakes",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/reorder",
+            label: "Reorder",
+            icon: "reorder",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/reports",
+            label: "Inventory Reports",
+            icon: "inventoryReports",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
         ],

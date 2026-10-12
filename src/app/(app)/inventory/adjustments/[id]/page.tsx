@@ -219,6 +219,12 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
                   <Td>
                     <div className="font-bold">{line.item_sku}</div>
                     <div className="text-[11px] text-ink-soft">{line.item_name}</div>
+                    {line.lot_number ? (
+                      <div className="text-[11px] text-ink-soft">
+                        Lot {line.lot_number}
+                        {line.expiry_date ? ` · expires ${formatDate(line.expiry_date)}` : ""}
+                      </div>
+                    ) : null}
                   </Td>
                   <Td align="right">
                     <span className={Number(line.quantity) > 0 ? "font-bold text-good" : "font-bold text-bad"}>

@@ -228,6 +228,19 @@ import type {
   VendorUpdateBody,
   WhtPayment,
   WhtPaymentCreateBody,
+  ExpiryReport,
+  InventoryLotStock,
+  InventoryReportFormat,
+  MovementSummary,
+  OutstandingOrders,
+  ReorderSuggestion,
+  Stocktake,
+  StocktakeBody,
+  StocktakeCountInput,
+  StocktakeLineAddBody,
+  StocktakeStatus,
+  ValuationReport,
+  VarianceReport,
 } from "@/lib/types";
 
 // --- auth ---
@@ -1786,4 +1799,73 @@ export const stockTransfersApi = {
     }),
   receive: (id: string, body: TransferReceiveBody) =>
     apiFetch<StockTransfer>(`/inventory/transfers/${id}/receive`, { method: "POST", body }),
+};
+
+// --- inventory stock control (Phase 4) ---
+
+export const inventoryLotsApi = {
+  list: (params?: { itemId?: string; warehouseId?: string }) =>
+    apiFetch<InventoryLotStock[]>(
+      withQuery("/inventory/lots", { item_id: params?.itemId, warehouse_id: params?.warehouseId }),
+    ),
+};
+
+export const stocktakesApi = {
+  ...documentActions<Stocktake>("/inventory/stocktakes"),
+  list: (params?: { status?: StocktakeStatus | ""; warehouseId?: string }) =>
+    apiFetch<Stocktake[]>(
+      withQuery("/inventory/stocktakes", { status: params?.status, warehouse_id: params?.warehouseId }),
+    ),
+  get: (id: string) => apiFetch<Stocktake>(`/inventory/stocktakes/${id}`),
+  create: (body: StocktakeBody) =>
+    apiFetch<Stocktake>("/inventory/stocktakes", { method: "POST", body }),
+  update: (id: string, body: StocktakeBody) =>
+    apiFetch<Stocktake>(`/inventory/stocktakes/${id}`, { method: "PUT", body }),
+  start: (id: string) => apiFetch<Stocktake>(`/inventory/stocktakes/${id}/start`, { method: "POST" }),
+  recordCounts: (id: string, counts: StocktakeCountInput[]) =>
+    apiFetch<Stocktake>(`/inventory/stocktakes/${id}/counts`, { method: "PUT", body: { counts } }),
+  addLine: (id: string, body: StocktakeLineAddBody) =>
+    apiFetch<Stocktake>(`/inventory/stocktakes/${id}/lines`, { method: "POST", body }),
+  removeLine: (id: string, lineId: string) =>
+    apiFetch<Stocktake>(`/inventory/stocktakes/${id}/lines/${lineId}`, { method: "DELETE" }),
+  post: (id: string) => apiFetch<Stocktake>(`/inventory/stocktakes/${id}/post`, { method: "POST" }),
+  cancel: (id: string) =>
+    apiFetch<Stocktake>(`/inventory/stocktakes/${id}/cancel`, { method: "POST" }),
+  download: (id: string, number: string, format: InventoryReportFormat) =>
+    downloadAuthenticatedFile(
+      withQuery(`/inventory/stocktakes/${id}/export`, { format }),
+      `stocktake-${number}.${format}`,
+    ),
+};
+
+type ReportQuery = Record<string, string | number | boolean | null | undefined>;
+
+export const inventoryReportsApi = {
+  reorder: () => apiFetch<ReorderSuggestion[]>("/inventory/reorder-suggestions"),
+  valuation: (params: { asOf?: string; byWarehouse?: boolean }) =>
+    apiFetch<ValuationReport>(
+      withQuery("/inventory/reports/valuation", { as_of: params.asOf, by_warehouse: params.byWarehouse }),
+    ),
+  movements: (params: { dateFrom: string; dateTo: string; warehouseId?: string }) =>
+    apiFetch<MovementSummary>(
+      withQuery("/inventory/reports/movements", {
+        date_from: params.dateFrom,
+        date_to: params.dateTo,
+        warehouse_id: params.warehouseId,
+      }),
+    ),
+  variances: (params: { dateFrom: string; dateTo: string; warehouseId?: string }) =>
+    apiFetch<VarianceReport>(
+      withQuery("/inventory/reports/variances", {
+        date_from: params.dateFrom,
+        date_to: params.dateTo,
+        warehouse_id: params.warehouseId,
+      }),
+    ),
+  expiry: (withinDays: number) =>
+    apiFetch<ExpiryReport>(withQuery("/inventory/reports/expiry", { within_days: withinDays })),
+  outstandingOrders: () => apiFetch<OutstandingOrders>("/inventory/reports/outstanding-orders"),
+  // `path` is the report's own path under /inventory, e.g. "reports/valuation".
+  download: (path: string, query: ReportQuery, format: InventoryReportFormat, filename: string) =>
+    downloadAuthenticatedFile(withQuery(`/inventory/${path}`, { ...query, format }), `${filename}.${format}`),
 };

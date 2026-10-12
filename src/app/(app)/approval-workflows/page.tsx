@@ -27,16 +27,29 @@ const REQUEST_TYPES: { value: ApprovalRequestType; label: string }[] = [
   { value: "stock_adjustment", label: "Stock Adjustments" },
   { value: "stock_issue", label: "Stock Issues" },
   { value: "stock_transfer", label: "Stock Transfers" },
+  { value: "stocktake", label: "Stocktakes" },
 ];
 
 // Requests with no requesting employee: nobody to resolve a direct manager
 // or department head against (mirrors REQUESTERLESS_REQUEST_TYPES).
-const REQUESTERLESS: ApprovalRequestType[] = ["bill", "purchase_order", "stock_adjustment", "stock_transfer"];
+const REQUESTERLESS: ApprovalRequestType[] = [
+  "bill",
+  "purchase_order",
+  "stock_adjustment",
+  "stock_transfer",
+  "stocktake",
+];
 
 // Inventory approvers also need permission to reach the document: the
 // inventory approve permission, or for stock issues the request permission
 // department heads hold.
-const INVENTORY: ApprovalRequestType[] = ["purchase_order", "stock_adjustment", "stock_issue", "stock_transfer"];
+const INVENTORY: ApprovalRequestType[] = [
+  "purchase_order",
+  "stock_adjustment",
+  "stock_issue",
+  "stock_transfer",
+  "stocktake",
+];
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },

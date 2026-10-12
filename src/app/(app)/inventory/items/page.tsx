@@ -163,7 +163,12 @@ export default function InventoryItemsPage() {
                     <tr key={item.id}>
                       <Td className="font-bold">{item.sku}</Td>
                       <Td>
-                        <div>{item.name}</div>
+                        <div className="flex items-center gap-2">
+                          {item.name}
+                          {item.track_lots ? (
+                            <Badge tone="neutral">{item.track_expiry ? "Lots + expiry" : "Lots"}</Badge>
+                          ) : null}
+                        </div>
                         {item.units.length > 0 ? (
                           <div className="text-[11px] text-ink-soft">
                             {item.units
@@ -282,7 +287,10 @@ function ItemDrawer({
   const [vendorId, setVendorId] = useState(item?.preferred_vendor_id ?? "");
   const [barcode, setBarcode] = useState(item?.barcode ?? "");
   const [isActive, setIsActive] = useState(item?.is_active ?? true);
+  const [trackLots, setTrackLots] = useState(item?.track_lots ?? false);
+  const [trackExpiry, setTrackExpiry] = useState(item?.track_expiry ?? false);
   const [submitting, setSubmitting] = useState(false);
+  const holdsStock = TRACKED_ITEM_TYPES.includes(itemType);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -299,6 +307,8 @@ function ItemDrawer({
       default_cost_minor: defaultCost ? nairaToMinor(defaultCost) : null,
       preferred_vendor_id: vendorId || null,
       barcode: barcode || null,
+      track_lots: holdsStock && trackLots,
+      track_expiry: holdsStock && trackLots && trackExpiry,
     };
     try {
       if (item) {
@@ -426,6 +436,36 @@ function ItemDrawer({
             ))}
           </Select>
         </div>
+        {holdsStock ? (
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-[13px] text-ink">
+              <input
+                id="item-track-lots"
+                type="checkbox"
+                checked={trackLots}
+                onChange={(event) => {
+                  setTrackLots(event.target.checked);
+                  if (!event.target.checked) setTrackExpiry(false);
+                }}
+              />
+              Track lot (batch) numbers
+            </label>
+            <label className="flex items-center gap-2 text-[13px] text-ink">
+              <input
+                id="item-track-expiry"
+                type="checkbox"
+                checked={trackExpiry}
+                disabled={!trackLots}
+                onChange={(event) => setTrackExpiry(event.target.checked)}
+              />
+              Record an expiry date for each lot
+            </label>
+            <p className="text-[11px] text-ink-soft">
+              Stock is then received and counted by lot, issued first-expiry-first-out, and expired lots are never
+              issued. These can&apos;t change once the item has stock movements.
+            </p>
+          </div>
+        ) : null}
         <div>
           <Label htmlFor="item-description">Description</Label>
           <Textarea

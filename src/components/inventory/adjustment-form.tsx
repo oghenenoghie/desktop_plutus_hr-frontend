@@ -37,11 +37,15 @@ interface LineDraft {
   quantity: string;
   cost: string; // naira, per unit of the line
   notes: string;
+  lot: string; // lot-tracked items only (D9)
+  expiry: string;
 }
 
 function linesFrom(adjustment: InventoryAdjustment | undefined): LineDraft[] {
   if (!adjustment?.lines?.length) {
-    return [{ key: 0, itemId: "", unitId: "", direction: "add", quantity: "", cost: "", notes: "" }];
+    return [
+      { key: 0, itemId: "", unitId: "", direction: "add", quantity: "", cost: "", notes: "", lot: "", expiry: "" },
+    ];
   }
   return adjustment.lines.map((line, index) => {
     const quantity = Number(line.quantity);
@@ -53,6 +57,8 @@ function linesFrom(adjustment: InventoryAdjustment | undefined): LineDraft[] {
       quantity: String(Math.abs(quantity)),
       cost: line.unit_cost_minor === null ? "" : String(line.unit_cost_minor / 100),
       notes: line.notes ?? "",
+      lot: line.lot_number ?? "",
+      expiry: line.expiry_date ?? "",
     };
   });
 }
@@ -124,6 +130,13 @@ export function AdjustmentForm({
       showToast("Each quantity must be a positive number with at most 4 decimal places.", "bad");
       return;
     }
+    const noLot = filled.find(
+      (line) => itemsById.get(line.itemId)?.track_lots && directionOf(line) === "add" && !line.lot.trim(),
+    );
+    if (noLot) {
+      showToast(`${itemsById.get(noLot.itemId)?.sku}: enter the lot number of the stock being added.`, "bad");
+      return;
+    }
     const body: InventoryAdjustmentBody = {
       warehouse_id: effectiveWarehouse,
       reason,
@@ -131,12 +144,15 @@ export function AdjustmentForm({
       notes: notes || null,
       lines: filled.map((line) => {
         const adding = directionOf(line) === "add";
+        const lotItem = itemsById.get(line.itemId)?.track_lots ? itemsById.get(line.itemId) : undefined;
         return {
           item_id: line.itemId,
           unit_id: line.unitId || null,
           quantity: adding ? line.quantity.trim() : `-${line.quantity.trim()}`,
           unit_cost_minor: adding && line.cost ? nairaToMinor(line.cost) : null,
           notes: line.notes || null,
+          lot_number: lotItem ? line.lot.trim() || null : null,
+          expiry_date: lotItem?.track_expiry && adding ? line.expiry || null : null,
         };
       }),
     };
@@ -326,6 +342,32 @@ export function AdjustmentForm({
                     <div className="mt-1 text-[11px] text-ink-soft">Line value {formatNaira(value)}</div>
                   ) : null}
                 </div>
+                {item?.track_lots ? (
+                  <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-6">
+                    <div>
+                      <Label htmlFor={`line-lot-${line.key}`}>Lot number</Label>
+                      <Input
+                        id={`line-lot-${line.key}`}
+                        value={line.lot}
+                        onChange={(event) => update(line.key, { lot: event.target.value })}
+                        maxLength={64}
+                        placeholder={adding ? "Required" : "Blank: earliest expiry first"}
+                      />
+                    </div>
+                    {item.track_expiry && adding ? (
+                      <div>
+                        <Label htmlFor={`line-expiry-${line.key}`}>Expiry date</Label>
+                        <Input
+                          id={`line-expiry-${line.key}`}
+                          type="date"
+                          value={line.expiry}
+                          onChange={(event) => update(line.key, { expiry: event.target.value })}
+                        />
+                        <div className="mt-1 text-[11px] text-ink-soft">Needed for a new lot.</div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   variant="secondary"
@@ -346,7 +388,17 @@ export function AdjustmentForm({
             onClick={() => {
               setLines((current) => [
                 ...current,
-                { key: nextKey, itemId: "", unitId: "", direction: "add", quantity: "", cost: "", notes: "" },
+                {
+                  key: nextKey,
+                  itemId: "",
+                  unitId: "",
+                  direction: "add",
+                  quantity: "",
+                  cost: "",
+                  notes: "",
+                  lot: "",
+                  expiry: "",
+                },
               ]);
               setNextKey((key) => key + 1);
             }}

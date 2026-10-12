@@ -77,6 +77,13 @@ const STATUS_TONE: Record<string, Tone> = {
   disposed: "neutral",
   // tasks
   todo: "neutral",
+  // inventory documents
+  pending_approval: "warn",
+  posted: "good",
+  issued: "warn",
+  partially_received: "warn",
+  received: "good",
+  in_transit: "warn",
 };
 
 export function StatusBadge({ status }: { status: string }) {

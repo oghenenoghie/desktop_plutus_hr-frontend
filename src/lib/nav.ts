@@ -60,6 +60,10 @@ export interface NavItem {
     | "stockOnHand"
     | "stockMovements"
     | "stockAdjustments"
+    | "purchaseOrders"
+    | "goodsReceipts"
+    | "stockIssues"
+    | "stockTransfers"
     | "inventorySettings";
   roles: Role[];
 }
@@ -397,52 +401,93 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     // Gated server-side by the inventory.* permissions (inventory.view for
     // every page here, inventory.manage for settings and master data,
-    // inventory.adjust for adjustments). These roles mirror the default
-    // grants; a per-membership override still works, the API being the
-    // real check.
+    // inventory.adjust for adjustments, and inventory.purchase/receive/
+    // issue/transfer for the operations documents). These roles mirror the
+    // default grants; a per-membership override still works, the API being
+    // the real check. Department managers hold inventory.request only, so
+    // they see Stock Issues — limited to requests for their departments.
     heading: "Inventory",
-    items: [
+    subgroups: [
       {
-        href: "/inventory",
-        label: "Inventory Overview",
-        icon: "inventory",
-        roles: ["admin", "payroll_manager", "accountant", "auditor"],
+        heading: "Stock",
+        items: [
+          {
+            href: "/inventory",
+            label: "Inventory Overview",
+            icon: "inventory",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/items",
+            label: "Items",
+            icon: "inventoryItems",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/stock",
+            label: "Stock on Hand",
+            icon: "stockOnHand",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/movements",
+            label: "Stock Movements",
+            icon: "stockMovements",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/warehouses",
+            label: "Warehouses",
+            icon: "warehouses",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+        ],
       },
       {
-        href: "/inventory/items",
-        label: "Items",
-        icon: "inventoryItems",
-        roles: ["admin", "payroll_manager", "accountant", "auditor"],
+        heading: "Operations",
+        items: [
+          {
+            href: "/inventory/purchase-orders",
+            label: "Purchase Orders",
+            icon: "purchaseOrders",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/goods-receipts",
+            label: "Goods Receipts",
+            icon: "goodsReceipts",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/issues",
+            label: "Stock Issues",
+            icon: "stockIssues",
+            roles: ["admin", "payroll_manager", "accountant", "auditor", "department_manager"],
+          },
+          {
+            href: "/inventory/transfers",
+            label: "Stock Transfers",
+            icon: "stockTransfers",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/inventory/adjustments",
+            label: "Stock Adjustments",
+            icon: "stockAdjustments",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+        ],
       },
       {
-        href: "/inventory/stock",
-        label: "Stock on Hand",
-        icon: "stockOnHand",
-        roles: ["admin", "payroll_manager", "accountant", "auditor"],
-      },
-      {
-        href: "/inventory/adjustments",
-        label: "Stock Adjustments",
-        icon: "stockAdjustments",
-        roles: ["admin", "payroll_manager", "accountant", "auditor"],
-      },
-      {
-        href: "/inventory/movements",
-        label: "Stock Movements",
-        icon: "stockMovements",
-        roles: ["admin", "payroll_manager", "accountant", "auditor"],
-      },
-      {
-        href: "/inventory/warehouses",
-        label: "Warehouses",
-        icon: "warehouses",
-        roles: ["admin", "payroll_manager", "accountant", "auditor"],
-      },
-      {
-        href: "/inventory/settings",
-        label: "Inventory Settings",
-        icon: "inventorySettings",
-        roles: ["admin", "payroll_manager", "accountant"],
+        heading: "Setup",
+        items: [
+          {
+            href: "/inventory/settings",
+            label: "Inventory Settings",
+            icon: "inventorySettings",
+            roles: ["admin", "payroll_manager", "accountant"],
+          },
+        ],
       },
     ],
   },

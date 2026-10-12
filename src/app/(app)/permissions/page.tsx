@@ -31,6 +31,12 @@ const ALL_PERMISSIONS: Permission[] = [
   "inventory.manage",
   "inventory.adjust",
   "inventory.valuation",
+  "inventory.purchase",
+  "inventory.approve",
+  "inventory.receive",
+  "inventory.issue",
+  "inventory.transfer",
+  "inventory.request",
 ];
 
 // The team-invite flow grants Super Admin/Payroll Manager/HR Manager/

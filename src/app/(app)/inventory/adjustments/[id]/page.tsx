@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import { AdjustmentForm } from "@/components/inventory/adjustment-form";
+import { AdjustmentForm, postOrSubmit } from "@/components/inventory/adjustment-form";
+import { ApprovalCard } from "@/components/inventory/document-ui";
 import { InventoryError, MoneyOrHidden, MovementsTable } from "@/components/inventory/inventory-ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import {
   REASON_LABELS,
   canAdjustInventory,
   canManageInventory,
+  canOperateInventory,
   formatQuantity,
   formatSignedQuantity,
 } from "@/lib/inventory";
@@ -52,8 +54,7 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
 
   async function post(target: InventoryAdjustment) {
     try {
-      await inventoryApi.postAdjustment(target.id);
-      showToast(`${target.adjustment_number} posted`, "good");
+      showToast(await postOrSubmit(target), "good");
       reload();
     } catch (err) {
       showToast(errorText(err), "bad");
@@ -97,6 +98,7 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
   }
 
   const isDraft = data.status === "draft";
+  const hasMovements = data.status === "posted" || data.status === "reversed";
   const showCost = (data.lines ?? []).some((line) => line.unit_cost_minor !== null);
 
   return (
@@ -119,16 +121,48 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
                     confirmLabel="Delete"
                     action={() => remove(data)}
                   />
-                  <ConfirmActionButton
-                    label="Post"
-                    pendingLabel="Posting…"
-                    tone="primary"
-                    confirmTitle={`Post ${data.adjustment_number}?`}
-                    confirmMessage="Stock changes immediately and the adjustment can no longer be edited — only reversed."
-                    confirmLabel="Post"
-                    action={() => post(data)}
-                  />
+                  {data.requires_approval ? (
+                    <ConfirmActionButton
+                      label="Submit for approval"
+                      pendingLabel="Submitting…"
+                      tone="primary"
+                      confirmTitle={`Submit ${data.adjustment_number} for approval?`}
+                      confirmMessage="It can't be edited while it waits. Once approved, it can be posted."
+                      confirmLabel="Submit"
+                      action={() => post(data)}
+                    />
+                  ) : (
+                    <ConfirmActionButton
+                      label="Post"
+                      pendingLabel="Posting…"
+                      tone="primary"
+                      confirmTitle={`Post ${data.adjustment_number}?`}
+                      confirmMessage="Stock changes immediately and the adjustment can no longer be edited — only reversed."
+                      confirmLabel="Post"
+                      action={() => post(data)}
+                    />
+                  )}
                 </>
+              ) : null}
+              {data.status === "rejected" ? (
+                <ConfirmActionButton
+                  label="Delete"
+                  confirmTitle={`Delete ${data.adjustment_number}?`}
+                  confirmMessage="The rejected adjustment and its lines are removed. Stock is unaffected."
+                  confirmLabel="Delete"
+                  action={() => remove(data)}
+                />
+              ) : null}
+              {data.status === "approved" ? (
+                <ConfirmActionButton
+                  label="Post"
+                  pendingLabel="Posting…"
+                  tone="primary"
+                  confirmTitle={`Post ${data.adjustment_number}?`}
+                  confirmMessage="Stock changes immediately and the adjustment can no longer be edited — only reversed."
+                  confirmLabel="Post"
+                  action={() => post(data)}
+                />
               ) : null}
               {data.status === "posted" ? (
                 <Button variant="secondary" onClick={() => setReversing(true)}>
@@ -149,9 +183,11 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
             <Field label="Date">{formatDate(data.adjustment_date)}</Field>
             <Field label="Reason">{REASON_LABELS[data.reason]}</Field>
             <Field label="Net value">
-              {data.status === "draft" ? <span className="text-ink-soft">On posting</span> : <MoneyOrHidden minor={data.value_minor} />}
+              {hasMovements ? <MoneyOrHidden minor={data.value_minor} /> : <span className="text-ink-soft">On posting</span>}
             </Field>
             <Field label="Created">{formatDateTime(data.created_at)}</Field>
+            {data.submitted_at ? <Field label="Submitted">{formatDateTime(data.submitted_at)}</Field> : null}
+            {data.decided_at ? <Field label="Decided">{formatDateTime(data.decided_at)}</Field> : null}
             <Field label="Posted">{formatDateTime(data.posted_at)}</Field>
             {data.reversed_at ? <Field label="Reversed">{formatDateTime(data.reversed_at)}</Field> : null}
             {data.reversal_reason ? <Field label="Reversal reason">{data.reversal_reason}</Field> : null}
@@ -205,7 +241,27 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
           </Table>
         </Card>
 
-        {!isDraft ? (
+        {data.submitted_at ? (
+          <ApprovalCard
+            requestType="stock_adjustment"
+            requestId={data.id}
+            pending={data.status === "pending_approval"}
+            canDecide={canOperateInventory(user?.role)}
+            onDecide={async (approve, comment) => {
+              try {
+                await (approve
+                  ? inventoryApi.approveAdjustment(data.id, comment)
+                  : inventoryApi.rejectAdjustment(data.id, comment));
+                showToast(approve ? "Approval recorded" : `${data.adjustment_number} rejected`, "good");
+                reload();
+              } catch (err) {
+                showToast(errorText(err), "bad");
+              }
+            }}
+          />
+        ) : null}
+
+        {hasMovements ? (
           <Card>
             <CardHeader
               title="Stock movements"

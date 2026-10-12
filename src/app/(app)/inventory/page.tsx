@@ -67,6 +67,24 @@ export default function InventoryOverviewPage() {
             />
           </div>
 
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <KpiTile
+              label="Awaiting approval"
+              value={String(summary.data.pending_approvals)}
+              caption="Orders, issues, transfers and adjustments"
+            />
+            <KpiTile
+              label="Open purchase orders"
+              value={String(summary.data.open_purchase_orders)}
+              caption="Issued, not yet fully received"
+            />
+            <KpiTile
+              label="Transfers in transit"
+              value={String(summary.data.transfers_in_transit)}
+              caption="Dispatched, not yet received"
+            />
+          </div>
+
           <Card>
             <CardHeader
               title="Recent stock movements"

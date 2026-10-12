@@ -18,6 +18,32 @@ export function canAdjustInventory(role: Role | undefined): boolean {
   return role !== undefined && INVENTORY_WRITERS.includes(role);
 }
 
+// Phase 2 operations follow the same default grants: purchase, receive,
+// issue, transfer and approve all sit with the writers.
+export function canOperateInventory(role: Role | undefined): boolean {
+  return role !== undefined && INVENTORY_WRITERS.includes(role);
+}
+
+// Department managers hold inventory.request: they raise stock issues for
+// the departments they head, and nothing else.
+export function canRequestStock(role: Role | undefined): boolean {
+  return role !== undefined && [...INVENTORY_WRITERS, "department_manager"].includes(role);
+}
+
+export function isRequesterOnly(role: Role | undefined): boolean {
+  return role === "department_manager";
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pending_approval: "Pending approval",
+  partially_received: "Partly received",
+  in_transit: "In transit",
+};
+
+export function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ");
+}
+
 export const ITEM_TYPE_LABELS: Record<InventoryItemType, string> = {
   stock: "Stock",
   consumable: "Consumable",

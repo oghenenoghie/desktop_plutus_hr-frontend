@@ -356,6 +356,10 @@ export function AdjustmentForm({
         </div>
       </Card>
 
+      <p className="text-right text-[12px] text-ink-soft">
+        Write-offs, and gains at or above the approval limit in Inventory Settings, go for approval
+        instead of posting straight away.
+      </p>
       <div className="flex flex-wrap justify-end gap-3">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
           Cancel
@@ -369,4 +373,15 @@ export function AdjustmentForm({
       </div>
     </form>
   );
+}
+
+// Posts an adjustment — or, for a draft that D8 says needs approval,
+// submits it instead. An approved one posts. Returns the message to show.
+export async function postOrSubmit(saved: InventoryAdjustment): Promise<string> {
+  if (saved.status === "draft" && saved.requires_approval) {
+    await inventoryApi.submitAdjustment(saved.id);
+    return `${saved.adjustment_number} submitted for approval`;
+  }
+  await inventoryApi.postAdjustment(saved.id);
+  return `${saved.adjustment_number} posted`;
 }

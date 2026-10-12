@@ -40,6 +40,10 @@ const ENTITY_TYPES = [
   "inventory_item",
   "inventory_warehouse",
   "inventory_adjustment",
+  "inventory_purchase_order",
+  "inventory_goods_receipt",
+  "inventory_stock_issue",
+  "inventory_stock_transfer",
 ];
 
 interface Filters {

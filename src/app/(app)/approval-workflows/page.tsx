@@ -23,11 +23,25 @@ const REQUEST_TYPES: { value: ApprovalRequestType; label: string }[] = [
   { value: "leave_request", label: "Leave Requests" },
   { value: "expense", label: "Expenses" },
   { value: "bill", label: "Vendor Bills" },
+  { value: "purchase_order", label: "Purchase Orders" },
+  { value: "stock_adjustment", label: "Stock Adjustments" },
+  { value: "stock_issue", label: "Stock Issues" },
+  { value: "stock_transfer", label: "Stock Transfers" },
 ];
+
+// Requests with no requesting employee: nobody to resolve a direct manager
+// or department head against (mirrors REQUESTERLESS_REQUEST_TYPES).
+const REQUESTERLESS: ApprovalRequestType[] = ["bill", "purchase_order", "stock_adjustment", "stock_transfer"];
+
+// Inventory approvers also need permission to reach the document: the
+// inventory approve permission, or for stock issues the request permission
+// department heads hold.
+const INVENTORY: ApprovalRequestType[] = ["purchase_order", "stock_adjustment", "stock_issue", "stock_transfer"];
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "payroll_manager", label: "Payroll Manager" },
+  { value: "accountant", label: "Accountant" },
   { value: "manager", label: "Manager" },
 ];
 
@@ -142,15 +156,23 @@ export default function ApprovalWorkflowsPage() {
       <Card>
         <CardHeader
           title="Steps"
-          subtitle="Each step must approve, in order, before the request is finalized"
+          subtitle={
+            INVENTORY.includes(requestType)
+              ? requestType === "stock_issue"
+                ? "Each step must approve, in order. Approvers need the inventory approve or request permission — department managers hold the latter."
+                : "Each step must approve, in order. Approvers also need the inventory approve permission (Admin, Payroll Manager and Accountant by default)."
+              : "Each step must approve, in order, before the request is finalized"
+          }
           action={<Button onClick={addStep}>Add Step</Button>}
         />
         {configured.loading ? <LoadingState /> : null}
         {configured.error ? <ErrorState message={configured.error} /> : null}
         {!configured.loading && steps.length === 0 ? (
           <p className="py-6 text-[13px] text-ink-soft">
-            No steps configured — Admin or Payroll Manager can decide any request
-            {requestType !== "bill" ? ", and a Manager can decide their own team's requests" : ""}.
+            No steps configured — Admin, Payroll Manager or Accountant can decide any request
+            {REQUESTERLESS.includes(requestType) || INVENTORY.includes(requestType)
+              ? ""
+              : ", and a Manager can decide their own team's requests"}.
             Add a step below to require a specific approval chain instead.
           </p>
         ) : (
@@ -171,7 +193,7 @@ export default function ApprovalWorkflowsPage() {
                     }
                   >
                     <option value="role">A specific role</option>
-                    {requestType !== "bill" ? (
+                    {!REQUESTERLESS.includes(requestType) ? (
                       <>
                         <option value="direct_manager">Requester&apos;s direct manager</option>
                         <option value="department_head">Requester&apos;s department head</option>

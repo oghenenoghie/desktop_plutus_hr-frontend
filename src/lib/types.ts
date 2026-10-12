@@ -1386,7 +1386,14 @@ export interface ReconciliationSummary {
 
 // --- approval workflows ---
 
-export type ApprovalRequestType = "leave_request" | "expense" | "bill";
+export type ApprovalRequestType =
+  | "leave_request"
+  | "expense"
+  | "bill"
+  | "purchase_order"
+  | "stock_adjustment"
+  | "stock_issue"
+  | "stock_transfer";
 export type ApprovalStepEligibilityType =
   | "role"
   | "direct_manager"
@@ -1867,7 +1874,13 @@ export type Permission =
   | "inventory.view"
   | "inventory.manage"
   | "inventory.adjust"
-  | "inventory.valuation";
+  | "inventory.valuation"
+  | "inventory.purchase"
+  | "inventory.approve"
+  | "inventory.receive"
+  | "inventory.issue"
+  | "inventory.transfer"
+  | "inventory.request";
 
 export interface MembershipOut {
   id: string;
@@ -2194,12 +2207,26 @@ export type InventoryAdjustmentReason =
   | "write_off"
   | "correction";
 
-export type InventoryAdjustmentStatus = "draft" | "posted" | "reversed";
+export type InventoryAdjustmentStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "posted"
+  | "reversed";
 
 export interface InventorySettings {
   enabled: boolean;
   costing_method: string;
+  // Basis points of the ordered quantity (500 = 5%).
+  over_receipt_tolerance_bp: number;
+  // Gains at or above this value need approval; null = never (D8).
+  adjustment_gain_approval_limit_minor: number | null;
+  require_issue_approval: boolean;
+  require_transfer_approval: boolean;
 }
+
+export type InventorySettingsUpdateBody = Partial<Omit<InventorySettings, "costing_method">>;
 
 export interface InventoryCategory {
   id: string;
@@ -2339,7 +2366,10 @@ export interface InventoryAdjustment {
   adjustment_date: string;
   notes: string | null;
   status: InventoryAdjustmentStatus;
+  requires_approval: boolean;
   created_at: string;
+  submitted_at: string | null;
+  decided_at: string | null;
   posted_at: string | null;
   reversed_at: string | null;
   reversal_reason: string | null;
@@ -2394,6 +2424,277 @@ export interface InventorySummary {
   low_stock: number;
   active_warehouses: number;
   draft_adjustments: number;
+  pending_approvals: number;
+  open_purchase_orders: number;
+  transfers_in_transit: number;
   total_value_minor: number | null;
   recent_movements: InventoryMovement[];
+}
+
+// --- inventory operations (Phase 2) ---
+
+export type PurchaseOrderStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "issued"
+  | "partially_received"
+  | "received"
+  | "closed"
+  | "cancelled";
+
+export type GoodsReceiptStatus = "draft" | "posted" | "reversed";
+
+export type StockIssueStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "posted"
+  | "reversed"
+  | "cancelled";
+
+export type StockTransferStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "in_transit"
+  | "received"
+  | "cancelled";
+
+export interface PurchaseOrderLineInput {
+  item_id: string;
+  unit_id?: string | null;
+  quantity: string;
+  unit_price_minor: number;
+  discount_minor?: number;
+  tax_minor?: number;
+  notes?: string | null;
+}
+
+export interface PurchaseOrderBody {
+  vendor_id: string;
+  warehouse_id?: string | null;
+  order_date: string;
+  expected_date?: string | null;
+  vendor_reference?: string | null;
+  notes?: string | null;
+  lines: PurchaseOrderLineInput[];
+}
+
+export interface PurchaseOrderLine {
+  id: string;
+  line_no: number;
+  item_id: string;
+  item_sku: string;
+  item_name: string;
+  item_type: InventoryItemType;
+  unit_id: string;
+  unit_code: string;
+  base_unit_code: string;
+  quantity: string;
+  quantity_base: string;
+  unit_price_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  net_minor: number;
+  total_minor: number;
+  received_quantity_base: string;
+  outstanding_quantity_base: string;
+  notes: string | null;
+}
+
+export interface GoodsReceiptBrief {
+  id: string;
+  grn_number: string;
+  receipt_date: string;
+  status: GoodsReceiptStatus;
+  warehouse_code: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  vendor_id: string;
+  vendor_name: string;
+  warehouse_id: string | null;
+  warehouse_code: string | null;
+  order_date: string;
+  expected_date: string | null;
+  vendor_reference: string | null;
+  notes: string | null;
+  status: PurchaseOrderStatus;
+  created_at: string;
+  submitted_at: string | null;
+  decided_at: string | null;
+  issued_at: string | null;
+  closed_at: string | null;
+  close_reason: string | null;
+  line_count: number;
+  subtotal_minor: number;
+  tax_minor: number;
+  total_minor: number;
+  lines: PurchaseOrderLine[] | null;
+  receipts: GoodsReceiptBrief[] | null;
+}
+
+export interface GoodsReceiptLineInput {
+  po_line_id: string;
+  accepted_quantity: string;
+  rejected_quantity?: string;
+  rejection_reason?: string | null;
+  notes?: string | null;
+}
+
+export interface GoodsReceiptBody {
+  purchase_order_id: string;
+  warehouse_id: string;
+  receipt_date: string;
+  supplier_reference?: string | null;
+  notes?: string | null;
+  lines: GoodsReceiptLineInput[];
+}
+
+export interface GoodsReceiptLine {
+  id: string;
+  line_no: number;
+  po_line_id: string;
+  item_id: string;
+  item_sku: string;
+  item_name: string;
+  unit_code: string;
+  base_unit_code: string;
+  accepted_quantity: string;
+  rejected_quantity: string;
+  accepted_quantity_base: string;
+  rejection_reason: string | null;
+  notes: string | null;
+}
+
+export interface GoodsReceipt {
+  id: string;
+  grn_number: string;
+  purchase_order_id: string;
+  po_number: string;
+  vendor_name: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  warehouse_name: string;
+  receipt_date: string;
+  supplier_reference: string | null;
+  notes: string | null;
+  status: GoodsReceiptStatus;
+  created_at: string;
+  posted_at: string | null;
+  reversed_at: string | null;
+  reversal_reason: string | null;
+  line_count: number;
+  lines: GoodsReceiptLine[] | null;
+  value_minor: number | null;
+}
+
+export interface StockLineInput {
+  item_id: string;
+  unit_id?: string | null;
+  quantity: string;
+  notes?: string | null;
+}
+
+export interface StockLine {
+  id: string;
+  line_no: number;
+  item_id: string;
+  item_sku: string;
+  item_name: string;
+  unit_id: string;
+  unit_code: string;
+  base_unit_code: string;
+  quantity: string;
+  quantity_base: string | null;
+  notes: string | null;
+}
+
+export interface StockIssueBody {
+  warehouse_id: string;
+  department_id?: string | null;
+  requested_by_employee_id?: string | null;
+  issue_date: string;
+  purpose: string;
+  notes?: string | null;
+  lines: StockLineInput[];
+}
+
+export interface StockIssue {
+  id: string;
+  issue_number: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  warehouse_name: string;
+  department_id: string | null;
+  department_name: string | null;
+  requested_by_employee_id: string | null;
+  requested_by_name: string | null;
+  issue_date: string;
+  purpose: string;
+  notes: string | null;
+  status: StockIssueStatus;
+  created_at: string;
+  submitted_at: string | null;
+  decided_at: string | null;
+  posted_at: string | null;
+  reversed_at: string | null;
+  reversal_reason: string | null;
+  cancelled_at: string | null;
+  line_count: number;
+  lines: StockLine[] | null;
+  value_minor: number | null;
+}
+
+export interface IssueDepartment {
+  id: string;
+  name: string;
+}
+
+export interface StockTransferBody {
+  from_warehouse_id: string;
+  to_warehouse_id: string;
+  transfer_date: string;
+  notes?: string | null;
+  lines: StockLineInput[];
+}
+
+export interface StockTransferLine extends StockLine {
+  dispatched_quantity_base: string | null;
+  received_quantity_base: string | null;
+}
+
+export interface StockTransfer {
+  id: string;
+  transfer_number: string;
+  from_warehouse_id: string;
+  from_warehouse_code: string;
+  from_warehouse_name: string;
+  to_warehouse_id: string;
+  to_warehouse_code: string;
+  to_warehouse_name: string;
+  transfer_date: string;
+  notes: string | null;
+  status: StockTransferStatus;
+  discrepancy_reason: string | null;
+  created_at: string;
+  submitted_at: string | null;
+  decided_at: string | null;
+  dispatched_at: string | null;
+  received_at: string | null;
+  cancelled_at: string | null;
+  line_count: number;
+  lines: StockTransferLine[] | null;
+}
+
+export interface TransferReceiveBody {
+  receipt_date?: string | null;
+  lines: { line_id: string; received_quantity_base: string }[];
+  discrepancy_reason?: string | null;
 }

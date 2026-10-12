@@ -95,6 +95,7 @@ import type {
   InventoryItemType,
   InventoryMovementPage,
   InventorySettings,
+  InventorySettingsUpdateBody,
   InventoryStockRow,
   InventorySummary,
   InventoryUnit,
@@ -102,6 +103,20 @@ import type {
   InventoryUnitUpdateBody,
   InventoryWarehouse,
   InventoryWarehouseBody,
+  GoodsReceipt,
+  GoodsReceiptBody,
+  GoodsReceiptStatus,
+  IssueDepartment,
+  PurchaseOrder,
+  PurchaseOrderBody,
+  PurchaseOrderStatus,
+  StockIssue,
+  StockIssueBody,
+  StockIssueStatus,
+  StockTransfer,
+  StockTransferBody,
+  StockTransferStatus,
+  TransferReceiveBody,
   Invoice,
   InvoiceCreateBody,
   JobGrade,
@@ -1520,7 +1535,7 @@ function withQuery(path: string, params: Record<string, string | number | boolea
 
 export const inventoryApi = {
   settings: () => apiFetch<InventorySettings>("/inventory/settings"),
-  updateSettings: (body: { enabled: boolean }) =>
+  updateSettings: (body: InventorySettingsUpdateBody) =>
     apiFetch<InventorySettings>("/inventory/settings", { method: "PUT", body }),
   summary: () => apiFetch<InventorySummary>("/inventory/summary"),
 
@@ -1587,6 +1602,18 @@ export const inventoryApi = {
     apiFetch<void>(`/inventory/adjustments/${id}`, { method: "DELETE" }),
   postAdjustment: (id: string) =>
     apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}/post`, { method: "POST" }),
+  submitAdjustment: (id: string) =>
+    apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}/submit`, { method: "POST" }),
+  approveAdjustment: (id: string, comment?: string) =>
+    apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}/approve`, {
+      method: "POST",
+      body: { comment: comment || null },
+    }),
+  rejectAdjustment: (id: string, comment?: string) =>
+    apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}/reject`, {
+      method: "POST",
+      body: { comment: comment || null },
+    }),
   reverseAdjustment: (id: string, reason: string) =>
     apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}/reverse`, {
       method: "POST",
@@ -1629,4 +1656,106 @@ export const inventoryApi = {
         offset: params?.offset,
       }),
     ),
+};
+
+// --- inventory operations (Phase 2) ---
+
+// The approve/reject/reason actions every inventory document shares.
+function documentActions<T>(base: string) {
+  return {
+    submit: (id: string) => apiFetch<T>(`${base}/${id}/submit`, { method: "POST" }),
+    approve: (id: string, comment?: string) =>
+      apiFetch<T>(`${base}/${id}/approve`, { method: "POST", body: { comment: comment || null } }),
+    reject: (id: string, comment?: string) =>
+      apiFetch<T>(`${base}/${id}/reject`, { method: "POST", body: { comment: comment || null } }),
+    remove: (id: string) => apiFetch<void>(`${base}/${id}`, { method: "DELETE" }),
+  };
+}
+
+export const purchaseOrdersApi = {
+  ...documentActions<PurchaseOrder>("/inventory/purchase-orders"),
+  list: (params?: { status?: PurchaseOrderStatus | ""; vendorId?: string }) =>
+    apiFetch<PurchaseOrder[]>(
+      withQuery("/inventory/purchase-orders", { status: params?.status, vendor_id: params?.vendorId }),
+    ),
+  get: (id: string) => apiFetch<PurchaseOrder>(`/inventory/purchase-orders/${id}`),
+  create: (body: PurchaseOrderBody) =>
+    apiFetch<PurchaseOrder>("/inventory/purchase-orders", { method: "POST", body }),
+  update: (id: string, body: PurchaseOrderBody) =>
+    apiFetch<PurchaseOrder>(`/inventory/purchase-orders/${id}`, { method: "PUT", body }),
+  issue: (id: string) =>
+    apiFetch<PurchaseOrder>(`/inventory/purchase-orders/${id}/issue`, { method: "POST" }),
+  cancel: (id: string, reason: string) =>
+    apiFetch<PurchaseOrder>(`/inventory/purchase-orders/${id}/cancel`, {
+      method: "POST",
+      body: { reason },
+    }),
+  close: (id: string, reason: string) =>
+    apiFetch<PurchaseOrder>(`/inventory/purchase-orders/${id}/close`, {
+      method: "POST",
+      body: { reason },
+    }),
+};
+
+export const goodsReceiptsApi = {
+  list: (params?: { status?: GoodsReceiptStatus | ""; purchaseOrderId?: string }) =>
+    apiFetch<GoodsReceipt[]>(
+      withQuery("/inventory/goods-receipts", {
+        status: params?.status,
+        purchase_order_id: params?.purchaseOrderId,
+      }),
+    ),
+  get: (id: string) => apiFetch<GoodsReceipt>(`/inventory/goods-receipts/${id}`),
+  create: (body: GoodsReceiptBody) =>
+    apiFetch<GoodsReceipt>("/inventory/goods-receipts", { method: "POST", body }),
+  update: (id: string, body: Omit<GoodsReceiptBody, "purchase_order_id">) =>
+    apiFetch<GoodsReceipt>(`/inventory/goods-receipts/${id}`, { method: "PUT", body }),
+  remove: (id: string) => apiFetch<void>(`/inventory/goods-receipts/${id}`, { method: "DELETE" }),
+  post: (id: string) =>
+    apiFetch<GoodsReceipt>(`/inventory/goods-receipts/${id}/post`, { method: "POST" }),
+  reverse: (id: string, reason: string) =>
+    apiFetch<GoodsReceipt>(`/inventory/goods-receipts/${id}/reverse`, {
+      method: "POST",
+      body: { reason },
+    }),
+};
+
+export const stockIssuesApi = {
+  ...documentActions<StockIssue>("/inventory/issues"),
+  departments: () => apiFetch<IssueDepartment[]>("/inventory/issues/departments"),
+  list: (params?: { status?: StockIssueStatus | ""; warehouseId?: string }) =>
+    apiFetch<StockIssue[]>(
+      withQuery("/inventory/issues", { status: params?.status, warehouse_id: params?.warehouseId }),
+    ),
+  get: (id: string) => apiFetch<StockIssue>(`/inventory/issues/${id}`),
+  create: (body: StockIssueBody) =>
+    apiFetch<StockIssue>("/inventory/issues", { method: "POST", body }),
+  update: (id: string, body: StockIssueBody) =>
+    apiFetch<StockIssue>(`/inventory/issues/${id}`, { method: "PUT", body }),
+  cancel: (id: string) => apiFetch<StockIssue>(`/inventory/issues/${id}/cancel`, { method: "POST" }),
+  post: (id: string) => apiFetch<StockIssue>(`/inventory/issues/${id}/post`, { method: "POST" }),
+  reverse: (id: string, reason: string) =>
+    apiFetch<StockIssue>(`/inventory/issues/${id}/reverse`, { method: "POST", body: { reason } }),
+};
+
+export const stockTransfersApi = {
+  ...documentActions<StockTransfer>("/inventory/transfers"),
+  list: (params?: { status?: StockTransferStatus | ""; warehouseId?: string }) =>
+    apiFetch<StockTransfer[]>(
+      withQuery("/inventory/transfers", { status: params?.status, warehouse_id: params?.warehouseId }),
+    ),
+  get: (id: string) => apiFetch<StockTransfer>(`/inventory/transfers/${id}`),
+  create: (body: StockTransferBody) =>
+    apiFetch<StockTransfer>("/inventory/transfers", { method: "POST", body }),
+  update: (id: string, body: StockTransferBody) =>
+    apiFetch<StockTransfer>(`/inventory/transfers/${id}`, { method: "PUT", body }),
+  cancel: (id: string) =>
+    apiFetch<StockTransfer>(`/inventory/transfers/${id}/cancel`, { method: "POST" }),
+  dispatch: (id: string, dispatchDate?: string) =>
+    apiFetch<StockTransfer>(`/inventory/transfers/${id}/dispatch`, {
+      method: "POST",
+      body: { dispatch_date: dispatchDate || null },
+    }),
+  receive: (id: string, body: TransferReceiveBody) =>
+    apiFetch<StockTransfer>(`/inventory/transfers/${id}/receive`, { method: "POST", body }),
 };

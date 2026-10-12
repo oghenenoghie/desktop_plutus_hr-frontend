@@ -2,11 +2,10 @@
 
 import { useRouter } from "next/navigation";
 
-import { AdjustmentForm } from "@/components/inventory/adjustment-form";
+import { AdjustmentForm, postOrSubmit } from "@/components/inventory/adjustment-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { inventoryApi } from "@/lib/api/endpoints";
 
 export default function NewStockAdjustmentPage() {
   const router = useRouter();
@@ -16,15 +15,14 @@ export default function NewStockAdjustmentPage() {
     <div>
       <PageHeader
         title="New Stock Adjustment"
-        subtitle="Saved as a draft first; stock only changes when the adjustment is posted"
+        subtitle="Saved as a draft first; stock only changes when the adjustment is posted, after approval where it needs one"
       />
       <AdjustmentForm
         onCancel={() => router.push("/inventory/adjustments")}
         onSaved={async (saved, postNow) => {
           if (postNow) {
             try {
-              await inventoryApi.postAdjustment(saved.id);
-              showToast(`${saved.adjustment_number} posted`, "good");
+              showToast(await postOrSubmit(saved), "good");
             } catch (err) {
               showToast(
                 `${saved.adjustment_number} was saved as a draft but not posted: ${

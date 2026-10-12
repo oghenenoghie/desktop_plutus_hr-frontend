@@ -18,7 +18,8 @@ import { inventoryApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory } from "@/lib/inventory";
-import type { InventoryCategory, InventoryUnit } from "@/lib/types";
+import { formatNaira, nairaToMinor } from "@/lib/format";
+import type { InventoryCategory, InventorySettings, InventoryUnit } from "@/lib/types";
 
 function errorText(err: unknown): string {
   return err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.";
@@ -44,7 +45,7 @@ export default function InventorySettingsPage() {
     <div>
       <PageHeader
         title="Inventory Settings"
-        subtitle="Switch the module on, and manage item categories and units of measure"
+        subtitle="Switch the module on, set the approval and receiving rules, and manage item categories and units of measure"
       />
 
       <div className="flex flex-col gap-6">
@@ -87,12 +88,130 @@ export default function InventorySettingsPage() {
 
         {settings.data?.enabled ? (
           <>
+            <OperationsCard settings={settings.data} canManage={canManage} onSaved={settings.reload} />
             <UnitsCard canManage={canManage} />
             <CategoriesCard canManage={canManage} />
           </>
         ) : null}
       </div>
     </div>
+  );
+}
+
+// The Phase 2 rules: over-receipt tolerance (D4), the adjustment gain
+// approval limit (D8) and whether issues and transfers need approval.
+function OperationsCard({
+  settings,
+  canManage,
+  onSaved,
+}: {
+  settings: InventorySettings;
+  canManage: boolean;
+  onSaved: () => void;
+}) {
+  const { showToast } = useToast();
+  const [tolerance, setTolerance] = useState(String(settings.over_receipt_tolerance_bp / 100));
+  const [limit, setLimit] = useState(
+    settings.adjustment_gain_approval_limit_minor === null
+      ? ""
+      : String(settings.adjustment_gain_approval_limit_minor / 100),
+  );
+  const [issueApproval, setIssueApproval] = useState(settings.require_issue_approval);
+  const [transferApproval, setTransferApproval] = useState(settings.require_transfer_approval);
+  const [saving, setSaving] = useState(false);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const percent = Number(tolerance || "0");
+    if (!/^\d+(\.\d{1,2})?$/.test(tolerance || "0") || percent > 100) {
+      return showToast("Tolerance must be a percentage from 0 to 100, with at most 2 decimals.", "bad");
+    }
+    if (limit.trim() && !/^\d+(\.\d{1,2})?$/.test(limit.trim())) {
+      return showToast("The approval limit must be an amount in naira.", "bad");
+    }
+    setSaving(true);
+    try {
+      await inventoryApi.updateSettings({
+        over_receipt_tolerance_bp: Math.round(percent * 100),
+        adjustment_gain_approval_limit_minor: limit.trim() ? nairaToMinor(limit.trim()) : null,
+        require_issue_approval: issueApproval,
+        require_transfer_approval: transferApproval,
+      });
+      showToast("Operations settings saved", "good");
+      onSaved();
+    } catch (err) {
+      showToast(errorText(err), "bad");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Operations"
+        subtitle="Receiving tolerance and which stock documents need approval. Purchase orders always do; approvers come from Approval Workflows."
+      />
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="ops-tolerance">Over-receipt tolerance (%)</Label>
+            <Input
+              id="ops-tolerance"
+              inputMode="decimal"
+              value={tolerance}
+              onChange={(e) => setTolerance(e.target.value)}
+              disabled={!canManage}
+            />
+            <p className="mt-1 text-[11px] text-ink-soft">
+              How far above the ordered quantity a receipt may go. 0 means never more than ordered.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="ops-limit">Adjustment gain approval limit (₦)</Label>
+            <Input
+              id="ops-limit"
+              inputMode="decimal"
+              value={limit}
+              onChange={(e) => setLimit(e.target.value)}
+              placeholder="No limit"
+              disabled={!canManage}
+            />
+            <p className="mt-1 text-[11px] text-ink-soft">
+              Write-offs always need approval. Gains need it when worth this much or more
+              {settings.adjustment_gain_approval_limit_minor === null
+                ? "; blank means gains never do."
+                : ` (now ${formatNaira(settings.adjustment_gain_approval_limit_minor)}).`}
+            </p>
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-[13px] text-ink">
+          <input
+            type="checkbox"
+            checked={issueApproval}
+            onChange={(e) => setIssueApproval(e.target.checked)}
+            disabled={!canManage}
+          />
+          Stock issues need approval before they are posted
+        </label>
+        <label className="flex items-center gap-2 text-[13px] text-ink">
+          <input
+            type="checkbox"
+            checked={transferApproval}
+            onChange={(e) => setTransferApproval(e.target.checked)}
+            disabled={!canManage}
+          />
+          Transfers need approval before they are dispatched
+        </label>
+        {canManage ? (
+          <div className="flex justify-end">
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        ) : null}
+      </form>
+    </Card>
   );
 }
 

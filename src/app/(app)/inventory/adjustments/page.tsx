@@ -63,6 +63,9 @@ export default function StockAdjustmentsPage() {
               >
                 <option value="">All</option>
                 <option value="draft">Draft</option>
+                <option value="pending_approval">Pending approval</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
                 <option value="posted">Posted</option>
                 <option value="reversed">Reversed</option>
               </Select>

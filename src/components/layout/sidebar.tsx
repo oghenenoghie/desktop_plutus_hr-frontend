@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowLeftRight,
+  ArrowUpDown,
   Banknote,
   BarChart3,
   Bell,
@@ -19,6 +20,7 @@ import {
   ChevronDown,
   Clock,
   ClipboardList,
+  ClipboardPen,
   CreditCard,
   FileBarChart,
   FileSignature,
@@ -38,12 +40,15 @@ import {
   Map,
   MapPin,
   Network,
+  Package,
+  PackageSearch,
   Percent,
   PiggyBank,
   Receipt,
   ReceiptText,
   Scale,
   Settings2,
+  SlidersHorizontal,
   ShieldCheck,
   Sparkles,
   Star,
@@ -53,6 +58,7 @@ import {
   UserSquare2,
   Users,
   Users2,
+  Warehouse,
   Workflow,
 } from "lucide-react";
 
@@ -116,10 +122,34 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   publicHolidays: CalendarOff,
   balanceSheet: BookOpenCheck,
   security: Lock,
+  inventory: Package,
+  inventoryItems: PackageSearch,
+  warehouses: Warehouse,
+  stockOnHand: Boxes,
+  stockMovements: ArrowUpDown,
+  stockAdjustments: ClipboardPen,
+  inventorySettings: SlidersHorizontal,
 };
 
 function isActiveHref(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+// The most specific nav href the path falls under, so /inventory/items
+// highlights "Items" and not also the /inventory overview above it.
+function activeHrefFor(groups: NavGroup[], pathname: string): string | null {
+  let best: string | null = null;
+  for (const group of groups) {
+    const items = group.subgroups
+      ? group.subgroups.flatMap((subgroup) => subgroup.items)
+      : (group.items ?? []);
+    for (const item of items) {
+      if (isActiveHref(pathname, item.href) && (best === null || item.href.length > best.length)) {
+        best = item.href;
+      }
+    }
+  }
+  return best;
 }
 
 function groupHasActive(group: NavGroup, pathname: string): boolean {
@@ -218,6 +248,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const groups = navGroupsForRole(role);
+  const activeHref = activeHrefFor(groups, pathname);
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
     initialCollapsed(groups, pathname),
   );
@@ -306,7 +337,7 @@ export function Sidebar({
                                     <NavLink
                                       key={item.href}
                                       item={item}
-                                      active={isActiveHref(pathname, item.href)}
+                                      active={item.href === activeHref}
                                       onClick={onClose}
                                     />
                                   ))}
@@ -319,7 +350,7 @@ export function Sidebar({
                           <NavLink
                             key={item.href}
                             item={item}
-                            active={isActiveHref(pathname, item.href)}
+                            active={item.href === activeHref}
                             onClick={onClose}
                           />
                         ))}

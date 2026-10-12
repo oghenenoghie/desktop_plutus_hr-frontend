@@ -85,6 +85,23 @@ import type {
   GeneratedDocument,
   GenerateDocumentRequestBody,
   IncomeStatement,
+  InventoryAdjustment,
+  InventoryAdjustmentBody,
+  InventoryAdjustmentStatus,
+  InventoryCategory,
+  InventoryCategoryBody,
+  InventoryItem,
+  InventoryItemBody,
+  InventoryItemType,
+  InventoryMovementPage,
+  InventorySettings,
+  InventoryStockRow,
+  InventorySummary,
+  InventoryUnit,
+  InventoryUnitCreateBody,
+  InventoryUnitUpdateBody,
+  InventoryWarehouse,
+  InventoryWarehouseBody,
   Invoice,
   InvoiceCreateBody,
   JobGrade,
@@ -1485,5 +1502,131 @@ export const trainingCourseAttachmentsApi = {
         method: "POST",
         body,
       },
+    ),
+};
+
+// --- inventory ---
+
+function withQuery(path: string, params: Record<string, string | number | boolean | null | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "" && value !== false) {
+      query.set(key, String(value));
+    }
+  }
+  const qs = query.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+export const inventoryApi = {
+  settings: () => apiFetch<InventorySettings>("/inventory/settings"),
+  updateSettings: (body: { enabled: boolean }) =>
+    apiFetch<InventorySettings>("/inventory/settings", { method: "PUT", body }),
+  summary: () => apiFetch<InventorySummary>("/inventory/summary"),
+
+  categories: (includeInactive = false) =>
+    apiFetch<InventoryCategory[]>(
+      withQuery("/inventory/categories", { include_inactive: includeInactive }),
+    ),
+  createCategory: (body: { name: string; parent_id?: string | null }) =>
+    apiFetch<InventoryCategory>("/inventory/categories", { method: "POST", body }),
+  updateCategory: (id: string, body: InventoryCategoryBody) =>
+    apiFetch<InventoryCategory>(`/inventory/categories/${id}`, { method: "PATCH", body }),
+
+  units: (includeInactive = false) =>
+    apiFetch<InventoryUnit[]>(withQuery("/inventory/units", { include_inactive: includeInactive })),
+  createUnit: (body: InventoryUnitCreateBody) =>
+    apiFetch<InventoryUnit>("/inventory/units", { method: "POST", body }),
+  updateUnit: (id: string, body: InventoryUnitUpdateBody) =>
+    apiFetch<InventoryUnit>(`/inventory/units/${id}`, { method: "PATCH", body }),
+
+  items: (params?: {
+    q?: string;
+    categoryId?: string;
+    itemType?: InventoryItemType | "";
+    includeInactive?: boolean;
+  }) =>
+    apiFetch<InventoryItem[]>(
+      withQuery("/inventory/items", {
+        q: params?.q,
+        category_id: params?.categoryId,
+        item_type: params?.itemType,
+        include_inactive: params?.includeInactive,
+      }),
+    ),
+  item: (id: string) => apiFetch<InventoryItem>(`/inventory/items/${id}`),
+  createItem: (body: InventoryItemBody) =>
+    apiFetch<InventoryItem>("/inventory/items", { method: "POST", body }),
+  updateItem: (id: string, body: InventoryItemBody) =>
+    apiFetch<InventoryItem>(`/inventory/items/${id}`, { method: "PATCH", body }),
+  replaceItemUnits: (id: string, units: { unit_id: string; factor_to_base: string }[]) =>
+    apiFetch<InventoryItem>(`/inventory/items/${id}/units`, { method: "PUT", body: { units } }),
+
+  warehouses: (includeInactive = false) =>
+    apiFetch<InventoryWarehouse[]>(
+      withQuery("/inventory/warehouses", { include_inactive: includeInactive }),
+    ),
+  createWarehouse: (body: InventoryWarehouseBody) =>
+    apiFetch<InventoryWarehouse>("/inventory/warehouses", { method: "POST", body }),
+  updateWarehouse: (id: string, body: InventoryWarehouseBody) =>
+    apiFetch<InventoryWarehouse>(`/inventory/warehouses/${id}`, { method: "PATCH", body }),
+
+  adjustments: (params?: { status?: InventoryAdjustmentStatus | ""; warehouseId?: string }) =>
+    apiFetch<InventoryAdjustment[]>(
+      withQuery("/inventory/adjustments", {
+        status: params?.status,
+        warehouse_id: params?.warehouseId,
+      }),
+    ),
+  adjustment: (id: string) => apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}`),
+  createAdjustment: (body: InventoryAdjustmentBody) =>
+    apiFetch<InventoryAdjustment>("/inventory/adjustments", { method: "POST", body }),
+  updateAdjustment: (id: string, body: InventoryAdjustmentBody) =>
+    apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}`, { method: "PUT", body }),
+  deleteAdjustment: (id: string) =>
+    apiFetch<void>(`/inventory/adjustments/${id}`, { method: "DELETE" }),
+  postAdjustment: (id: string) =>
+    apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}/post`, { method: "POST" }),
+  reverseAdjustment: (id: string, reason: string) =>
+    apiFetch<InventoryAdjustment>(`/inventory/adjustments/${id}/reverse`, {
+      method: "POST",
+      body: { reason },
+    }),
+
+  stock: (params?: {
+    warehouseId?: string;
+    itemId?: string;
+    q?: string;
+    includeZero?: boolean;
+  }) =>
+    apiFetch<InventoryStockRow[]>(
+      withQuery("/inventory/stock", {
+        warehouse_id: params?.warehouseId,
+        item_id: params?.itemId,
+        q: params?.q,
+        include_zero: params?.includeZero,
+      }),
+    ),
+  movements: (params?: {
+    itemId?: string;
+    warehouseId?: string;
+    movementType?: string;
+    sourceId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }) =>
+    apiFetch<InventoryMovementPage>(
+      withQuery("/inventory/movements", {
+        item_id: params?.itemId,
+        warehouse_id: params?.warehouseId,
+        movement_type: params?.movementType,
+        source_id: params?.sourceId,
+        date_from: params?.dateFrom,
+        date_to: params?.dateTo,
+        limit: params?.limit,
+        offset: params?.offset,
+      }),
     ),
 };

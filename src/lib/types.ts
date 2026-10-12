@@ -1863,7 +1863,11 @@ export type Permission =
   | "recruitment.manage"
   | "performance.manage"
   | "reports.view"
-  | "settings.manage";
+  | "settings.manage"
+  | "inventory.view"
+  | "inventory.manage"
+  | "inventory.adjust"
+  | "inventory.valuation";
 
 export interface MembershipOut {
   id: string;
@@ -2155,4 +2159,241 @@ export interface TaskUpdateBody {
   status?: TaskStatus;
   priority?: TaskPriority;
   due_date?: string;
+}
+
+// --- inventory ---
+// Quantities travel as decimal strings (the backend's NUMERIC(18,4)), never
+// floats. Value and cost fields are null unless the caller holds
+// inventory.valuation.
+
+export type InventoryItemType = "stock" | "consumable" | "non_stock" | "service";
+
+export type StockMovementType =
+  | "opening_balance"
+  | "adjustment_gain"
+  | "adjustment_loss"
+  | "reversal"
+  | "receipt"
+  | "issue"
+  | "transfer_out"
+  | "transfer_in";
+
+export type StockSourceType =
+  | "inventory_adjustment"
+  | "goods_receipt"
+  | "stock_issue"
+  | "stock_transfer"
+  | "stocktake";
+
+export type InventoryAdjustmentReason =
+  | "opening_balance"
+  | "found"
+  | "damage"
+  | "expiry"
+  | "loss"
+  | "write_off"
+  | "correction";
+
+export type InventoryAdjustmentStatus = "draft" | "posted" | "reversed";
+
+export interface InventorySettings {
+  enabled: boolean;
+  costing_method: string;
+}
+
+export interface InventoryCategory {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface InventoryCategoryBody {
+  name?: string;
+  parent_id?: string | null;
+  is_active?: boolean;
+}
+
+export interface InventoryUnit {
+  id: string;
+  code: string;
+  name: string;
+  allows_fraction: boolean;
+  is_active: boolean;
+}
+
+export interface InventoryUnitCreateBody {
+  code: string;
+  name: string;
+  allows_fraction: boolean;
+}
+
+export interface InventoryUnitUpdateBody {
+  name?: string;
+  allows_fraction?: boolean;
+  is_active?: boolean;
+}
+
+export interface InventoryItemUnit {
+  unit_id: string;
+  unit_code: string;
+  unit_name: string;
+  factor_to_base: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  sku: string;
+  name: string;
+  description: string | null;
+  item_type: InventoryItemType;
+  category_id: string | null;
+  category_name: string | null;
+  base_unit_id: string;
+  base_unit_code: string;
+  base_unit_allows_fraction: boolean;
+  reorder_level: string | null;
+  max_level: string | null;
+  default_cost_minor: number | null;
+  preferred_vendor_id: string | null;
+  barcode: string | null;
+  is_active: boolean;
+  created_at: string;
+  units: InventoryItemUnit[];
+  quantity_on_hand: string;
+  value_minor: number | null;
+  average_cost_minor: number | null;
+}
+
+export interface InventoryItemBody {
+  sku?: string;
+  name?: string;
+  item_type?: InventoryItemType;
+  base_unit_id?: string;
+  description?: string | null;
+  category_id?: string | null;
+  reorder_level?: string | null;
+  max_level?: string | null;
+  default_cost_minor?: number | null;
+  preferred_vendor_id?: string | null;
+  barcode?: string | null;
+  is_active?: boolean;
+}
+
+export interface InventoryWarehouse {
+  id: string;
+  code: string;
+  name: string;
+  branch_id: string | null;
+  address: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface InventoryWarehouseBody {
+  code?: string;
+  name?: string;
+  branch_id?: string | null;
+  address?: string | null;
+  is_active?: boolean;
+}
+
+export interface InventoryAdjustmentLineInput {
+  item_id: string;
+  unit_id?: string | null;
+  quantity: string;
+  unit_cost_minor?: number | null;
+  notes?: string | null;
+}
+
+export interface InventoryAdjustmentBody {
+  warehouse_id: string;
+  reason: InventoryAdjustmentReason;
+  adjustment_date: string;
+  notes?: string | null;
+  lines: InventoryAdjustmentLineInput[];
+}
+
+export interface InventoryAdjustmentLine {
+  id: string;
+  line_no: number;
+  item_id: string;
+  item_sku: string;
+  item_name: string;
+  unit_id: string;
+  unit_code: string;
+  quantity: string;
+  quantity_base: string | null;
+  unit_cost_minor: number | null;
+  notes: string | null;
+}
+
+export interface InventoryAdjustment {
+  id: string;
+  adjustment_number: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  warehouse_name: string;
+  reason: InventoryAdjustmentReason;
+  adjustment_date: string;
+  notes: string | null;
+  status: InventoryAdjustmentStatus;
+  created_at: string;
+  posted_at: string | null;
+  reversed_at: string | null;
+  reversal_reason: string | null;
+  line_count: number;
+  lines: InventoryAdjustmentLine[] | null;
+  value_minor: number | null;
+}
+
+export interface InventoryStockRow {
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  warehouse_name: string;
+  quantity: string;
+  reorder_level: string | null;
+  value_minor: number | null;
+}
+
+export interface InventoryMovement {
+  id: string;
+  entry_date: string;
+  created_at: string;
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  movement_type: StockMovementType;
+  quantity: string;
+  value_minor: number | null;
+  unit_cost_minor: number | null;
+  source_type: StockSourceType;
+  source_id: string;
+  source_number: string | null;
+  reversal_of_id: string | null;
+  reason: string | null;
+}
+
+export interface InventoryMovementPage {
+  items: InventoryMovement[];
+  total: number;
+}
+
+export interface InventorySummary {
+  enabled: boolean;
+  tracked_items: number;
+  out_of_stock: number;
+  low_stock: number;
+  active_warehouses: number;
+  draft_adjustments: number;
+  total_value_minor: number | null;
+  recent_movements: InventoryMovement[];
 }

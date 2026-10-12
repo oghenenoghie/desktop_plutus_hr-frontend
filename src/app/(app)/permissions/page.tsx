@@ -27,6 +27,10 @@ const ALL_PERMISSIONS: Permission[] = [
   "performance.manage",
   "reports.view",
   "settings.manage",
+  "inventory.view",
+  "inventory.manage",
+  "inventory.adjust",
+  "inventory.valuation",
 ];
 
 // The team-invite flow grants Super Admin/Payroll Manager/HR Manager/

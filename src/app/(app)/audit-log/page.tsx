@@ -34,6 +34,12 @@ const ENTITY_TYPES = [
   "ledger_entry",
   "fixed_asset",
   "ledger_statement_line",
+  "inventory_settings",
+  "inventory_category",
+  "inventory_unit",
+  "inventory_item",
+  "inventory_warehouse",
+  "inventory_adjustment",
 ];
 
 interface Filters {

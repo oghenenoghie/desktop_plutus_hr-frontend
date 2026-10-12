@@ -1429,7 +1429,8 @@ export type ApprovalRequestType =
   | "purchase_order"
   | "stock_adjustment"
   | "stock_issue"
-  | "stock_transfer";
+  | "stock_transfer"
+  | "stocktake";
 export type ApprovalStepEligibilityType =
   | "role"
   | "direct_manager"
@@ -2273,7 +2274,8 @@ export type InventoryDocumentType =
   | "goods_receipt"
   | "stock_issue"
   | "stock_adjustment"
-  | "stock_transfer";
+  | "stock_transfer"
+  | "stocktake";
 
 // Inventory against the GL; both differences are zero while every stock
 // change has posted its journal.
@@ -2352,6 +2354,9 @@ export interface InventoryItem {
   preferred_vendor_id: string | null;
   barcode: string | null;
   is_active: boolean;
+  // Phase 4 (D9): lot numbers, and per-lot expiry dates. Frozen once used.
+  track_lots: boolean;
+  track_expiry: boolean;
   created_at: string;
   units: InventoryItemUnit[];
   quantity_on_hand: string;
@@ -2372,6 +2377,8 @@ export interface InventoryItemBody {
   preferred_vendor_id?: string | null;
   barcode?: string | null;
   is_active?: boolean;
+  track_lots?: boolean;
+  track_expiry?: boolean;
 }
 
 export interface InventoryWarehouse {
@@ -2398,6 +2405,8 @@ export interface InventoryAdjustmentLineInput {
   quantity: string;
   unit_cost_minor?: number | null;
   notes?: string | null;
+  lot_number?: string | null;
+  expiry_date?: string | null;
 }
 
 export interface InventoryAdjustmentBody {
@@ -2420,6 +2429,8 @@ export interface InventoryAdjustmentLine {
   quantity_base: string | null;
   unit_cost_minor: number | null;
   notes: string | null;
+  lot_number: string | null;
+  expiry_date: string | null;
 }
 
 export interface InventoryAdjustment {
@@ -2476,6 +2487,8 @@ export interface InventoryMovement {
   source_number: string | null;
   reversal_of_id: string | null;
   reason: string | null;
+  lot_id?: string | null;
+  lot_number?: string | null;
 }
 
 export interface InventoryMovementPage {
@@ -2612,6 +2625,8 @@ export interface GoodsReceiptLineInput {
   rejected_quantity?: string;
   rejection_reason?: string | null;
   notes?: string | null;
+  lot_number?: string | null;
+  expiry_date?: string | null;
 }
 
 export interface GoodsReceiptBody {
@@ -2637,6 +2652,8 @@ export interface GoodsReceiptLine {
   accepted_quantity_base: string;
   rejection_reason: string | null;
   notes: string | null;
+  lot_number: string | null;
+  expiry_date: string | null;
 }
 
 export interface GoodsReceipt {
@@ -2771,3 +2788,220 @@ export interface TransferReceiveBody {
   lines: { line_id: string; received_quantity_base: string }[];
   discrepancy_reason?: string | null;
 }
+
+// --- inventory stock control (Phase 4) ---
+
+export interface InventoryLotStock {
+  lot_id: string;
+  lot_number: string;
+  expiry_date: string | null;
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  quantity: string;
+  expired: boolean;
+  days_to_expiry: number | null;
+  value_minor: number | null;
+}
+
+export type StocktakeStatus =
+  | "draft"
+  | "counting"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "posted"
+  | "cancelled";
+
+export interface StocktakeBody {
+  warehouse_id: string;
+  count_date: string;
+  category_id?: string | null;
+  notes?: string | null;
+}
+
+export interface StocktakeCountInput {
+  line_id: string;
+  counted_quantity: string | null;
+  notes?: string | null;
+}
+
+export interface StocktakeLineAddBody {
+  item_id: string;
+  counted_quantity: string;
+  lot_number?: string | null;
+  expiry_date?: string | null;
+  notes?: string | null;
+}
+
+export interface StocktakeLine {
+  id: string;
+  line_no: number;
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  base_unit_allows_fraction: boolean;
+  lot_id: string | null;
+  lot_number: string | null;
+  expiry_date: string | null;
+  expected_quantity: string;
+  counted_quantity: string | null;
+  variance: string | null;
+  variance_value_minor: number | null;
+  added_during_count: boolean;
+  notes: string | null;
+}
+
+export interface Stocktake {
+  id: string;
+  stocktake_number: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  warehouse_name: string;
+  category_id: string | null;
+  category_name: string | null;
+  count_date: string;
+  notes: string | null;
+  status: StocktakeStatus;
+  cutoff_at: string | null;
+  created_at: string;
+  submitted_at: string | null;
+  decided_at: string | null;
+  posted_at: string | null;
+  cancelled_at: string | null;
+  line_count: number;
+  counted_count: number;
+  variance_count: number;
+  gain_value_minor: number | null;
+  loss_value_minor: number | null;
+  needs_approval: boolean | null;
+  lines: StocktakeLine[] | null;
+}
+
+export interface ReorderSuggestion {
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  reorder_level: string;
+  max_level: string | null;
+  on_hand: string;
+  expired: string;
+  on_order: string;
+  available: string;
+  suggested_quantity: string;
+  preferred_vendor_id: string | null;
+  preferred_vendor_name: string | null;
+  last_unit_cost_minor: number | null;
+  estimated_cost_minor: number | null;
+}
+
+export interface ValuationRow {
+  item_id: string;
+  sku: string;
+  item_name: string;
+  category_name: string | null;
+  base_unit_code: string;
+  warehouse_id: string | null;
+  warehouse_code: string | null;
+  quantity: string;
+  value_minor: number;
+  average_cost_minor: number | null;
+}
+
+export interface ValuationReport {
+  as_of: string;
+  by_warehouse: boolean;
+  rows: ValuationRow[];
+  total_quantity: string;
+  total_value_minor: number;
+  posts_to_gl: boolean;
+  gl_started_at: string | null;
+  gl_balance_minor: number | null;
+  difference_minor: number | null;
+}
+
+export interface MovementSummaryRow {
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  opening_quantity: string;
+  received: string;
+  issued: string;
+  transferred_in: string;
+  transferred_out: string;
+  adjusted: string;
+  reversed: string;
+  closing_quantity: string;
+  opening_value_minor: number | null;
+  closing_value_minor: number | null;
+}
+
+export interface MovementSummary {
+  date_from: string;
+  date_to: string;
+  warehouse_id: string | null;
+  rows: MovementSummaryRow[];
+}
+
+export interface VarianceRow {
+  entry_date: string;
+  source_type: string;
+  source_id: string;
+  source_number: string | null;
+  reason: string | null;
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  warehouse_code: string;
+  lot_number: string | null;
+  movement_type: StockMovementType;
+  quantity: string;
+  value_minor: number | null;
+}
+
+export interface VarianceReport {
+  date_from: string;
+  date_to: string;
+  rows: VarianceRow[];
+  gain_value_minor: number | null;
+  loss_value_minor: number | null;
+}
+
+export interface ExpiryReport {
+  as_of: string;
+  within_days: number;
+  rows: InventoryLotStock[];
+  expired_value_minor: number | null;
+  expiring_value_minor: number | null;
+}
+
+export interface OutstandingOrderRow {
+  purchase_order_id: string;
+  po_number: string;
+  vendor_name: string;
+  order_date: string;
+  expected_date: string | null;
+  status: string;
+  item_id: string;
+  sku: string;
+  item_name: string;
+  base_unit_code: string;
+  ordered: string;
+  received: string;
+  outstanding: string;
+  outstanding_value_minor: number;
+}
+
+export interface OutstandingOrders {
+  rows: OutstandingOrderRow[];
+  total_value_minor: number;
+}
+
+export type InventoryReportFormat = "csv" | "pdf";

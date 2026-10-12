@@ -84,6 +84,7 @@ const STATUS_TONE: Record<string, Tone> = {
   partially_received: "warn",
   received: "good",
   in_transit: "warn",
+  counting: "warn",
 };
 
 export function StatusBadge({ status }: { status: string }) {

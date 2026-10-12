@@ -10,12 +10,13 @@ import { formatDate, formatNaira } from "@/lib/format";
 import { MOVEMENT_LABELS, formatSignedQuantity, isPositive } from "@/lib/inventory";
 import type { InventoryMovement, StockSourceType } from "@/lib/types";
 
-// Where each kind of source document lives (stocktakes come in Phase 4).
+// Where each kind of source document lives.
 const SOURCE_PAGES: Partial<Record<StockSourceType, string>> = {
   inventory_adjustment: "/inventory/adjustments",
   goods_receipt: "/inventory/goods-receipts",
   stock_issue: "/inventory/issues",
   stock_transfer: "/inventory/transfers",
+  stocktake: "/inventory/stocktakes",
 };
 
 const NOT_ENABLED = "inventory is not enabled";
@@ -98,6 +99,9 @@ export function MovementsTable({
             <Td>
               <div className="font-bold">{movement.sku}</div>
               <div className="text-[11px] text-ink-soft">{movement.item_name}</div>
+              {movement.lot_number ? (
+                <div className="text-[11px] text-ink-soft">Lot {movement.lot_number}</div>
+              ) : null}
             </Td>
             <Td>{movement.warehouse_code}</Td>
             <Td>

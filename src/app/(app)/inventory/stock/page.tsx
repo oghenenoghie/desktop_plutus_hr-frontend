@@ -5,14 +5,14 @@ import { useState } from "react";
 import { InventoryError, MoneyOrHidden } from "@/components/inventory/inventory-ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, LoadingState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
-import { inventoryApi } from "@/lib/api/endpoints";
+import { inventoryApi, inventoryLotsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatNaira } from "@/lib/format";
+import { formatDate, formatNaira } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, formatQuantity, isLowStock } from "@/lib/inventory";
 
@@ -142,6 +142,64 @@ export default function StockOnHandPage() {
           ) : null}
         </Card>
       )}
+      {stock.error ? null : <LotStockCard warehouseId={warehouseId} />}
     </div>
+  );
+}
+
+// Lot-tracked items, lot by lot (D9): soonest expiry first. Shown only when
+// some item tracks lots.
+function LotStockCard({ warehouseId }: { warehouseId: string }) {
+  const lots = useApiResource(() => inventoryLotsApi.list({ warehouseId }), [warehouseId]);
+  const rows = lots.data ?? [];
+  if (rows.length === 0) return null;
+  const showValues = rows.some((row) => row.value_minor !== null);
+  return (
+    <Card className="mt-6">
+      <CardHeader
+        title="By lot"
+        subtitle="Lot-tracked items, soonest expiry first. Expired lots aren't issued; write them off with an Expiry adjustment."
+      />
+      <Table>
+        <Thead>
+          <tr>
+            <Th>Item</Th>
+            <Th>Lot</Th>
+            <Th>Expiry</Th>
+            <Th>Warehouse</Th>
+            <Th align="right">Quantity</Th>
+            {showValues ? <Th align="right">Value</Th> : null}
+          </tr>
+        </Thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.lot_id}-${row.warehouse_id}`}>
+              <Td>
+                <div className="font-bold">{row.sku}</div>
+                <div className="text-[11px] text-ink-soft">{row.item_name}</div>
+              </Td>
+              <Td>{row.lot_number}</Td>
+              <Td>
+                {row.expiry_date ? formatDate(row.expiry_date) : "—"}{" "}
+                {row.expired ? (
+                  <Badge tone="bad">Expired</Badge>
+                ) : row.days_to_expiry !== null && row.days_to_expiry <= 30 ? (
+                  <Badge tone="warn">{row.days_to_expiry} days</Badge>
+                ) : null}
+              </Td>
+              <Td>{row.warehouse_code}</Td>
+              <Td align="right">
+                {formatQuantity(row.quantity)} <span className="text-[11px] text-ink-soft">{row.base_unit_code}</span>
+              </Td>
+              {showValues ? (
+                <Td align="right">
+                  <MoneyOrHidden minor={row.value_minor} />
+                </Td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </Card>
   );
 }

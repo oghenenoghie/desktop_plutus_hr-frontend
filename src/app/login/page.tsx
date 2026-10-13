@@ -154,7 +154,7 @@ export default function LoginPage() {
             ))}
 
           {error ? (
-            <div className="rounded-panel bg-bad-tint px-3 py-2.5 text-[12.5px] font-bold text-bad">
+            <div className="rounded-panel bg-bad-tint px-3 py-2.5 text-[12.5px] font-bold text-bad-ink">
               {error}
             </div>
           ) : null}

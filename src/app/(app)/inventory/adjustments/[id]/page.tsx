@@ -227,7 +227,7 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
                     ) : null}
                   </Td>
                   <Td align="right">
-                    <span className={Number(line.quantity) > 0 ? "font-bold text-good" : "font-bold text-bad"}>
+                    <span className={Number(line.quantity) > 0 ? "font-bold text-good-ink" : "font-bold text-bad"}>
                       {formatSignedQuantity(line.quantity)}
                     </span>{" "}
                     <span className="text-[11px] text-ink-soft">{line.unit_code}</span>

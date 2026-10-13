@@ -183,7 +183,7 @@ export default function CalendarPage() {
                   </div>
 
                   {holiday ? (
-                    <div className="truncate rounded-[3px] bg-bad-tint px-1 py-0.5 text-[10.5px] font-bold text-bad" title={holiday.name}>
+                    <div className="truncate rounded-[3px] bg-bad-tint px-1 py-0.5 text-[10.5px] font-bold text-bad-ink" title={holiday.name}>
                       {holiday.name}
                     </div>
                   ) : null}
@@ -201,7 +201,7 @@ export default function CalendarPage() {
                   {dayLeave.slice(0, 2).map((request) => (
                     <div
                       key={request.id}
-                      className="truncate rounded-[3px] bg-good-tint px-1 py-0.5 text-[10.5px] font-bold text-good"
+                      className="truncate rounded-[3px] bg-good-tint px-1 py-0.5 text-[10.5px] font-bold text-good-ink"
                       title={`${employeeNameById.get(request.employee_id) ?? "Employee"} — ${titleCase(request.leave_type)} leave`}
                     >
                       {employeeNameById.get(request.employee_id) ?? "Employee"}

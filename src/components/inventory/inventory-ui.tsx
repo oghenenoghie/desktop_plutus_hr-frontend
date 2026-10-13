@@ -108,7 +108,7 @@ export function MovementsTable({
               <MovementTypeBadge type={movement.movement_type} />
             </Td>
             <Td align="right">
-              <span className={isPositive(movement.quantity) ? "font-bold text-good" : "font-bold text-bad"}>
+              <span className={isPositive(movement.quantity) ? "font-bold text-good-ink" : "font-bold text-bad"}>
                 {formatSignedQuantity(movement.quantity)}
               </span>{" "}
               <span className="text-[11px] text-ink-soft">{movement.base_unit_code}</span>

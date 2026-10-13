@@ -35,7 +35,7 @@ function firstOfMonth(): string {
 function Signed({ quantity }: { quantity: string }) {
   if (Number(quantity) === 0) return <span className="text-ink-soft">0</span>;
   return (
-    <span className={isPositive(quantity) ? "text-good" : "text-bad"}>{formatSignedQuantity(quantity)}</span>
+    <span className={isPositive(quantity) ? "text-good-ink" : "text-bad"}>{formatSignedQuantity(quantity)}</span>
   );
 }
 

@@ -119,7 +119,7 @@ export function StockIssueForm({
           {requesterOnly ? null : (
             <div>
               <Label htmlFor="issue-requested-by">Requested by</Label>
-              <EmployeePicker value={requestedBy} onChange={setRequestedBy} />
+              <EmployeePicker id="issue-requested-by" value={requestedBy} onChange={setRequestedBy} />
               <p className="mt-1 text-[11px] text-ink-soft">Leave blank to record yourself. Their manager can be an approver.</p>
             </div>
           )}

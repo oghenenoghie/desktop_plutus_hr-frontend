@@ -336,7 +336,7 @@ export default function StocktakeDetailPage({ params }: { params: Promise<{ id: 
                       ) : Number(line.variance) === 0 ? (
                         <span className="text-ink-soft">0</span>
                       ) : (
-                        <span className={isPositive(line.variance) ? "font-bold text-good" : "font-bold text-bad"}>
+                        <span className={isPositive(line.variance) ? "font-bold text-good-ink" : "font-bold text-bad"}>
                           {formatSignedQuantity(line.variance)}
                         </span>
                       )}

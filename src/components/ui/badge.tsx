@@ -1,9 +1,9 @@
 type Tone = "good" | "warn" | "bad" | "neutral";
 
 const TONE_CLASSES: Record<Tone, string> = {
-  good: "border-good bg-good-tint text-good",
-  warn: "border-warn bg-warn-tint text-warn",
-  bad: "border-bad bg-bad-tint text-bad",
+  good: "border-good bg-good-tint text-good-ink",
+  warn: "border-warn bg-warn-tint text-warn-ink",
+  bad: "border-bad bg-bad-tint text-bad-ink",
   neutral: "border-border bg-bg text-ink-soft",
 };
 

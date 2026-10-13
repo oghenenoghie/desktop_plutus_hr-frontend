@@ -43,9 +43,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 role="status"
                 className={`pointer-events-auto flex items-center gap-2 rounded-btn border px-4 py-2.5 text-[13px] font-bold ${
                   toast.tone === "good"
-                    ? "border-good bg-good-tint text-good"
+                    ? "border-good bg-good-tint text-good-ink"
                     : toast.tone === "bad"
-                      ? "border-bad bg-bad-tint text-bad"
+                      ? "border-bad bg-bad-tint text-bad-ink"
                       : "border-border bg-surface text-ink"
                 }`}
               >

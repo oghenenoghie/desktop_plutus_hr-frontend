@@ -170,6 +170,10 @@ async function startPostgres(userDataDir) {
 
 function startBackend(userDataDir, pgPassword) {
   const jwtSecret = getOrCreateSecret(userDataDir, "jwt-secret.txt");
+  // The backend migrates as the cluster's superuser (DATABASE_URL), then
+  // serves as an ordinary role with this password, so Postgres row-level
+  // security keeps each organisation's data apart (app/desktop_main.py).
+  const appDbPassword = getOrCreateSecret(userDataDir, "pg-app-password.txt");
   const objectStorageSecret = getOrCreateSecret(userDataDir, "object-storage-secret.txt");
   const objectStorageDir = path.join(userDataDir, "object-storage");
   fs.mkdirSync(objectStorageDir, { recursive: true });
@@ -186,6 +190,7 @@ function startBackend(userDataDir, pgPassword) {
     env: {
       ...process.env,
       DATABASE_URL: `postgresql+psycopg://plutus:${pgPassword}@127.0.0.1:${PG_PORT}/plutus`,
+      APP_DATABASE_PASSWORD: appDbPassword,
       DESKTOP_BACKEND_HOST: "127.0.0.1",
       DESKTOP_BACKEND_PORT: String(BACKEND_PORT),
       JWT_SECRET: jwtSecret,

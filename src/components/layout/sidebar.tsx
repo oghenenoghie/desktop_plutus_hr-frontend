@@ -314,7 +314,7 @@ export function Sidebar({
         </div>
 
         <div className="mx-6 mb-4 rounded-panel border border-white/10 bg-white/5 px-3 py-2">
-          <div className="text-[10.5px] font-extrabold uppercase tracking-[0.04em] text-white/50">
+          <div className="text-[10.5px] font-extrabold uppercase tracking-[0.04em] text-white/60">
             Viewing as
           </div>
           <div className="mt-0.5 text-[13px] font-bold">

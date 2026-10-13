@@ -17,6 +17,11 @@
   --warn-tint: oklch(94% 0.05 70);
   --bad: oklch(55% 0.17 25);
   --bad-tint: oklch(94% 0.06 25);
+  /* Text on the matching tint (badges, toasts, banners): the same hues,
+     dark enough for WCAG AA small text (at least 4.5:1 against the tint). */
+  --good-ink: oklch(48% 0.13 152);
+  --warn-ink: oklch(50% 0.14 70);
+  --bad-ink: oklch(50% 0.17 25);
 }
 
 @theme inline {
@@ -36,6 +41,9 @@
   --color-warn-tint: var(--warn-tint);
   --color-bad: var(--bad);
   --color-bad-tint: var(--bad-tint);
+  --color-good-ink: var(--good-ink);
+  --color-warn-ink: var(--warn-ink);
+  --color-bad-ink: var(--bad-ink);
 
   --font-sans: var(--font-manrope), sans-serif;
 

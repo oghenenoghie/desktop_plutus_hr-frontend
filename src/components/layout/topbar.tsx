@@ -23,7 +23,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu size={20} strokeWidth={2.25} />
         </button>
       ) : null}
-      <div className="rounded-badge bg-good-tint px-3 py-[5px] text-[11px] font-bold uppercase tracking-[0.03em] text-good">
+      <div className="rounded-badge bg-good-tint px-3 py-[5px] text-[11px] font-bold uppercase tracking-[0.03em] text-good-ink">
         {user?.org_name ?? "—"}
       </div>
       <div className="flex items-center gap-3.5">

@@ -73,6 +73,16 @@ npm run electron:prepare-resources # copies both bundles into resources/
 npm run electron:package           # electron-builder -> release/
 ```
 
+On launch the app opens a window straight away (`electron/startup.html`)
+and keeps it up while Postgres, the backend and the Next server start,
+then loads the app in it; if startup fails it says so in a dialog rather
+than closing. On Windows, `electron/stop-plutus.ps1` stops every process a
+Plutus install runs. The installer runs it before replacing an installed
+version (`electron/installer.nsh`), since electron-builder's own check
+closes only the window and the backend and Postgres otherwise keep the old
+files locked; the app runs it at startup when leftovers from a crashed run
+still hold its ports.
+
 `npm run electron:dist` runs all three in sequence. `.github/workflows/build-desktop.yml`
 does the same for macOS/Windows/Linux on `workflow_dispatch` or a
 `desktop-v*` tag.

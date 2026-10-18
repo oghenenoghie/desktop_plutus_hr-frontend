@@ -19,6 +19,7 @@ files:
   - package.json
   - "!node_modules/@embedded-postgres/**/postgres*/**/{doc,man,include}/**"
   - "!electron/entitlements.mac.plist"
+  - "!electron/installer.nsh"
 extraResources:
   - from: resources/frontend
     to: frontend
@@ -53,6 +54,10 @@ win:
   # proper multi-resolution ICO built directly (via Pillow) sidesteps
   # whatever went wrong in that conversion step.
   icon: electron/assets/icon.ico
+nsis:
+  # Stops every Plutus process (not just the window) before an update
+  # replaces the installed files — see the comments in the file itself.
+  include: electron/installer.nsh
 linux:
   target: AppImage
   artifactName: Plutus-Technologies-linux.${ext}

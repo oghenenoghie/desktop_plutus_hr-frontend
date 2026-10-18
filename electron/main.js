@@ -7,10 +7,11 @@
 // alembic migrations on every start), and the Next.js standalone server.
 // The BrowserWindow just points at the local Next server, same as any
 // browser tab.
-const { app, BrowserWindow, dialog } = require("electron");
-const { spawn } = require("node:child_process");
+const { app, BrowserWindow, dialog, shell } = require("electron");
+const { execFile, spawn } = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const net = require("node:net");
 const path = require("node:path");
 
 const { PG_PORT, BACKEND_PORT, FRONTEND_PORT } = require("./ports");
@@ -21,6 +22,7 @@ let frontendProcess = null;
 let mainWindow = null;
 let shuttingDown = false;
 let startupLogPath = null;
+let startupStepDuring = "getting ready";
 const processLogPaths = {};
 
 // 0xC000013A (STATUS_CONTROL_C_EXIT): Windows ended a console process
@@ -241,18 +243,113 @@ function startFrontend(userDataDir) {
   });
 }
 
-async function createWindow() {
+// Opened the moment the app starts and shows electron/startup.html until
+// the app itself is ready, then loads it in place. The database, backend
+// and web server can take a minute or more to come up (the first start
+// after an install or update also updates the database), and with no
+// window at all until then, people took it for an app that doesn't open.
+function showStartupWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
     title: "Plutus Technologies",
+    backgroundColor: "#f8f6ef",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+  mainWindow
+    .loadFile(path.join(__dirname, "startup.html"))
+    .catch((error) => logStartup(`Startup window failed to load: ${error}`));
+}
+
+// Logs the step and shows it on the startup window. `during` finishes
+// "It stopped while ..." if startup fails at this step.
+function setStartupStep(step, during) {
+  startupStepDuring = during;
+  logStartup(`Startup step: ${step}`);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents
+    .executeJavaScript(`window.setStatus && window.setStatus(${JSON.stringify(step)})`)
+    .catch(() => {});
+}
+
+async function showApp() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   await mainWindow.loadURL(`http://127.0.0.1:${FRONTEND_PORT}`);
+}
+
+function isPortInUse(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => resolve(true));
+    server.once("listening", () => server.close(() => resolve(false)));
+    server.listen(port, "127.0.0.1");
+  });
+}
+
+// A previous run that crashed, or was ended from Task Manager, can leave
+// its database, backend or web server running and holding the ports this
+// run needs, and then nothing starts. The single-instance lock below means
+// no other Plutus window is open, so anything of ours still holding them
+// is a leftover: electron/stop-plutus.ps1 stops it (sparing this process
+// and its own helpers). Windows only, where this has been seen.
+async function stopLeftoverProcesses() {
+  if (process.platform !== "win32") return;
+  const ports = [PG_PORT, BACKEND_PORT, FRONTEND_PORT];
+  const inUse = await Promise.all(ports.map(isPortInUse));
+  const busy = ports.filter((_, i) => inUse[i]);
+  if (busy.length === 0) return;
+  logStartup(`Ports already in use: ${busy.join(", ")}. Stopping processes left from a previous run...`);
+  await new Promise((resolve) => {
+    execFile(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        path.join(__dirname, "stop-plutus.ps1"),
+        "-ExcludeProcessId",
+        String(process.pid),
+      ],
+      { windowsHide: true, timeout: 60_000 },
+      (error) => {
+        if (error) logStartup(`Stopping leftover processes failed: ${error}`);
+        resolve();
+      },
+    );
+  });
+}
+
+// Startup used to fail by closing without a word, with the reason only in
+// startup.log. Says what happened and offers the likely fixes instead.
+async function reportStartupFailure(error, userDataDir) {
+  const reason = error && error.message ? error.message : String(error);
+  const response = dialog.showMessageBoxSync(mainWindow ?? undefined, {
+    type: "error",
+    title: "Plutus Technologies couldn't start",
+    message: "Plutus Technologies couldn't start",
+    detail:
+      `It stopped while ${startupStepDuring}.\n\n` +
+      "Try again first: a second attempt often works, especially just after installing or updating.\n\n" +
+      "If it keeps happening, antivirus software may be blocking part of the app, since it isn't " +
+      "code-signed yet. Allowing Plutus Technologies in your antivirus usually fixes that.\n\n" +
+      `Details (${reason}) were saved in:\n${userDataDir}`,
+    buttons: ["Try again", "Open details folder", "Quit"],
+    defaultId: 0,
+    cancelId: 2,
+  });
+  if (response === 1) await shell.openPath(userDataDir);
+  await shutdown();
+  if (response === 0) app.relaunch();
+  app.exit(1);
 }
 
 async function shutdown() {
@@ -291,24 +388,34 @@ if (!gotSingleInstanceLock) {
     fs.mkdirSync(userDataDir, { recursive: true });
     startupLogPath = path.join(userDataDir, "startup.log");
     logStartup("app.whenReady: starting boot sequence.");
+    showStartupWindow();
 
     try {
+      setStartupStep("Getting ready…", "getting ready");
+      await stopLeftoverProcesses();
+
+      setStartupStep("Starting the database…", "starting its database");
       const pgPassword = await startPostgres(userDataDir);
-      logStartup("Postgres ready. Starting backend...");
+
+      // The backend updates the database before it answers (always on the
+      // first start after an install or update), and on Windows the
+      // antivirus scan of its files on first run can take minutes, so this
+      // allows far longer than a normal start needs.
+      setStartupStep("Updating your data and starting the app…", "starting its backend service");
       startBackend(userDataDir, pgPassword);
-      await waitForHttpOk(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`);
-      logStartup("Backend healthy. Starting frontend...");
+      await waitForHttpOk(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`, { timeoutMs: 5 * 60_000 });
 
+      setStartupStep("Opening Plutus Technologies…", "opening its screens");
       startFrontend(userDataDir);
-      await waitForHttpOk(`http://127.0.0.1:${FRONTEND_PORT}`);
-      logStartup("Frontend healthy. Creating window...");
+      await waitForHttpOk(`http://127.0.0.1:${FRONTEND_PORT}`, { timeoutMs: 2 * 60_000 });
 
-      await createWindow();
-      logStartup("Window created. Boot sequence complete.");
+      await showApp();
+      logStartup("App shown. Boot sequence complete.");
     } catch (error) {
       logStartup(`Failed to start Plutus desktop: ${error && error.stack ? error.stack : error}`);
-      await shutdown();
-      app.exit(1);
+      // Closing the startup window quits on purpose; that isn't a failure.
+      if (shuttingDown) return;
+      await reportStartupFailure(error, userDataDir);
     }
   });
 

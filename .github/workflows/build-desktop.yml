@@ -382,15 +382,18 @@ jobs:
             Get-MpThreatDetection -ErrorAction SilentlyContinue | Format-List | Out-String | Write-Host
           }
 
-          # 1. The version people have now: install it and start it. Up to
-          # three tries: published installers up to build 24 crash on about
-          # 1 in 3 first-time installs (see fresh-install-windows), and
-          # that's not what this job is testing.
-          foreach ($try in 1..3) {
-            Install-Plutus (Resolve-Path 'published-installer\Plutus-Technologies-Setup.exe').Path | Out-Null
-            $publishedExe = Find-PlutusExe
-            if ($publishedExe) { break }
-          }
+          # 1. The version people have now: install it and start it.
+          # Published installers up to build 24 crash on first-time installs
+          # (on some machines every time; see fresh-install-windows). They
+          # skip the crashing step when the registry already records where
+          # Plutus is installed, as it does on any machine being updated, so
+          # record it first. The key is electron-builder's APP_GUID: a UUID v5
+          # of the appId in electron-builder.yml.
+          $installKey = 'HKCU:\Software\092ca6e8-edae-5cd8-8e94-9ab1e8a4ab88'
+          New-Item -Force -Path $installKey | Out-Null
+          Set-ItemProperty -Path $installKey -Name InstallLocation -Value "$env:LOCALAPPDATA\Programs\$productName"
+          Install-Plutus (Resolve-Path 'published-installer\Plutus-Technologies-Setup.exe').Path | Out-Null
+          $publishedExe = Find-PlutusExe
           if (-not $publishedExe) { Show-Diagnostics; throw "The published version didn't install, so there's nothing to upgrade from." }
           Start-Process -FilePath $publishedExe.FullName | Out-Null
           if (Wait-PlutusUp 300) {
@@ -415,6 +418,11 @@ jobs:
           if ($exitCode -ne 0 -or -not $isThisBuild -or -not $listed) {
             Show-Diagnostics
             throw "Installing this build over the running published version failed: exit code $exitCode, this build's files installed: $isThisBuild, listed under installed apps: $([bool]$listed)."
+          }
+          # The installer records its location under the key step 1 wrote;
+          # if it doesn't, that key is out of date with electron-builder.yml.
+          if (-not (Get-ItemProperty -Path $installKey -Name InstallLocation -ErrorAction SilentlyContinue)) {
+            throw "The installer didn't record its location under $installKey; update that key to the current APP_GUID."
           }
           Write-Host "This build installed over the published version and is listed under installed apps."
 

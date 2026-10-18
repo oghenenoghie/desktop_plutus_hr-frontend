@@ -174,13 +174,21 @@ jobs:
           $installer = Get-ChildItem -Path release -Filter *.exe | Select-Object -First 1
           if (-not $installer) { throw "No .exe installer found in release/" }
           Write-Host "Installing $($installer.FullName) silently..."
-          Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait
+          $installRun = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          Write-Host "Installer exit code: $($installRun.ExitCode)"
 
           # Must match electron-builder.yml's productName exactly — that's
           # what electron-builder names the built executable and process.
           $productName = 'Plutus Technologies'
           $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter "$productName.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { throw "$productName.exe not found under $env:LOCALAPPDATA\Programs after install" }
+          if (-not $exe) {
+            # An installer that quits within seconds without installing
+            # anything has happened here before, with no explanation left
+            # behind. Antivirus removing it mid-install is one candidate.
+            Write-Host "----- Windows Defender detections -----"
+            Get-MpThreatDetection -ErrorAction SilentlyContinue | Format-List | Out-String | Write-Host
+            throw "$productName.exe not found under $env:LOCALAPPDATA\Programs after install (installer exit code $($installRun.ExitCode))"
+          }
 
           # Redirect the app's own stdout/stderr to files so a failure below
           # can actually be diagnosed — electron/main.js runs its child
@@ -280,15 +288,151 @@ jobs:
           if (-not $frontendOk) { throw "Frontend never responded — the Next.js standalone server didn't come up" }
           Write-Host "Smoke test passed: the installed app booted its full local stack successfully."
 
+  # Updates are how most people get a new build: they run the new installer
+  # over the version they already have, often while it's still open. The
+  # smoke test above only ever installs onto a clean machine, so this
+  # installs the currently published release, starts it, and then installs
+  # this build over it while it's still running. The new installer has to
+  # close the old app and everything it started (embedded Postgres and the
+  # bundled backend hold files open in the install folder), remove the old
+  # version, install this one, and leave it listed under installed apps,
+  # and the result has to start on the old version's data.
+  upgrade-test-windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      # Same exclusions as the build job's smoke test, so a failure here is
+      # the installer's or the app's, not Defender's.
+      - name: Exclude test locations from Windows Defender
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE"
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs"
+          Add-MpPreference -ExclusionPath "$env:APPDATA"
+
+      - name: Download this build's Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: plutus-desktop-windows-latest
+          path: new-installer
+
+      - name: Download the currently published Windows installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: gh release download --repo "$env:GITHUB_REPOSITORY" --pattern Plutus-Technologies-Setup.exe --dir published-installer
+
+      - name: Install this build over a running published version
+        shell: pwsh
+        run: |
+          $productName = 'Plutus Technologies'
+          $userDataDir = Join-Path $env:APPDATA 'plutus-hr-system-frontend'
+
+          function Find-PlutusExe {
+            Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter "$productName.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+
+          function Install-Plutus([string]$installer) {
+            Write-Host "Installing $installer silently..."
+            $run = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+            Write-Host "Installer exit code: $($run.ExitCode)"
+            return $run.ExitCode
+          }
+
+          function Wait-PlutusUp([int]$seconds) {
+            $deadline = (Get-Date).AddSeconds($seconds)
+            $backendOk = $false
+            $frontendOk = $false
+            while ((Get-Date) -lt $deadline -and -not ($backendOk -and $frontendOk)) {
+              if (-not $backendOk) {
+                try { $backendOk = (Invoke-WebRequest -Uri 'http://127.0.0.1:47821/api/v1/health' -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch {}
+              }
+              if (-not $frontendOk) {
+                try { $frontendOk = (Invoke-WebRequest -Uri 'http://127.0.0.1:47822' -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch {}
+              }
+              if (-not ($backendOk -and $frontendOk)) { Start-Sleep -Seconds 3 }
+            }
+            return ($backendOk -and $frontendOk)
+          }
+
+          function Get-PlutusProcesses {
+            Get-Process -Name $productName, 'plutus-backend', 'postgres' -ErrorAction SilentlyContinue
+          }
+
+          function Show-Diagnostics {
+            Write-Host "----- Plutus processes -----"
+            Get-PlutusProcesses | Format-Table Name, Id, StartTime, Path -AutoSize | Out-String -Width 400 | Write-Host
+            Write-Host "----- Installed apps entry -----"
+            Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+              Where-Object DisplayName -like "$productName*" | Format-List DisplayName, DisplayVersion, InstallLocation | Out-String | Write-Host
+            foreach ($name in 'startup', 'backend') {
+              $log = Join-Path $userDataDir "$name.log"
+              Write-Host "----- $name.log (last 60 lines) -----"
+              if (Test-Path $log) { Get-Content $log -Tail 60 } else { Write-Host "(does not exist)" }
+            }
+            Write-Host "----- Windows Defender detections -----"
+            Get-MpThreatDetection -ErrorAction SilentlyContinue | Format-List | Out-String | Write-Host
+          }
+
+          # 1. The version people have now: install it and start it.
+          Install-Plutus (Resolve-Path 'published-installer\Plutus-Technologies-Setup.exe').Path | Out-Null
+          $publishedExe = Find-PlutusExe
+          if (-not $publishedExe) { Show-Diagnostics; throw "The published version didn't install, so there's nothing to upgrade from." }
+          Start-Process -FilePath $publishedExe.FullName | Out-Null
+          if (Wait-PlutusUp 300) {
+            Write-Host "Published version is running."
+          } else {
+            # Still worth installing over it: a published build that can't
+            # start must not stop a fixed one from replacing it.
+            Write-Host "::warning::The published version didn't start; installing over it anyway."
+            Show-Diagnostics
+          }
+          Get-PlutusProcesses | Format-Table Name, Id, StartTime -AutoSize | Out-String | Write-Host
+
+          # 2. Install this build over it, leaving it running as people do.
+          $upgradeStartedAt = Get-Date
+          $exitCode = Install-Plutus (Resolve-Path 'new-installer\Plutus-Technologies-Setup.exe').Path
+          $exe = Find-PlutusExe
+          $installedMain = if ($exe) { Join-Path $exe.DirectoryName 'resources\app\electron\main.js' }
+          $isThisBuild = $installedMain -and (Test-Path $installedMain) -and
+            ((Get-FileHash $installedMain).Hash -eq (Get-FileHash 'electron\main.js').Hash)
+          $listed = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+            Where-Object DisplayName -like "$productName*"
+          if ($exitCode -ne 0 -or -not $isThisBuild -or -not $listed) {
+            Show-Diagnostics
+            throw "Installing this build over the running published version failed: exit code $exitCode, this build's files installed: $isThisBuild, listed under installed apps: $([bool]$listed)."
+          }
+          Write-Host "This build installed over the published version and is listed under installed apps."
+
+          # 3. Start it on the published version's data. Its backend has to
+          # be one it started, not one left over from the old version.
+          Start-Process -FilePath $exe.FullName | Out-Null
+          $up = Wait-PlutusUp 300
+          $staleBackend = Get-Process -Name 'plutus-backend' -ErrorAction SilentlyContinue |
+            Where-Object { $_.StartTime -lt $upgradeStartedAt }
+          if (-not $up -or $staleBackend) {
+            Show-Diagnostics
+            throw "The upgraded app didn't start cleanly: up=$up, backend left over from the old version: $([bool]$staleBackend)."
+          }
+          Get-PlutusProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+          Write-Host "Upgrade test passed: this build replaced a running published version and started on its data."
+
   # Publishes the installers as a public GitHub release once every OS has
-  # built (and Windows has passed its smoke test). Release assets on a
+  # built and Windows has passed both the clean-install and the upgrade
+  # test. Only builds of main (or a desktop-v* tag) publish: a manual run
+  # on any other branch is a test build, and publishing it would make it
+  # "latest" for everyone. Release assets on a
   # public repo download without a GitHub sign-in and never expire, unlike
   # the Actions artifacts above. The release is marked "latest", so
   # releases/latest/download/<name> always serves the newest build. The
   # marketing site links there, which is why electron-builder.yml pins
   # version-free artifactName values.
   release:
-    needs: build
+    needs: [build, upgrade-test-windows]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/desktop-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write

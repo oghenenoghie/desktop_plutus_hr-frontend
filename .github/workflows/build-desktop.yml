@@ -7,6 +7,11 @@ name: Build desktop app
 # manually or from a release tag, not gate ordinary PRs.
 on:
   workflow_dispatch:
+    inputs:
+      fresh_install_runs:
+        description: "How many times fresh-install-windows installs and uninstalls the Windows build"
+        required: false
+        default: "3"
   push:
     tags:
       - "desktop-v*"
@@ -378,8 +383,9 @@ jobs:
           }
 
           # 1. The version people have now: install it and start it. Up to
-          # three tries: published installers up to build 24 sometimes crash
-          # within seconds, and that's not what this job is testing.
+          # three tries: published installers up to build 24 crash on about
+          # 1 in 3 first-time installs (see fresh-install-windows), and
+          # that's not what this job is testing.
           foreach ($try in 1..3) {
             Install-Plutus (Resolve-Path 'published-installer\Plutus-Technologies-Setup.exe').Path | Out-Null
             $publishedExe = Find-PlutusExe
@@ -425,12 +431,16 @@ jobs:
           Get-PlutusProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
           Write-Host "Upgrade test passed: this build replaced a running published version and started on its data."
 
-  # TEMPORARY: the published Windows installer sometimes exits within
-  # seconds with an access violation (0xC0000005) and installs nothing.
-  # Runs it ten times on a clean machine and keeps Windows' own record of
-  # each crash (faulting module) and a crash dump, to find out which part
-  # crashes. Remove once that's known and fixed.
-  installer-crash-diagnosis:
+  # A first-time install takes a code path in the installer that an update
+  # over an existing install skips, and up to build 24 that path crashed
+  # the installer (0xC0000005 in NSIS's System.dll) on about 1 in 3
+  # installs, before it installed anything. The cause is fixed in
+  # patches/app-builder-lib+25.1.8.patch; this checks it stays fixed by
+  # installing and uninstalling this build several times on a clean
+  # machine. Any crash fails the job, with Windows' own crash record and an
+  # analysis of the crash dump in the log.
+  fresh-install-windows:
+    needs: build
     runs-on: windows-latest
     steps:
       - name: Exclude test locations from Windows Defender
@@ -440,32 +450,35 @@ jobs:
           Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs"
           Add-MpPreference -ExclusionPath "$env:APPDATA"
 
-      - name: Download the currently published Windows installer
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: gh release download --repo "$env:GITHUB_REPOSITORY" --pattern Plutus-Technologies-Setup.exe --dir published-installer
+      - name: Download this build's Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: plutus-desktop-windows-latest
+          path: new-installer
 
-      - name: Install it ten times and record every crash
+      - name: Install and uninstall it repeatedly
         shell: pwsh
+        env:
+          RUNS: ${{ inputs.fresh_install_runs || 3 }}
         run: |
-          $installer = (Resolve-Path 'published-installer\Plutus-Technologies-Setup.exe').Path
+          $installer = (Resolve-Path 'new-installer\Plutus-Technologies-Setup.exe').Path
           $dumpDir = Join-Path $env:RUNNER_TEMP 'dumps'
           New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
           $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Plutus-Technologies-Setup.exe'
           New-Item -Force -Path $key | Out-Null
           Set-ItemProperty -Path $key -Name DumpFolder -Value $dumpDir
           Set-ItemProperty -Path $key -Name DumpType -Value 2 -Type DWord
-          Set-ItemProperty -Path $key -Name DumpCount -Value 10 -Type DWord
           $since = Get-Date
 
-          $results = foreach ($attempt in 1..10) {
+          $results = foreach ($attempt in 1..[int]$env:RUNS) {
             $started = Get-Date
             $run = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
             $seconds = [math]::Round(((Get-Date) - $started).TotalSeconds, 1)
             $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Plutus Technologies.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
             [pscustomobject]@{ Attempt = $attempt; ExitCode = $run.ExitCode; Seconds = $seconds; Installed = [bool]$exe }
             if ($exe) {
+              # Uninstalling also removes the install location from the
+              # registry, so the next attempt is a first-time install again.
               $uninstaller = Join-Path $exe.DirectoryName 'Uninstall Plutus Technologies.exe'
               if (Test-Path $uninstaller) { Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait }
               Start-Sleep -Seconds 3
@@ -474,27 +487,24 @@ jobs:
           }
           $results | Format-Table -AutoSize | Out-String | Write-Host
 
+          $failed = @($results | Where-Object { $_.ExitCode -ne 0 -or -not $_.Installed })
+          if ($failed.Count -eq 0) {
+            Write-Host "All $($results.Count) first-time installs succeeded."
+            exit 0
+          }
+
           Write-Host "----- Application error events (crashes) -----"
           Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Id = 1000; StartTime = $since } -ErrorAction SilentlyContinue |
             ForEach-Object { $_.Message; '' } | Write-Host
-
-          $dumps = Get-ChildItem $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue
-          Write-Host "----- $($dumps.Count) crash dump(s) -----"
-          $cdb = @(
-            "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x86\cdb.exe",
-            "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\cdb.exe"
-          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if ($cdb) {
-            foreach ($dump in ($dumps | Select-Object -First 2)) {
-              Write-Host "===== $($dump.Name) ====="
-              & $cdb -z $dump.FullName -c '.ecxr; kb 30; lm; !analyze -v; q' 2>&1 | Select-Object -Last 200 | Write-Host
-            }
-          } else {
-            Write-Host "(no cdb.exe on this runner)"
+          $cdb = "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x86\cdb.exe"
+          $dump = Get-ChildItem $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($dump -and (Test-Path $cdb)) {
+            & $cdb -z $dump.FullName -c '.ecxr; kb 30; !analyze -v; q' 2>&1 | Select-Object -Last 80 | Write-Host
           }
+          throw "$($failed.Count) of $($results.Count) first-time installs failed."
 
-      - name: Keep the crash dumps
-        if: always()
+      - name: Keep any crash dumps
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: installer-crash-dumps
@@ -502,8 +512,8 @@ jobs:
           if-no-files-found: ignore
 
   # Publishes the installers as a public GitHub release once every OS has
-  # built and Windows has passed both the clean-install and the upgrade
-  # test. Only builds of main (or a desktop-v* tag) publish: a manual run
+  # built and Windows has passed the clean-install, repeated first-time
+  # install and upgrade tests. Only builds of main (or a desktop-v* tag) publish: a manual run
   # on any other branch is a test build, and publishing it would make it
   # "latest" for everyone. Release assets on a
   # public repo download without a GitHub sign-in and never expire, unlike
@@ -512,7 +522,7 @@ jobs:
   # marketing site links there, which is why electron-builder.yml pins
   # version-free artifactName values.
   release:
-    needs: [build, upgrade-test-windows]
+    needs: [build, upgrade-test-windows, fresh-install-windows]
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/desktop-v')
     runs-on: ubuntu-latest
     permissions:

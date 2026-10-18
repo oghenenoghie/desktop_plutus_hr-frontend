@@ -47,12 +47,12 @@ mac:
 win:
   target: nsis
   artifactName: Plutus-Technologies-Setup.${ext}
-  # A pre-built .ico (not the raw PNG) — electron-builder's own PNG-to-ICO
-  # conversion on this run produced something that made the NSIS installer
-  # fail near-instantly on launch (silent install completed in ~4s instead
-  # of the normal ~90s+, and the app was never actually installed). A
-  # proper multi-resolution ICO built directly (via Pillow) sidesteps
-  # whatever went wrong in that conversion step.
+  # A pre-built multi-resolution .ico (via Pillow), not the raw PNG. It was
+  # added when the installer started quitting within seconds without
+  # installing anything, but that turned out to be an intermittent crash in
+  # electron-builder's own NSIS template on first-time installs, fixed in
+  # patches/app-builder-lib+25.1.8.patch (see fresh-install-windows in
+  # build-desktop.yml).
   icon: electron/assets/icon.ico
 nsis:
   # Stops every Plutus process (not just the window) before an update

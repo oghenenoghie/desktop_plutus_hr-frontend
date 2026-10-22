@@ -89,12 +89,25 @@ function findVcRuntimeDir() {
     ["-latest", "-products", "*", "-find", "VC\\Redist\\MSVC\\*\\x64\\Microsoft.VC*.CRT"],
     { encoding: "utf8" },
   );
-  return (
-    found
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((dir) => dir && fs.existsSync(path.join(dir, "vcruntime140.dll"))) || null
-  );
+  // Visual Studio keeps a redistributable folder per installed toolset
+  // (e.g. 14.29 for VS 2019's next to 14.4x and later), and vswhere lists
+  // them oldest first. Use the newest: binaries built with a newer
+  // toolset, like the embedded Postgres's ICU libraries, crash (0xC0000005)
+  // with an older MSVCP140.dll.
+  const versionOf = (dir) => {
+    const match = /\\MSVC\\(\d+)\.(\d+)\.(\d+)\\/i.exec(dir);
+    return match ? match.slice(1).map(Number) : [0, 0, 0];
+  };
+  const candidates = found
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((dir) => dir && fs.existsSync(path.join(dir, "vcruntime140.dll")))
+    .sort((a, b) => {
+      const [va, vb] = [versionOf(a), versionOf(b)];
+      return vb[0] - va[0] || vb[1] - va[1] || vb[2] - va[2];
+    });
+  console.log(`Visual C++ runtime folders found (newest first):\n  ${candidates.join("\n  ")}`);
+  return candidates[0] || null;
 }
 
 function bundleVcRuntime() {

@@ -191,7 +191,7 @@ jobs:
           foreach ($file in $postgresFiles) {
             foreach ($dll in Get-Imports $file.FullName) {
               if (-not $shipped[$dll.ToLower()] -and -not (Test-ProvidedByWindows $dll)) {
-                $missing += "postgres\$($file.Name) needs $dll"
+                $missing += "postgres\$($file.Name) needs $dll, which isn't shipped with the app or part of Windows"
               }
             }
           }
@@ -203,15 +203,29 @@ jobs:
           foreach ($file in $backendFiles) {
             foreach ($dll in Get-Imports $file.FullName) {
               if (-not $shipped[$dll.ToLower()] -and -not (Test-ProvidedByWindows $dll)) {
-                $missing += "backend\$($file.FullName.Substring($backend.Length + 1)) needs $dll"
+                $missing += "backend\$($file.FullName.Substring($backend.Length + 1)) needs $dll, which isn't shipped with the app or part of Windows"
               }
             }
           }
 
+          # The bundled runtime is what Postgres actually loads (its own folder
+          # comes first), so it must be at least as new as the copy this
+          # runner has installed: an older MSVCP140.dll crashed the Postgres
+          # ICU libraries (0xC0000005) during initdb.
+          foreach ($dll in 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll') {
+            $bundledFile = Get-Item (Join-Path $postgresBin $dll) -ErrorAction SilentlyContinue
+            $systemFile = Get-Item (Join-Path $system32 $dll) -ErrorAction SilentlyContinue
+            $bundled = if ($bundledFile) { [version]$bundledFile.VersionInfo.FileVersionRaw } else { $null }
+            $system = if ($systemFile) { [version]$systemFile.VersionInfo.FileVersionRaw } else { $null }
+            Write-Host "$dll bundled: $bundled, this runner's system copy: $system"
+            if (-not $bundled) { $missing += "postgres needs $dll, which isn't shipped with the app" }
+            elseif ($system -and $bundled -lt $system) { $missing += "postgres bundles $dll $bundled, older than this runner's $system" }
+          }
+
           Write-Host "Checked $($postgresFiles.Count) Postgres and $($backendFiles.Count) backend programs and libraries."
           if ($missing) {
-            $missing | Sort-Object -Unique | ForEach-Object { Write-Host "::error::$_, which isn't shipped and isn't part of Windows" }
-            throw "$(@($missing | Sort-Object -Unique).Count) DLL dependencies aren't shipped with the app."
+            $missing | Sort-Object -Unique | ForEach-Object { Write-Host "::error::$_" }
+            throw "$(@($missing | Sort-Object -Unique).Count) problems with the DLLs the app ships."
           }
           Write-Host "Every DLL these programs load ships with the app or is part of Windows."
 

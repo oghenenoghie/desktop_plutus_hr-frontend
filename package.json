@@ -18,11 +18,7 @@
     "electron:dist": "npm run electron:build-frontend && npm run electron:prepare-resources && npm run electron:package"
   },
   "dependencies": {
-    "embedded-postgres": "^18.4.0-beta.17",
-    "lucide-react": "^1.41.0",
-    "next": "16.3.4",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "embedded-postgres": "^18.4.0-beta.17"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -33,7 +29,11 @@
     "electron-builder": "^25",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "lucide-react": "^1.41.0",
+    "next": "16.3.4",
     "patch-package": "^8.0.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

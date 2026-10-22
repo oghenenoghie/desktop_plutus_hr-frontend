@@ -154,6 +154,67 @@ jobs:
           WIN_CSC_LINK_RAW: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD_RAW: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
+      # This runner has the Visual C++ runtime installed system-wide; most
+      # customers' PCs don't. When the embedded Postgres programs relied on
+      # it, every test here passed while a real PC failed with "DLL not
+      # found" (0xC0000135) creating the database. So check every DLL the
+      # packaged Postgres and backend programs load, and fail unless it
+      # ships with the app or is part of Windows itself, never counting the
+      # Visual C++ runtime as part of Windows.
+      - name: Check the app ships every DLL it needs (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin.exe not found" }
+          $app = Join-Path $env:GITHUB_WORKSPACE 'release\win-unpacked'
+          $system32 = Join-Path $env:WINDIR 'System32'
+
+          function Get-Imports([string]$file) {
+            & $dumpbin /nologo /dependents $file |
+              ForEach-Object { $_.Trim() } |
+              Where-Object { $_ -match '\.dll$' -and $_ -notmatch '^Dump of file' }
+          }
+          function Test-ProvidedByWindows([string]$dll) {
+            if ($dll -match '^(vcruntime|msvcp|concrt|vccorlib|vcomp)\d') { return $false }
+            if ($dll -match '^(api|ext)-ms-') { return $true }
+            return Test-Path (Join-Path $system32 $dll)
+          }
+
+          $missing = @()
+          # Postgres resolves its DLLs from its own bin folder.
+          $postgresBin = Join-Path $app 'resources\app\node_modules\@embedded-postgres\windows-x64\native\bin'
+          $postgresFiles = Get-ChildItem $postgresBin -File | Where-Object { $_.Extension -in '.exe', '.dll' }
+          $shipped = @{}
+          $postgresFiles | ForEach-Object { $shipped[$_.Name.ToLower()] = $true }
+          foreach ($file in $postgresFiles) {
+            foreach ($dll in Get-Imports $file.FullName) {
+              if (-not $shipped[$dll.ToLower()] -and -not (Test-ProvidedByWindows $dll)) {
+                $missing += "postgres\$($file.Name) needs $dll"
+              }
+            }
+          }
+          # The PyInstaller backend resolves DLLs from across its own tree.
+          $backend = Join-Path $app 'resources\backend'
+          $backendFiles = Get-ChildItem $backend -Recurse -File | Where-Object { $_.Extension -in '.exe', '.dll', '.pyd' }
+          $shipped = @{}
+          $backendFiles | ForEach-Object { $shipped[$_.Name.ToLower()] = $true }
+          foreach ($file in $backendFiles) {
+            foreach ($dll in Get-Imports $file.FullName) {
+              if (-not $shipped[$dll.ToLower()] -and -not (Test-ProvidedByWindows $dll)) {
+                $missing += "backend\$($file.FullName.Substring($backend.Length + 1)) needs $dll"
+              }
+            }
+          }
+
+          Write-Host "Checked $($postgresFiles.Count) Postgres and $($backendFiles.Count) backend programs and libraries."
+          if ($missing) {
+            $missing | Sort-Object -Unique | ForEach-Object { Write-Host "::error::$_, which isn't shipped and isn't part of Windows" }
+            throw "$(@($missing | Sort-Object -Unique).Count) DLL dependencies aren't shipped with the app."
+          }
+          Write-Host "Every DLL these programs load ships with the app or is part of Windows."
+
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
         with:

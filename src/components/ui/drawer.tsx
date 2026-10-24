@@ -12,10 +12,13 @@ export function Drawer({
   title,
   onClose,
   children,
+  size = "md",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  // "lg" for a wide table (analytics drill-down) rather than a form.
+  size?: "md" | "lg";
 }) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
@@ -48,7 +51,7 @@ export function Drawer({
       <div
         ref={panel}
         tabIndex={-1}
-        className="flex h-full w-full max-w-[440px] flex-col overflow-y-auto border-l border-border bg-surface p-6 outline-none"
+        className={`flex h-full w-full ${size === "lg" ? "max-w-[960px]" : "max-w-[440px]"} flex-col overflow-y-auto border-l border-border bg-surface p-6 outline-none`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between gap-3">

@@ -69,7 +69,17 @@ export interface NavItem {
     | "stocktakes"
     | "reorder"
     | "inventoryReports"
-    | "accountingSettings";
+    | "accountingSettings"
+    | "analyticsOverview"
+    | "analyticsWorkforce"
+    | "analyticsPayroll"
+    | "analyticsAttendance"
+    | "analyticsLeave"
+    | "analyticsRecruitment"
+    | "analyticsPerformance"
+    | "analyticsCompliance"
+    | "analyticsFinancial"
+    | "analyticsReports";
   roles: Role[];
 }
 
@@ -116,6 +126,75 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "My Team",
         icon: "myTeam",
         roles: ["manager", "department_manager"],
+      },
+    ],
+  },
+  {
+    // Gated server-side by the analytics.* permissions (each role's default
+    // set mirrors what its source modules already let it read; overrides
+    // can widen it). The roles here are those defaults; each page also asks
+    // the API what the member may see.
+    heading: "Analytics & Insights",
+    items: [
+      {
+        href: "/analytics",
+        label: "Executive Overview",
+        icon: "analyticsOverview",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/analytics/workforce",
+        label: "Workforce Analytics",
+        icon: "analyticsWorkforce",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/analytics/payroll",
+        label: "Payroll Analytics",
+        icon: "analyticsPayroll",
+        roles: ["admin", "payroll_manager", "accountant", "auditor"],
+      },
+      {
+        href: "/analytics/attendance",
+        label: "Attendance Analytics",
+        icon: "analyticsAttendance",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "auditor"],
+      },
+      {
+        href: "/analytics/leave",
+        label: "Leave Analytics",
+        icon: "analyticsLeave",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "department_manager", "auditor"],
+      },
+      {
+        href: "/analytics/recruitment",
+        label: "Recruitment Analytics",
+        icon: "analyticsRecruitment",
+        roles: ["admin", "payroll_manager", "accountant", "auditor"],
+      },
+      {
+        href: "/analytics/performance",
+        label: "Performance Analytics",
+        icon: "analyticsPerformance",
+        roles: ["admin", "payroll_manager", "accountant", "auditor"],
+      },
+      {
+        href: "/analytics/compliance",
+        label: "Compliance Analytics",
+        icon: "analyticsCompliance",
+        roles: ["admin", "payroll_manager", "accountant", "auditor"],
+      },
+      {
+        href: "/analytics/financial",
+        label: "Financial Analytics",
+        icon: "analyticsFinancial",
+        roles: ["admin", "payroll_manager", "accountant"],
+      },
+      {
+        href: "/analytics/reports",
+        label: "Custom Reports",
+        icon: "analyticsReports",
+        roles: ["admin", "payroll_manager", "accountant", "hr_manager", "auditor"],
       },
     ],
   },

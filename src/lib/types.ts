@@ -1917,7 +1917,17 @@ export type Permission =
   | "inventory.receive"
   | "inventory.issue"
   | "inventory.transfer"
-  | "inventory.request";
+  | "inventory.request"
+  | "analytics.view"
+  | "analytics.workforce.view"
+  | "analytics.payroll.view"
+  | "analytics.attendance.view"
+  | "analytics.leave.view"
+  | "analytics.recruitment.view"
+  | "analytics.performance.view"
+  | "analytics.compliance.view"
+  | "analytics.financial.view"
+  | "analytics.reports.export";
 
 export interface MembershipOut {
   id: string;

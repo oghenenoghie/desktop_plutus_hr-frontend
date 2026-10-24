@@ -380,11 +380,17 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
             command -v xvfb-run >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q xvfb; }
+            # Opened directly, as a double-click does, so the AppImage's own
+            # runtime mounts it with FUSE. It must be the static runtime
+            # (toolsets.appimage in electron-builder.yml): the legacy one
+            # loads libfuse.so.2, which Ubuntu 22.04 and later don't
+            # install. fusermount3, which they do, is all it needs.
+            command -v fusermount3 >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q fuse3; }
+            appimage="$PWD/release/Plutus-Technologies-linux.AppImage"
+            file "$appimage"
+            file "$appimage" | grep -q "static" || { echo "The AppImage's runtime isn't statically linked"; exit 1; }
             userdata="$HOME/.config/plutus-hr-system-frontend"
-            # The runner has no FUSE; extract-and-run starts the same app
-            # without mounting it.
-            launch=(env -i HOME="$HOME" PATH="$PATH" APPIMAGE_EXTRACT_AND_RUN=1
-              xvfb-run -a "$PWD/release/Plutus-Technologies-linux.AppImage" --no-sandbox)
+            launch=(env -i HOME="$HOME" PATH="$PATH" xvfb-run -a "$appimage" --no-sandbox)
           else
             userdata="$HOME/Library/Application Support/plutus-hr-system-frontend"
             bundle=$(find release -maxdepth 2 -name "*.app" -type d | head -1)
@@ -406,9 +412,14 @@ jobs:
             sleep 3
           done
 
+          fuse_ok=true
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            if grep -q " /tmp/.mount_" /proc/mounts; then echo "Running from a FUSE mount."; else fuse_ok=false; fi
+          fi
+
           echo "----- startup.log -----"
           cat "$userdata/startup.log" 2>/dev/null || echo "(does not exist)"
-          if ! $backend_ok || ! $frontend_ok; then
+          if ! $backend_ok || ! $frontend_ok || ! $fuse_ok; then
             for name in backend frontend; do
               echo "----- $name.log -----"
               cat "$userdata/$name.log" 2>/dev/null || echo "(does not exist)"
@@ -418,6 +429,7 @@ jobs:
           fi
           kill "$app_pid" 2>/dev/null || true
 
+          $fuse_ok || { echo "The AppImage isn't running from a FUSE mount"; exit 1; }
           $backend_ok || { echo "Backend health check never succeeded — embedded Postgres or the bundled backend didn't come up"; exit 1; }
           $frontend_ok || { echo "Frontend never responded — the Next.js standalone server didn't come up"; exit 1; }
           grep -q "the plutus database's encoding is UTF8" "$userdata/startup.log" || { echo "The plutus database isn't UTF-8"; exit 1; }
@@ -572,8 +584,8 @@ jobs:
   # A first-time install takes a code path in the installer that an update
   # over an existing install skips, and up to build 24 that path crashed
   # the installer (0xC0000005 in NSIS's System.dll) on about 1 in 3
-  # installs, before it installed anything. The cause is fixed in
-  # patches/app-builder-lib+25.1.8.patch; this checks it stays fixed by
+  # installs, before it installed anything. The cause was fixed in
+  # electron-builder's NSIS template in 26.x; this checks it stays fixed by
   # installing and uninstalling this build several times on a clean
   # machine. Any crash fails the job, with Windows' own crash record and an
   # analysis of the crash dump in the log.

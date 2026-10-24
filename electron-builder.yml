@@ -20,11 +20,16 @@ files:
   - "!node_modules/@embedded-postgres/**/postgres*/**/{doc,man,include}/**"
   - "!electron/entitlements.mac.plist"
   - "!electron/installer.nsh"
+# Copied from resources/ itself rather than from resources/frontend:
+# electron-builder (26.x) always leaves out a node_modules directory at the
+# root of what it copies, and the Next.js standalone server can't start
+# without its own. One level down, as frontend/node_modules, it is copied.
 extraResources:
-  - from: resources/frontend
-    to: frontend
-  - from: resources/backend
-    to: backend
+  - from: resources
+    to: .
+    filter:
+      - frontend/**/*
+      - backend/**/*
 # Fixed, version-free installer names. The "Build desktop app" workflow
 # attaches these to a GitHub release, and the marketing site links to
 # releases/latest/download/<name>, so the names must not change between
@@ -51,13 +56,19 @@ win:
   # added when the installer started quitting within seconds without
   # installing anything, but that turned out to be an intermittent crash in
   # electron-builder's own NSIS template on first-time installs, fixed in
-  # patches/app-builder-lib+25.1.8.patch (see fresh-install-windows in
-  # build-desktop.yml).
+  # electron-builder 26.x (see fresh-install-windows in build-desktop.yml).
   icon: electron/assets/icon.ico
 nsis:
   # Stops every Plutus process (not just the window) before an update
   # replaces the installed files — see the comments in the file itself.
   include: electron/installer.nsh
+# The AppImage's own runtime, the program that mounts it when it's opened.
+# The default (legacy) one loads libfuse.so.2, which Ubuntu 22.04 and later
+# don't install, so there the AppImage did nothing until the user installed
+# libfuse2. This one is statically linked and needs only the fusermount3
+# those systems already have.
+toolsets:
+  appimage: "1.0.3"
 linux:
   target: AppImage
   artifactName: Plutus-Technologies-linux.${ext}

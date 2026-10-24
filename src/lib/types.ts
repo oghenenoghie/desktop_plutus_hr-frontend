@@ -2118,6 +2118,20 @@ export interface RuleVersion {
   wht: WhtRule;
 }
 
+// GET /compliance/countries — the jurisdiction catalogue. A listed country
+// is not necessarily enabled: only an "active" one has approved rules the
+// engine calculates or posts with.
+export type CountryTaxStatus = "active" | "configuration_required";
+
+export interface CountryProfile {
+  code: string;
+  name: string;
+  currency: string;
+  tax_authority: string;
+  status: CountryTaxStatus;
+  enabled_modules: string[];
+}
+
 export interface PayeEstimateRequestBody {
   annual_gross_minor: number;
   annual_rent_minor?: number;

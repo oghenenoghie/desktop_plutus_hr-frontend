@@ -45,6 +45,7 @@ import type {
   ContractorInvoice,
   ContractorInvoiceCreateBody,
   ContractorInvoicePayRequest,
+  CountryProfile,
   CreateEmployeeLoginBody,
   CreateEmployeeLoginOut,
   CreditNote,
@@ -272,6 +273,7 @@ export const authApi = {
 
 export const complianceApi = {
   currentRules: () => apiFetch<RuleVersion>("/compliance/current-rules"),
+  countries: () => apiFetch<CountryProfile[]>("/compliance/countries"),
   payeEstimate: (body: PayeEstimateRequestBody) =>
     apiFetch<PayeEstimateOut>("/compliance/paye-estimate", { method: "POST", body }),
 };

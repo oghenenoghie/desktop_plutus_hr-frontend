@@ -1917,7 +1917,17 @@ export type Permission =
   | "inventory.receive"
   | "inventory.issue"
   | "inventory.transfer"
-  | "inventory.request";
+  | "inventory.request"
+  | "analytics.view"
+  | "analytics.workforce.view"
+  | "analytics.payroll.view"
+  | "analytics.attendance.view"
+  | "analytics.leave.view"
+  | "analytics.recruitment.view"
+  | "analytics.performance.view"
+  | "analytics.compliance.view"
+  | "analytics.financial.view"
+  | "analytics.reports.export";
 
 export interface MembershipOut {
   id: string;
@@ -2116,6 +2126,20 @@ export interface RuleVersion {
   nsitf: NsitfRule;
   itf: ItfRule;
   wht: WhtRule;
+}
+
+// GET /compliance/countries — the jurisdiction catalogue. A listed country
+// is not necessarily enabled: only an "active" one has approved rules the
+// engine calculates or posts with.
+export type CountryTaxStatus = "active" | "configuration_required";
+
+export interface CountryProfile {
+  code: string;
+  name: string;
+  currency: string;
+  tax_authority: string;
+  status: CountryTaxStatus;
+  enabled_modules: string[];
 }
 
 export interface PayeEstimateRequestBody {

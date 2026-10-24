@@ -27,11 +27,13 @@ src/
     login/               sign-in screen
     (app)/                admin/manager shell: sidebar nav + dashboard, employees,
                           payroll, leave, expenses, loans, benefits, contractors,
-                          reports, settlement, simulation
+                          reports, settlement, simulation, analytics
     me/                   employee self-service surface (single page, no admin nav)
   components/
     layout/               Sidebar, TopBar, PageHeader
     ui/                   Card, Badge, Button, Input, Table, KpiTile, Avatar, ...
+    analytics/            analytics shell, filter bar, KPI cards, chart cards,
+                          drill-down drawer, and the SVG charts in charts/
     employee-picker.tsx   shared employee <select> used by benefits/settlement/simulation
   lib/
     api/                  apiFetch client (token refresh, 401 handling) + typed endpoints
@@ -39,7 +41,19 @@ src/
     types.ts              TypeScript mirror of the backend's Pydantic schemas
     format.ts             ₦ currency formatting (whole naira, en-NG), dates, initials
     nav.ts                role → nav item mapping
+    analytics/            analytics types, API calls, URL filters, formatting
 ```
+
+## Analytics & Insights
+
+`/analytics` and its nine section pages (workforce, payroll, attendance, leave, recruitment, performance, compliance, financial, custom reports) render the backend's `/api/v1/analytics` responses. Every figure is computed on the server; the screens only format and draw it.
+
+- **Filters** live in the URL, under the API's own parameter names, so a view can be bookmarked or shared, and the section tabs keep them (`src/lib/analytics/filters.ts`).
+- **Access:** the tabs and pages follow `GET /analytics/access`. A hidden tab is a convenience; the API refuses the data either way.
+- **Charts** are plain SVG with no chart library. Each one works from the keyboard, announces the focused point, and has a table view.
+- **Drill-down and export:** every KPI and chart with a dataset opens its source records in a drawer, and exports CSV, XLSX or PDF from the API.
+
+Metric definitions and the security model are in the backend's `docs/analytics-metrics.md` and `docs/analytics-security.md`.
 
 ## Auth model
 

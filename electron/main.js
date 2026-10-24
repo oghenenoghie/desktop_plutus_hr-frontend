@@ -132,6 +132,63 @@ async function waitForHttpOk(url, { timeoutMs = 60_000, intervalMs = 400 } = {})
   throw new Error(`Timed out waiting for ${url}: ${lastError}`);
 }
 
+// initdb takes the cluster's encoding from the environment's locale, and
+// with no UTF-8 locale there (LANG unset, C or POSIX: a Linux session that
+// sets none, or a Mac app opened from Finder, which gets no LANG at all)
+// that is SQL_ASCII. psycopg hands back text from an SQL_ASCII database as
+// bytes, and the backend fails on its first connection. So the cluster is
+// always UTF-8. The C locale accepts any encoding, and on Windows UTF-8
+// works with any locale; elsewhere initdb refuses UTF-8 under a locale with
+// another character set (en_US.ISO-8859-1, say), so that falls back to C.
+function initdbFlags(env = process.env) {
+  if (process.platform === "win32") return ["--encoding=UTF8"];
+  const localeFor = (category) => env.LC_ALL || env[category] || env.LANG || "";
+  const acceptsUtf8 = (locale) => !locale || /^(C|POSIX)$/i.test(locale) || /utf-?8/i.test(locale);
+  return acceptsUtf8(localeFor("LC_CTYPE")) && acceptsUtf8(localeFor("LC_COLLATE"))
+    ? ["--encoding=UTF8"]
+    : ["--encoding=UTF8", "--locale=C"];
+}
+
+// A cluster created before initdbFlags, without a UTF-8 locale, has an
+// SQL_ASCII "plutus" database that the backend failed on before running a
+// single migration. It holds nothing (no alembic_version table), so it is
+// recreated as UTF-8 rather than leaving the app unable to start. A
+// database that was ever migrated is left as it is.
+async function recreateEmptySqlAsciiDatabase() {
+  const admin = postgres.getPgClient();
+  await admin.connect();
+  try {
+    const { rows } = await admin.query(
+      "SELECT pg_encoding_to_char(encoding) AS encoding FROM pg_database WHERE datname = 'plutus'",
+    );
+    const encoding = rows[0]?.encoding;
+    logStartup(`startPostgres: the plutus database's encoding is ${encoding ?? "(no database)"}.`);
+    if (encoding !== "SQL_ASCII") return;
+
+    const database = postgres.getPgClient("plutus");
+    await database.connect();
+    let migrated;
+    try {
+      const result = await database.query(
+        "SELECT to_regclass('public.alembic_version') IS NOT NULL AS migrated",
+      );
+      migrated = result.rows[0].migrated;
+    } finally {
+      await database.end();
+    }
+    if (migrated) {
+      logStartup("startPostgres: it has been migrated, so it is left as it is.");
+      return;
+    }
+    logStartup("startPostgres: it was never migrated; recreating it as UTF-8...");
+    await admin.query("DROP DATABASE plutus");
+    await admin.query("CREATE DATABASE plutus ENCODING 'UTF8' LOCALE 'C' TEMPLATE template0");
+    logStartup("startPostgres: recreated the plutus database as UTF-8.");
+  } finally {
+    await admin.end();
+  }
+}
+
 async function startPostgres(userDataDir) {
   logStartup("startPostgres: importing embedded-postgres...");
   // embedded-postgres ships ESM-only; this file stays CommonJS (Electron's
@@ -150,11 +207,12 @@ async function startPostgres(userDataDir) {
     password,
     port: PG_PORT,
     persistent: true,
+    initdbFlags: initdbFlags(),
   });
   logStartup(`startPostgres: instance created (wasAlreadyInitialised=${wasAlreadyInitialised}).`);
 
   if (!wasAlreadyInitialised) {
-    logStartup("startPostgres: calling initialise()...");
+    logStartup(`startPostgres: calling initialise() with ${initdbFlags().join(" ")}...`);
     await postgres.initialise();
     logStartup("startPostgres: initialise() resolved.");
   }
@@ -165,6 +223,12 @@ async function startPostgres(userDataDir) {
     logStartup("startPostgres: calling createDatabase()...");
     await postgres.createDatabase("plutus");
     logStartup("startPostgres: createDatabase() resolved.");
+  }
+  try {
+    await recreateEmptySqlAsciiDatabase();
+  } catch (error) {
+    // A repair step, not a requirement: a healthy database starts anyway.
+    logStartup(`startPostgres: couldn't check the plutus database's encoding: ${error}`);
   }
 
   return password;

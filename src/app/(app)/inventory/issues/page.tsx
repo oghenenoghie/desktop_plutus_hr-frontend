@@ -13,7 +13,7 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { stockIssuesApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, canRequestStock, isRequesterOnly, statusLabel } from "@/lib/inventory";
 import type { StockIssueStatus } from "@/lib/types";
@@ -99,7 +99,7 @@ export default function StockIssuesPage() {
                     <Td>{issue.purpose}</Td>
                     <Td>{issue.warehouse_code}</Td>
                     {requesterOnly ? null : (
-                      <Td align="right">{issue.value_minor === null ? "—" : formatNaira(issue.value_minor)}</Td>
+                      <Td align="right">{issue.value_minor === null ? "—" : formatMoney(issue.value_minor)}</Td>
                     )}
                     <Td>
                       <StatusBadge status={issue.status} />

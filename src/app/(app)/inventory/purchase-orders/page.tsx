@@ -13,7 +13,7 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { purchaseOrdersApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, canOperateInventory, statusLabel } from "@/lib/inventory";
 import type { PurchaseOrderStatus } from "@/lib/types";
@@ -93,7 +93,7 @@ export default function PurchaseOrdersPage() {
                     <Td>{formatDate(order.order_date)}</Td>
                     <Td>{formatDate(order.expected_date)}</Td>
                     <Td align="right">{order.line_count}</Td>
-                    <Td align="right">{formatNaira(order.total_minor)}</Td>
+                    <Td align="right">{formatMoney(order.total_minor)}</Td>
                     <Td>
                       <StatusBadge status={order.status} />
                     </Td>

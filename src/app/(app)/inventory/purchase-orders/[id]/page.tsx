@@ -17,7 +17,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { purchaseOrdersApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatDateTime, formatNaira } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { ITEM_TYPE_LABELS, canManageInventory, canOperateInventory, formatQuantity } from "@/lib/inventory";
 
@@ -136,9 +136,9 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
             <Field label="Ordered">{formatDate(po.order_date)}</Field>
             <Field label="Expected">{formatDate(po.expected_date)}</Field>
             <Field label="Deliver to">{po.warehouse_code ?? "Decided on receipt"}</Field>
-            <Field label="Net">{formatNaira(po.subtotal_minor)}</Field>
-            <Field label="Tax">{formatNaira(po.tax_minor)}</Field>
-            <Field label="Total">{formatNaira(po.total_minor)}</Field>
+            <Field label="Net">{formatMoney(po.subtotal_minor)}</Field>
+            <Field label="Tax">{formatMoney(po.tax_minor)}</Field>
+            <Field label="Total">{formatMoney(po.total_minor)}</Field>
             <Field label="Issued">{formatDateTime(po.issued_at)}</Field>
             {po.close_reason ? (
               <div className="col-span-2 sm:col-span-4">
@@ -179,9 +179,9 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                   <Td align="right">
                     {formatQuantity(line.quantity)} {line.unit_code}
                   </Td>
-                  <Td align="right">{formatNaira(line.unit_price_minor)}</Td>
-                  <Td align="right">{formatNaira(line.net_minor)}</Td>
-                  <Td align="right">{formatNaira(line.tax_minor)}</Td>
+                  <Td align="right">{formatMoney(line.unit_price_minor)}</Td>
+                  <Td align="right">{formatMoney(line.net_minor)}</Td>
+                  <Td align="right">{formatMoney(line.tax_minor)}</Td>
                   <Td align="right">
                     {formatQuantity(line.received_quantity_base)} {line.base_unit_code}
                   </Td>

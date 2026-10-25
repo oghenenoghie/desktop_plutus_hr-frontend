@@ -10,7 +10,7 @@ import { LoadingState } from "@/components/ui/data-state";
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { inventoryApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatNaira } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canAdjustInventory, canManageInventory, canSeeInventoryValues } from "@/lib/inventory";
 
@@ -50,7 +50,7 @@ export default function InventoryOverviewPage() {
               value={
                 summary.data.total_value_minor === null
                   ? "Hidden"
-                  : formatNaira(summary.data.total_value_minor)
+                  : formatMoney(summary.data.total_value_minor)
               }
               caption="At weighted-average cost"
             />

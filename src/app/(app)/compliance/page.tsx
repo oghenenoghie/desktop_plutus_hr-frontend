@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { complianceApi, employeesApi } from "@/lib/api/endpoints";
-import { formatNaira, formatPpmAsPercent } from "@/lib/format";
+import { formatMoney, formatPpmAsPercent } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { RuleVersion } from "@/lib/types";
 
@@ -70,10 +70,10 @@ function schemeRows(rules: RuleVersion) {
 function payeBandLabel(rules: RuleVersion, index: number): string {
   const band = rules.paye.bands[index]!;
   const lowerExclusive = index === 0 ? 0 : rules.paye.bands[index - 1]!.up_to_minor!;
-  const lower = formatNaira(lowerExclusive);
+  const lower = formatMoney(lowerExclusive);
   return band.up_to_minor === null
     ? `Above ${lower}`
-    : `${lower} – ${formatNaira(band.up_to_minor)}`;
+    : `${lower} – ${formatMoney(band.up_to_minor)}`;
 }
 
 export default function CompliancePage() {
@@ -124,7 +124,7 @@ export default function CompliancePage() {
           title="PAYE bands"
           subtitle={
             rules.data
-              ? `Tax-free threshold ${formatNaira(rules.data.paye.tax_free_threshold_minor)} — rent relief ${formatPpmAsPercent(rules.data.paye.rent_relief_rate_ppm)} of rent paid, capped at ${formatNaira(rules.data.paye.rent_relief_cap_minor)}`
+              ? `Tax-free threshold ${formatMoney(rules.data.paye.tax_free_threshold_minor)} — rent relief ${formatPpmAsPercent(rules.data.paye.rent_relief_rate_ppm)} of rent paid, capped at ${formatMoney(rules.data.paye.rent_relief_cap_minor)}`
               : undefined
           }
         />

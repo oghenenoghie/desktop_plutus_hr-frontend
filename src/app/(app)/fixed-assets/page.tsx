@@ -15,7 +15,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { departmentsApi, employeesApi, fixedAssetOpsApi, fixedAssetsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor, titleCase } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { FixedAsset, FixedAssetCategory } from "@/lib/types";
 
@@ -115,10 +115,10 @@ export default function FixedAssetsPage() {
                       : "—"}
                   </Td>
                   <Td>{formatDate(asset.acquisition_date)}</Td>
-                  <Td align="right">{formatNaira(asset.cost_minor)}</Td>
-                  <Td align="right">{formatNaira(asset.accumulated_depreciation_minor)}</Td>
+                  <Td align="right">{formatMoney(asset.cost_minor)}</Td>
+                  <Td align="right">{formatMoney(asset.accumulated_depreciation_minor)}</Td>
                   <Td align="right" className="font-bold">
-                    {formatNaira(asset.book_value_minor)}
+                    {formatMoney(asset.book_value_minor)}
                   </Td>
                   <Td>
                     <StatusBadge status={asset.status} />
@@ -327,7 +327,7 @@ function RevalueFixedAssetDrawer({
     setSubmitting(true);
     try {
       await fixedAssetOpsApi.revalue(asset.id, {
-        new_value_minor: nairaToMinor(newValue),
+        new_value_minor: toMinorUnits(newValue),
         revaluation_date: revaluationDate,
         reason,
       });
@@ -343,11 +343,11 @@ function RevalueFixedAssetDrawer({
     <Drawer title={`Revalue ${asset.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          Current book value: <span className="font-bold text-ink">{formatNaira(asset.book_value_minor)}</span>.
+          Current book value: <span className="font-bold text-ink">{formatMoney(asset.book_value_minor)}</span>.
           Resets accumulated depreciation and posts the difference to a revaluation surplus/loss account.
         </p>
         <div>
-          <Label htmlFor="newValue">New Book Value (₦)</Label>
+          <Label htmlFor="newValue">New Book Value ({currencyLabel()})</Label>
           <Input
             id="newValue"
             value={newValue}
@@ -553,8 +553,8 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
         name,
         asset_tag: assetTag,
         acquisition_date: acquisitionDate,
-        cost_minor: nairaToMinor(cost),
-        salvage_value_minor: salvageValue ? nairaToMinor(salvageValue) : 0,
+        cost_minor: toMinorUnits(cost),
+        salvage_value_minor: salvageValue ? toMinorUnits(salvageValue) : 0,
         useful_life_months: Number(usefulLifeMonths),
         category: category || null,
         assigned_employee_id: assignedEmployeeId || null,
@@ -595,11 +595,11 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="cost">Cost (₦)</Label>
+            <Label htmlFor="cost">Cost ({currencyLabel()})</Label>
             <Input id="cost" value={cost} onChange={(event) => setCost(event.target.value)} inputMode="decimal" required />
           </div>
           <div>
-            <Label htmlFor="salvageValue">Salvage Value (₦)</Label>
+            <Label htmlFor="salvageValue">Salvage Value ({currencyLabel()})</Label>
             <Input
               id="salvageValue"
               value={salvageValue}
@@ -687,7 +687,7 @@ function DisposeFixedAssetDrawer({
     setSubmitting(true);
     try {
       await fixedAssetsApi.dispose(asset.id, {
-        proceeds_minor: proceeds ? nairaToMinor(proceeds) : 0,
+        proceeds_minor: proceeds ? toMinorUnits(proceeds) : 0,
       });
       onDisposed();
     } catch (err) {
@@ -700,11 +700,11 @@ function DisposeFixedAssetDrawer({
     <Drawer title={`Dispose ${asset.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          Current book value: <span className="font-bold text-ink">{formatNaira(asset.book_value_minor)}</span>.
+          Current book value: <span className="font-bold text-ink">{formatMoney(asset.book_value_minor)}</span>.
           Any difference between proceeds and book value posts as a gain or loss.
         </p>
         <div>
-          <Label htmlFor="proceeds">Disposal Proceeds (₦)</Label>
+          <Label htmlFor="proceeds">Disposal Proceeds ({currencyLabel()})</Label>
           <Input
             id="proceeds"
             value={proceeds}

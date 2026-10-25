@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { complianceApi, organisationApi } from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useApiResource } from "@/lib/hooks";
 import { NIGERIA_STATES } from "@/lib/nigeria-states";
 import type { PayFrequency } from "@/lib/types";
@@ -27,6 +28,7 @@ export default function SetupPage() {
   const organisation = useApiResource(() => organisationApi.get());
   const countries = useApiResource(() => complianceApi.countries());
   const { showToast } = useToast();
+  const { refreshUser } = useAuth();
 
   const [rcNumber, setRcNumber] = useState("");
   const [companyTin, setCompanyTin] = useState("");
@@ -59,19 +61,24 @@ export default function SetupPage() {
     );
   }
 
+  const isNigeria = organisation.data?.country_code === "NG";
   const chosenCountry = countries.data?.find((country) => country.code === countryCode);
   const currentCountry = countries.data?.find(
     (country) => country.code === organisation.data?.country_code,
   );
 
-  // Separate from Save setup: the server refuses a country without approved
-  // rules (422) and any change once a pay run or posted journal exists (409),
-  // and says which.
+  // Separate from Save setup: the server refuses any change once a pay run
+  // or posted journal exists (409) and says so. The session is reloaded, so
+  // every screen switches to the new currency and payroll availability.
   async function changeCountry() {
     try {
       await organisationApi.update({ country_code: countryCode });
-      showToast(`The organisation now runs on ${chosenCountry?.name ?? countryCode}'s rules.`, "good");
+      showToast(
+        `The organisation now runs in ${chosenCountry?.name ?? countryCode} (${chosenCountry?.currency ?? ""}).`,
+        "good",
+      );
       organisation.reload();
+      await refreshUser();
     } catch (err) {
       showToast(
         err instanceof ApiError ? String(err.detail ?? err.message) : "The country couldn't be changed.",
@@ -126,6 +133,14 @@ export default function SetupPage() {
               </dd>
               <dt className="text-ink-soft">Currency</dt>
               <dd className="font-bold">{organisation.data.currency}</dd>
+              <dt className="text-ink-soft">Payroll</dt>
+              <dd className="font-bold">
+                {currentCountry
+                  ? currentCountry.payroll_available
+                    ? "Available"
+                    : "Not available yet: the tax rules await a local adviser's approval"
+                  : "—"}
+              </dd>
             </dl>
             {countries.error ? <ErrorState message={countries.error} /> : null}
             {countries.data ? (
@@ -139,11 +154,7 @@ export default function SetupPage() {
                     aria-describedby="org-country-help"
                   >
                     {countries.data.map((country) => (
-                      <option
-                        key={country.code}
-                        value={country.code}
-                        disabled={!country.selectable && country.code !== organisation.data?.country_code}
-                      >
+                      <option key={country.code} value={country.code}>
                         {countryOptionLabel(country)}
                       </option>
                     ))}
@@ -155,17 +166,20 @@ export default function SetupPage() {
                   pendingLabel="Changing…"
                   tone="primary"
                   confirmTitle="Change the organisation's country?"
-                  confirmMessage={`Plutus will use ${chosenCountry?.name ?? countryCode}'s tax rules and ${chosenCountry?.currency ?? ""} for this organisation.`}
-                  confirmLabel="Change country"
-                  disabled={
-                    !chosenCountry?.selectable || countryCode === organisation.data.country_code
+                  confirmMessage={
+                    chosenCountry?.payroll_available === false
+                      ? `This organisation will run in ${chosenCountry.name}, in ${chosenCountry.currency}. Payroll won't be available until ${chosenCountry.name}'s tax rules are approved.`
+                      : `Plutus will use ${chosenCountry?.name ?? countryCode}'s tax rules and ${chosenCountry?.currency ?? ""} for this organisation.`
                   }
+                  confirmLabel="Change country"
+                  disabled={!chosenCountry || countryCode === organisation.data.country_code}
                 />
               </div>
             ) : null}
             <p id="org-country-help" className="mt-3 text-[12px] text-ink-soft">
-              The country can change only before the first pay run or posted journal, and only to a
-              country whose rules a local tax adviser has approved.
+              The country can change only before the first pay run or posted journal. Payroll runs
+              only in a country whose tax rules a local adviser has approved; everything else works
+              in any country.
             </p>
           </Card>
 
@@ -176,21 +190,21 @@ export default function SetupPage() {
             />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="rc-number">RC number</Label>
+                <Label htmlFor="rc-number">{isNigeria ? "RC number" : "Company registration number"}</Label>
                 <Input
                   id="rc-number"
                   value={rcNumber}
                   onChange={(event) => setRcNumber(event.target.value)}
-                  placeholder="RC1234567"
+                  placeholder={isNigeria ? "RC1234567" : undefined}
                 />
               </div>
               <div>
-                <Label htmlFor="company-tin">Company TIN</Label>
+                <Label htmlFor="company-tin">{isNigeria ? "Company TIN" : "Company tax ID number"}</Label>
                 <Input
                   id="company-tin"
                   value={companyTin}
                   onChange={(event) => setCompanyTin(event.target.value)}
-                  placeholder="12345678-0001"
+                  placeholder={isNigeria ? "12345678-0001" : undefined}
                 />
               </div>
               <div className="sm:col-span-2">
@@ -200,7 +214,7 @@ export default function SetupPage() {
                   maxLength={500}
                   value={address}
                   onChange={(event) => setAddress(event.target.value)}
-                  placeholder="12 Adeola Odeku Street, Victoria Island, Lagos"
+                  placeholder={isNigeria ? "12 Adeola Odeku Street, Victoria Island, Lagos" : undefined}
                 />
               </div>
             </div>
@@ -226,19 +240,21 @@ export default function SetupPage() {
                   ))}
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="default-pfa">Default PFA</Label>
-                <Input
-                  id="default-pfa"
-                  value={pfa}
-                  onChange={(event) => setPfa(event.target.value)}
-                  placeholder="ARM Pension Managers"
-                />
-              </div>
+              {isNigeria ? (
+                <div>
+                  <Label htmlFor="default-pfa">Default PFA</Label>
+                  <Input
+                    id="default-pfa"
+                    value={pfa}
+                    onChange={(event) => setPfa(event.target.value)}
+                    placeholder="ARM Pension Managers"
+                  />
+                </div>
+              ) : null}
             </div>
           </Card>
 
-          {organisation.data.country_code === "NG" ? (
+          {isNigeria ? (
             <Card>
               <CardHeader
                 title="States of operation"

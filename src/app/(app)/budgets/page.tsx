@@ -14,7 +14,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { budgetsApi, chartAccountsApi, departmentsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Budget, BudgetVsActual, ChartAccount } from "@/lib/types";
 
@@ -76,7 +76,7 @@ export default function BudgetsPage() {
                     {formatDate(budget.period_start)} – {formatDate(budget.period_end)}
                   </Td>
                   <Td align="right" className="font-bold">
-                    {formatNaira(budget.total_budgeted_minor)}
+                    {formatMoney(budget.total_budgeted_minor)}
                   </Td>
                   <Td align="right">
                     <div className="flex justify-end gap-2">
@@ -135,12 +135,12 @@ function BudgetActualsDrawer({ budget, onClose }: { budget: Budget; onClose: () 
                   <span>{line.account_name}</span>
                   <span className={line.variance_minor > 0 ? "text-warn" : "text-good"}>
                     {line.variance_minor > 0 ? "+" : ""}
-                    {formatNaira(line.variance_minor)}
+                    {formatMoney(line.variance_minor)}
                   </span>
                 </div>
                 <div className="mt-1 flex justify-between text-[12px] text-ink-soft">
-                  <span>Budgeted {formatNaira(line.budgeted_minor)}</span>
-                  <span>Actual {formatNaira(line.actual_minor)}</span>
+                  <span>Budgeted {formatMoney(line.budgeted_minor)}</span>
+                  <span>Actual {formatMoney(line.actual_minor)}</span>
                 </div>
               </div>
             ))}
@@ -148,17 +148,17 @@ function BudgetActualsDrawer({ budget, onClose }: { budget: Budget; onClose: () 
           <div className="rounded-panel border border-border bg-bg px-3 py-2.5 text-[12px]">
             <div className="flex justify-between">
               <span>Total budgeted</span>
-              <span className="font-bold">{formatNaira(data.total_budgeted_minor)}</span>
+              <span className="font-bold">{formatMoney(data.total_budgeted_minor)}</span>
             </div>
             <div className="flex justify-between">
               <span>Total actual</span>
-              <span className="font-bold">{formatNaira(data.total_actual_minor)}</span>
+              <span className="font-bold">{formatMoney(data.total_actual_minor)}</span>
             </div>
             <div className="flex justify-between">
               <span>Total variance</span>
               <span className={`font-bold ${data.total_variance_minor > 0 ? "text-warn" : "text-good"}`}>
                 {data.total_variance_minor > 0 ? "+" : ""}
-                {formatNaira(data.total_variance_minor)}
+                {formatMoney(data.total_variance_minor)}
               </span>
             </div>
           </div>
@@ -215,10 +215,10 @@ function NewBudgetDrawer({ onClose, onCreated }: { onClose: () => void; onCreate
         period_start: periodStart,
         period_end: periodEnd,
         lines: lines
-          .filter((line) => line.accountCode && nairaToMinor(line.amount) > 0)
+          .filter((line) => line.accountCode && toMinorUnits(line.amount) > 0)
           .map((line) => ({
             account_code: line.accountCode,
-            amount_minor: nairaToMinor(line.amount),
+            amount_minor: toMinorUnits(line.amount),
           })),
       });
       onCreated();
@@ -299,7 +299,7 @@ function NewBudgetDrawer({ onClose, onCreated }: { onClose: () => void; onCreate
                 </Select>
               </div>
               <div className="w-32">
-                <Label>Amount (₦)</Label>
+                <Label>Amount ({currencyLabel()})</Label>
                 <Input
                   value={line.amount}
                   onChange={(event) => updateLine(index, { amount: event.target.value })}

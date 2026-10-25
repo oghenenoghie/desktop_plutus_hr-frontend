@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { inventoryApi } from "@/lib/api/endpoints";
-import { formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import {
   REASON_DIRECTION,
@@ -55,7 +55,7 @@ function linesFrom(adjustment: InventoryAdjustment | undefined): LineDraft[] {
       unitId: line.unit_id,
       direction: quantity < 0 ? "remove" : "add",
       quantity: String(Math.abs(quantity)),
-      cost: line.unit_cost_minor === null ? "" : String(line.unit_cost_minor / 100),
+      cost: line.unit_cost_minor === null ? "" : String(fromMinorUnits(line.unit_cost_minor)),
       notes: line.notes ?? "",
       lot: line.lot_number ?? "",
       expiry: line.expiry_date ?? "",
@@ -112,7 +112,7 @@ export function AdjustmentForm({
 
   function lineValue(line: LineDraft): number | null {
     if (directionOf(line) !== "add" || !line.cost || !isValidQuantityInput(line.quantity)) return null;
-    return Math.round(Number(line.quantity) * nairaToMinor(line.cost));
+    return Math.round(Number(line.quantity) * toMinorUnits(line.cost));
   }
 
   async function submit(postNow: boolean) {
@@ -149,7 +149,7 @@ export function AdjustmentForm({
           item_id: line.itemId,
           unit_id: line.unitId || null,
           quantity: adding ? line.quantity.trim() : `-${line.quantity.trim()}`,
-          unit_cost_minor: adding && line.cost ? nairaToMinor(line.cost) : null,
+          unit_cost_minor: adding && line.cost ? toMinorUnits(line.cost) : null,
           notes: line.notes || null,
           lot_number: lotItem ? line.lot.trim() || null : null,
           expiry_date: lotItem?.track_expiry && adding ? line.expiry || null : null,
@@ -323,7 +323,7 @@ export function AdjustmentForm({
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor={`line-cost-${line.key}`}>Unit cost (₦)</Label>
+                  <Label htmlFor={`line-cost-${line.key}`}>Unit cost ({currencyLabel()})</Label>
                   <Input
                     id={`line-cost-${line.key}`}
                     inputMode="decimal"
@@ -333,13 +333,13 @@ export function AdjustmentForm({
                       !adding
                         ? "Average cost"
                         : item?.default_cost_minor != null
-                          ? `Default ${formatNaira(item.default_cost_minor)}`
+                          ? `Default ${formatMoney(item.default_cost_minor)}`
                           : "Required"
                     }
                     disabled={!adding}
                   />
                   {value !== null ? (
-                    <div className="mt-1 text-[11px] text-ink-soft">Line value {formatNaira(value)}</div>
+                    <div className="mt-1 text-[11px] text-ink-soft">Line value {formatMoney(value)}</div>
                   ) : null}
                 </div>
                 {item?.track_lots ? (

@@ -9,7 +9,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { loansApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 export default function LoansPage() {
@@ -50,10 +50,10 @@ export default function LoansPage() {
               {loans.data.map((loan) => (
                 <tr key={loan.id}>
                   <Td>{formatDate(loan.start_date)}</Td>
-                  <Td align="right">{formatNaira(loan.principal_minor)}</Td>
-                  <Td align="right">{formatNaira(loan.installment_minor)}</Td>
+                  <Td align="right">{formatMoney(loan.principal_minor)}</Td>
+                  <Td align="right">{formatMoney(loan.installment_minor)}</Td>
                   <Td align="right">{loan.num_installments}</Td>
-                  <Td align="right">{formatNaira(loan.outstanding_minor)}</Td>
+                  <Td align="right">{formatMoney(loan.outstanding_minor)}</Td>
                   <Td>
                     <StatusBadge status={loan.status} />
                   </Td>

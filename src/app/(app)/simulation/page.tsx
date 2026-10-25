@@ -10,7 +10,7 @@ import { ErrorState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
 import { employeesApi, simulationApi } from "@/lib/api/endpoints";
-import { formatNaira } from "@/lib/format";
+import { currencyLabel, formatMoney, toMinorUnits } from "@/lib/format";
 import type { PayRunSimulationOut, SimulationOut, SimulationRequestBody } from "@/lib/types";
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -80,9 +80,9 @@ function EmployeeSimulation() {
     try {
       const out = await simulationApi.payslip(employeeId, {
         period_end: periodEnd,
-        basic_minor: basic ? Math.round(Number(basic) * 100) : undefined,
-        housing_minor: housing ? Math.round(Number(housing) * 100) : undefined,
-        transport_minor: transport ? Math.round(Number(transport) * 100) : undefined,
+        basic_minor: basic ? toMinorUnits(basic) : undefined,
+        housing_minor: housing ? toMinorUnits(housing) : undefined,
+        transport_minor: transport ? toMinorUnits(transport) : undefined,
       });
       setResult(out);
     } catch (err) {
@@ -106,15 +106,15 @@ function EmployeeSimulation() {
             <Input id="period" type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="basic">Annual Basic (₦, override)</Label>
+            <Label htmlFor="basic">Annual Basic ({currencyLabel()}, override)</Label>
             <Input id="basic" inputMode="decimal" value={basic} onChange={(e) => setBasic(e.target.value)} placeholder="e.g. 3600000" />
           </div>
           <div>
-            <Label htmlFor="housing">Annual Housing (₦, override)</Label>
+            <Label htmlFor="housing">Annual Housing ({currencyLabel()}, override)</Label>
             <Input id="housing" inputMode="decimal" value={housing} onChange={(e) => setHousing(e.target.value)} placeholder="e.g. 2160000" />
           </div>
           <div>
-            <Label htmlFor="transport">Annual Transport (₦, override)</Label>
+            <Label htmlFor="transport">Annual Transport ({currencyLabel()}, override)</Label>
             <Input id="transport" inputMode="decimal" value={transport} onChange={(e) => setTransport(e.target.value)} placeholder="e.g. 1440000" />
           </div>
           <Button type="submit" className="w-full" disabled={!employeeId || submitting}>
@@ -151,7 +151,7 @@ function EmployeeSimulation() {
             ) : null}
             <div className="!mt-6 flex items-center justify-between border-t-2 border-primary pt-4">
               <span className="text-[13px] font-extrabold text-ink">Net Pay</span>
-              <span className="text-[20px] font-extrabold text-primary">{formatNaira(result.net_pay_minor)}</span>
+              <span className="text-[20px] font-extrabold text-primary">{formatMoney(result.net_pay_minor)}</span>
             </div>
           </div>
         )}
@@ -283,12 +283,12 @@ function CompareRow({ label, before, after }: { label: string; before: number; a
           className={`text-[12px] font-bold ${delta > 0 ? "text-warn" : delta < 0 ? "text-good" : "text-ink-soft"}`}
         >
           {delta > 0 ? "+" : ""}
-          {formatNaira(delta)}
+          {formatMoney(delta)}
         </span>
       </div>
       <div className="flex items-center justify-between text-[13px] text-ink-soft">
-        <span>Before: {formatNaira(before)}</span>
-        <span className="font-extrabold text-ink">After: {formatNaira(after)}</span>
+        <span>Before: {formatMoney(before)}</span>
+        <span className="font-extrabold text-ink">After: {formatMoney(after)}</span>
       </div>
     </div>
   );
@@ -310,7 +310,7 @@ function DerivationRow({
       <span className={`text-[13px] ${muted ? "text-ink-soft" : "font-bold text-ink"}`}>{label}</span>
       <span className={`text-[13px] font-bold ${subtract ? "text-bad" : "text-ink"}`}>
         {subtract ? "− " : ""}
-        {formatNaira(value)}
+        {formatMoney(value)}
       </span>
     </div>
   );

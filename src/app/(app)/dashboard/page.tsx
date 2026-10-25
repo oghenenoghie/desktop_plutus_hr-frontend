@@ -16,7 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { ApiError } from "@/lib/api/client";
 import { dashboardApi, employeesApi, notificationsApi, payRunsApi, remindersApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { PayRun } from "@/lib/types";
 
@@ -77,7 +77,7 @@ export default function DashboardPage() {
           <KpiTile label="Active Employees" value={summary.data.active_employee_count.toLocaleString("en-NG")} />
           <KpiTile
             label="Outstanding Liability"
-            value={formatNaira(summary.data.outstanding_liability_minor)}
+            value={formatMoney(summary.data.outstanding_liability_minor)}
           />
           <KpiTile
             label="Pending Leave Requests"
@@ -107,15 +107,15 @@ export default function DashboardPage() {
             }
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <KpiTile label="Cash Balance" value={formatNaira(summary.data.cash_balance_minor)} />
+            <KpiTile label="Cash Balance" value={formatMoney(summary.data.cash_balance_minor)} />
             <KpiTile
               label="Accounts Payable"
-              value={formatNaira(summary.data.accounts_payable_minor)}
+              value={formatMoney(summary.data.accounts_payable_minor)}
               caption="Owed to vendors"
             />
             <KpiTile
               label="Accounts Receivable"
-              value={formatNaira(summary.data.accounts_receivable_minor)}
+              value={formatMoney(summary.data.accounts_receivable_minor)}
               caption="Owed by customers"
             />
           </div>
@@ -135,11 +135,11 @@ export default function DashboardPage() {
             </div>
             <div>
               <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Gross</div>
-              <div className="mt-1 font-extrabold">{formatNaira(summary.data.last_completed_pay_run.gross_minor)}</div>
+              <div className="mt-1 font-extrabold">{formatMoney(summary.data.last_completed_pay_run.gross_minor)}</div>
             </div>
             <div>
               <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Net</div>
-              <div className="mt-1 font-extrabold">{formatNaira(summary.data.last_completed_pay_run.net_minor)}</div>
+              <div className="mt-1 font-extrabold">{formatMoney(summary.data.last_completed_pay_run.net_minor)}</div>
             </div>
           </div>
         </Card>
@@ -189,7 +189,7 @@ export default function DashboardPage() {
                       <StatusBadge status={run.status} />
                     </Td>
                     <Td align="right" className="font-bold">
-                      {formatNaira(run.net_minor)}
+                      {formatMoney(run.net_minor)}
                     </Td>
                   </tr>
                 ))}
@@ -263,7 +263,7 @@ export default function DashboardPage() {
                   <Td>{liability.scheme.toUpperCase()}</Td>
                   <Td>{liability.authority}</Td>
                   <Td>{liability.state ?? "—"}</Td>
-                  <Td align="right">{formatNaira(liability.amount_minor)}</Td>
+                  <Td align="right">{formatMoney(liability.amount_minor)}</Td>
                   <Td>{formatDate(liability.due_date)}</Td>
                   <Td>
                     <StatusBadge status={liability.status} />
@@ -308,7 +308,7 @@ function PayrollCostTrendChart({ payRuns }: { payRuns: PayRun[] }) {
           <g key={run.id}>
             <rect x={x} y={y} width={barWidth} height={barHeight} rx={4} fill="var(--color-primary)">
               <title>
-                {formatDate(run.period_end)} — {formatNaira(run.net_minor)}
+                {formatDate(run.period_end)} — {formatMoney(run.net_minor)}
               </title>
             </rect>
             <text

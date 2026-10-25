@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { payRunsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, titleCase } from "@/lib/format";
+import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 export default function PayrollPage() {
@@ -52,8 +52,8 @@ export default function PayrollPage() {
                   </Td>
                   <Td>{titleCase(run.frequency)}</Td>
                   <Td align="right">{run.employee_count}</Td>
-                  <Td align="right">{formatNaira(run.gross_minor)}</Td>
-                  <Td align="right">{formatNaira(run.net_minor)}</Td>
+                  <Td align="right">{formatMoney(run.gross_minor)}</Td>
+                  <Td align="right">{formatMoney(run.net_minor)}</Td>
                   <Td>
                     <StatusBadge status={run.status} />
                   </Td>

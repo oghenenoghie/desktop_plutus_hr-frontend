@@ -17,7 +17,7 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { departmentsApi, employeesApi, jobGradesApi, shiftsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatNaira, titleCase } from "@/lib/format";
+import { formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { NIGERIAN_BANKS } from "@/lib/nigerian-banks";
 import type { Employee, EmployeeBulkImportResult } from "@/lib/types";
@@ -133,7 +133,7 @@ export default function EmployeesPage() {
                       {grossMinor === null ? (
                         <Badge tone="neutral">Masked</Badge>
                       ) : (
-                        formatNaira(grossMinor)
+                        formatMoney(grossMinor)
                       )}
                     </Td>
                     <Td>

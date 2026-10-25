@@ -64,6 +64,12 @@ export interface MeResponse {
   role: Role;
   org_name: string;
   mfa_enabled: boolean;
+  // The organisation's country and the currency every amount is in, and
+  // whether payroll and statutory tax can run there yet.
+  country_code: string;
+  country_name: string;
+  currency: string;
+  payroll_available: boolean;
 }
 
 // --- employees ---
@@ -2141,8 +2147,10 @@ export interface CountryProfile {
   tax_authority: string;
   status: CountryTaxStatus;
   enabled_modules: string[];
-  // Whether an organisation can choose it: active, with rules encoded.
+  // Every catalogued country can be chosen (selectable). Payroll and
+  // statutory tax run only where its rules are approved and encoded.
   selectable: boolean;
+  payroll_available: boolean;
 }
 
 // GET /organisation/countries — public, for the sign-up form.
@@ -2152,6 +2160,7 @@ export interface SignupCountry {
   currency: string;
   status: CountryTaxStatus;
   selectable: boolean;
+  payroll_available: boolean;
 }
 
 export interface PayeEstimateRequestBody {

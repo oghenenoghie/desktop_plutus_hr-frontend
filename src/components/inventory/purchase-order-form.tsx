@@ -10,7 +10,7 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { inventoryApi, purchaseOrdersApi, vendorsApi } from "@/lib/api/endpoints";
-import { formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { formatQuantity, isValidQuantityInput, todayInLagos } from "@/lib/inventory";
 import type { InventoryItem, PurchaseOrder, PurchaseOrderBody } from "@/lib/types";
@@ -30,7 +30,7 @@ function blank(key: number): LineDraft {
 }
 
 function naira(minor: number): string {
-  return minor ? String(minor / 100) : "";
+  return minor ? String(fromMinorUnits(minor)) : "";
 }
 
 function linesFrom(order: PurchaseOrder | undefined): LineDraft[] {
@@ -40,7 +40,7 @@ function linesFrom(order: PurchaseOrder | undefined): LineDraft[] {
     itemId: line.item_id,
     unitId: line.unit_id,
     quantity: String(Number(line.quantity)),
-    price: String(line.unit_price_minor / 100),
+    price: String(fromMinorUnits(line.unit_price_minor)),
     discount: naira(line.discount_minor),
     tax: naira(line.tax_minor),
   }));
@@ -49,7 +49,7 @@ function linesFrom(order: PurchaseOrder | undefined): LineDraft[] {
 function lineNet(line: LineDraft): number {
   if (!isValidQuantityInput(line.quantity) || !line.price) return 0;
   return Math.max(
-    Math.round(Number(line.quantity) * nairaToMinor(line.price)) - nairaToMinor(line.discount || "0"),
+    Math.round(Number(line.quantity) * toMinorUnits(line.price)) - toMinorUnits(line.discount || "0"),
     0,
   );
 }
@@ -83,7 +83,7 @@ export function PurchaseOrderForm({
   const effectiveVendor = vendorId || vendors.data?.[0]?.id || "";
   const nextKey = lines.reduce((max, line) => Math.max(max, line.key), -1) + 1;
   const subtotal = lines.reduce((sum, line) => sum + lineNet(line), 0);
-  const tax = lines.reduce((sum, line) => sum + nairaToMinor(line.tax || "0"), 0);
+  const tax = lines.reduce((sum, line) => sum + toMinorUnits(line.tax || "0"), 0);
 
   function update(key: number, patch: Partial<LineDraft>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -119,9 +119,9 @@ export function PurchaseOrderForm({
         item_id: line.itemId,
         unit_id: line.unitId || null,
         quantity: line.quantity.trim(),
-        unit_price_minor: nairaToMinor(line.price),
-        discount_minor: nairaToMinor(line.discount || "0"),
-        tax_minor: nairaToMinor(line.tax || "0"),
+        unit_price_minor: toMinorUnits(line.price),
+        discount_minor: toMinorUnits(line.discount || "0"),
+        tax_minor: toMinorUnits(line.tax || "0"),
       })),
     };
     setSubmitting(true);
@@ -224,15 +224,15 @@ export function PurchaseOrderForm({
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor={`po-price-${line.key}`}>Unit price (₦)</Label>
+                  <Label htmlFor={`po-price-${line.key}`}>Unit price ({currencyLabel()})</Label>
                   <Input id={`po-price-${line.key}`} inputMode="decimal" value={line.price} onChange={(e) => update(line.key, { price: e.target.value })} />
                 </div>
                 <div>
-                  <Label htmlFor={`po-discount-${line.key}`}>Discount (₦)</Label>
+                  <Label htmlFor={`po-discount-${line.key}`}>Discount ({currencyLabel()})</Label>
                   <Input id={`po-discount-${line.key}`} inputMode="decimal" value={line.discount} onChange={(e) => update(line.key, { discount: e.target.value })} placeholder="0" />
                 </div>
                 <div>
-                  <Label htmlFor={`po-tax-${line.key}`}>Tax (₦)</Label>
+                  <Label htmlFor={`po-tax-${line.key}`}>Tax ({currencyLabel()})</Label>
                   <Input id={`po-tax-${line.key}`} inputMode="decimal" value={line.tax} onChange={(e) => update(line.key, { tax: e.target.value })} placeholder="0" />
                 </div>
                 <Button type="button" variant="secondary" aria-label={`Remove line ${index + 1}`} disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((other) => other.key !== line.key))}>
@@ -247,9 +247,9 @@ export function PurchaseOrderForm({
             </Button>
             <div className="text-right text-[13px]">
               <div className="text-ink-soft">
-                Net {formatNaira(subtotal)} · Tax {formatNaira(tax)}
+                Net {formatMoney(subtotal)} · Tax {formatMoney(tax)}
               </div>
-              <div className="font-extrabold text-ink">Total {formatNaira(subtotal + tax)}</div>
+              <div className="font-extrabold text-ink">Total {formatMoney(subtotal + tax)}</div>
             </div>
           </div>
         </div>

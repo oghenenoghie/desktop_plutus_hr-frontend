@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import { clearTokens, getAccessToken, setTokens } from "@/lib/auth/token-store";
+import { setDisplayCurrency } from "@/lib/format";
 import type { MeResponse } from "@/lib/types";
 
 interface LoginParams {
@@ -38,6 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const me = await authApi.me();
+      // Before the screens render, so every amount is in the
+      // organisation's currency. An API from before /auth/me carried the
+      // currency only ever served Nigeria.
+      setDisplayCurrency(me.currency ?? "NGN");
       setUser(me);
       setStatus("authenticated");
     } catch {
@@ -66,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       setTokens(tokens.access_token, tokens.refresh_token);
       const me = await authApi.me();
+      setDisplayCurrency(me.currency ?? "NGN");
       setUser(me);
       setStatus("authenticated");
       return me;
@@ -75,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     clearTokens();
+    setDisplayCurrency("NGN");
     setUser(null);
     setStatus("unauthenticated");
     router.push("/login");

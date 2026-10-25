@@ -13,7 +13,7 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { goodsReceiptsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, canOperateInventory, statusLabel } from "@/lib/inventory";
 import type { GoodsReceiptStatus } from "@/lib/types";
@@ -87,7 +87,7 @@ export default function GoodsReceiptsPage() {
                     <Td>{receipt.vendor_name}</Td>
                     <Td>{formatDate(receipt.receipt_date)}</Td>
                     <Td>{receipt.warehouse_code}</Td>
-                    <Td align="right">{receipt.value_minor === null ? "—" : formatNaira(receipt.value_minor)}</Td>
+                    <Td align="right">{receipt.value_minor === null ? "—" : formatMoney(receipt.value_minor)}</Td>
                     <Td>
                       <StatusBadge status={receipt.status} />
                     </Td>

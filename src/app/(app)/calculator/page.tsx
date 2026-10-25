@@ -9,7 +9,7 @@ import { ErrorState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
 import { complianceApi } from "@/lib/api/endpoints";
-import { formatNaira, nairaToMinor } from "@/lib/format";
+import { formatMoney, toMinorUnits } from "@/lib/format";
 import type { PayeEstimateOut } from "@/lib/types";
 
 export default function PayeCalculatorPage() {
@@ -25,8 +25,8 @@ export default function PayeCalculatorPage() {
     setError(null);
     try {
       const out = await complianceApi.payeEstimate({
-        annual_gross_minor: nairaToMinor(annualGross),
-        annual_rent_minor: nairaToMinor(annualRent),
+        annual_gross_minor: toMinorUnits(annualGross),
+        annual_rent_minor: toMinorUnits(annualRent),
       });
       setResult(out);
     } catch (err) {
@@ -85,25 +85,25 @@ export default function PayeCalculatorPage() {
               title="1 · Assumed component split"
               subtitle={`Rule version ${result.rule_version_id}`}
             />
-            <DerivationRow label="Basic (50%)" value={formatNaira(result.basic_minor)} />
-            <DerivationRow label="Housing (30%)" value={formatNaira(result.housing_minor)} />
-            <DerivationRow label="Transport (20%)" value={formatNaira(result.transport_minor)} />
-            <DerivationRow label="Annual gross" value={formatNaira(result.gross_annual_minor)} bold />
+            <DerivationRow label="Basic (50%)" value={formatMoney(result.basic_minor)} />
+            <DerivationRow label="Housing (30%)" value={formatMoney(result.housing_minor)} />
+            <DerivationRow label="Transport (20%)" value={formatMoney(result.transport_minor)} />
+            <DerivationRow label="Annual gross" value={formatMoney(result.gross_annual_minor)} bold />
           </Card>
 
           <Card>
             <CardHeader title="2 · Statutory deductions" />
             <DerivationRow
               label="Pension (employee share)"
-              value={`− ${formatNaira(result.pension_employee_annual_minor)}`}
+              value={`− ${formatMoney(result.pension_employee_annual_minor)}`}
             />
             <DerivationRow
               label="NHF"
-              value={`− ${formatNaira(result.nhf_annual_minor)}`}
+              value={`− ${formatMoney(result.nhf_annual_minor)}`}
             />
             <DerivationRow
               label="Rent relief"
-              value={`− ${formatNaira(result.rent_relief_annual_minor)}`}
+              value={`− ${formatMoney(result.rent_relief_annual_minor)}`}
             />
           </Card>
 
@@ -111,18 +111,18 @@ export default function PayeCalculatorPage() {
             <CardHeader title="3 · Chargeable income" />
             <DerivationRow
               label="Annual chargeable income"
-              value={formatNaira(result.chargeable_income_annual_minor)}
+              value={formatMoney(result.chargeable_income_annual_minor)}
               bold
             />
           </Card>
 
           <Card>
             <CardHeader title="4 · PAYE" />
-            <DerivationRow label="Annual PAYE" value={formatNaira(result.paye_annual_minor)} bold />
-            <DerivationRow label="Monthly PAYE" value={formatNaira(result.paye_monthly_minor)} />
+            <DerivationRow label="Annual PAYE" value={formatMoney(result.paye_annual_minor)} bold />
+            <DerivationRow label="Monthly PAYE" value={formatMoney(result.paye_monthly_minor)} />
             <div className="my-3 border-t border-border" />
-            <DerivationRow label="Annual net pay" value={formatNaira(result.net_annual_minor)} bold />
-            <DerivationRow label="Monthly net pay" value={formatNaira(result.net_monthly_minor)} />
+            <DerivationRow label="Annual net pay" value={formatMoney(result.net_annual_minor)} bold />
+            <DerivationRow label="Monthly net pay" value={formatMoney(result.net_monthly_minor)} />
           </Card>
         </div>
       ) : null}

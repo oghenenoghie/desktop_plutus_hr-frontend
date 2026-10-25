@@ -39,7 +39,7 @@ src/
     api/                  apiFetch client (token refresh, 401 handling) + typed endpoints
     auth/                 token storage, AuthProvider/useAuth, route AuthGate
     types.ts              TypeScript mirror of the backend's Pydantic schemas
-    format.ts             ₦ currency formatting (whole naira, en-NG), dates, initials
+    format.ts             money in the organisation's currency (whole units), dates, initials
     nav.ts                role → nav item mapping
     analytics/            analytics types, API calls, URL filters, formatting
 ```
@@ -55,6 +55,14 @@ src/
 
 Metric definitions and the security model are in the backend's `docs/analytics-metrics.md` and `docs/analytics-security.md`.
 
+## Countries
+
+An organisation chooses its country at sign-up (any of the six Plutus lists) and can change it in Setup & Onboarding until it has a pay run or a posted ledger line. `/auth/me` gives every role the country, its currency and whether payroll is available there:
+
+- **Currency.** Every amount is formatted, and every amount input read, in that currency (`formatMoney` and `toMinorUnits` in `src/lib/format.ts`), including currencies with no minor unit (RWF, XOF).
+- **Payroll.** Where the country's tax rules aren't approved yet, payroll-only menu items are hidden and their screens show a notice instead (`payrollOnly` in `src/lib/nav.ts`, `src/components/payroll-unavailable.tsx`). The API refuses those calculations either way.
+- **Nigerian-only fields.** States, PFA, NHF, RC number and default federal holidays appear only for Nigeria; elsewhere a region is free text (`src/components/region-field.tsx`).
+
 ## Auth model
 
 The backend issues JWT access/refresh token pairs from `POST /auth/login` (no cookies). This app:
@@ -67,7 +75,7 @@ Roles are `admin`, `payroll_manager`, `manager`, `employee` (from `GET /auth/me`
 
 ## Design system
 
-Colors, type scale, spacing and component patterns follow Plutus's "Ledger" design system — flat, bordered, institutional, no shadows, whole-naira currency. Tokens live as CSS custom properties in `src/app/globals.css` and are exposed to Tailwind via `@theme inline` (`bg-primary`, `text-good`, `rounded-card`, etc.).
+Colors, type scale, spacing and component patterns follow Plutus's "Ledger" design system — flat, bordered, institutional, no shadows, whole-unit currency (₦ in Nigeria, the ISO code elsewhere). Tokens live as CSS custom properties in `src/app/globals.css` and are exposed to Tailwind via `@theme inline` (`bg-primary`, `text-good`, `rounded-card`, etc.).
 
 ## Desktop app
 

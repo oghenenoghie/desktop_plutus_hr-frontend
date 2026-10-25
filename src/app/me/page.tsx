@@ -32,7 +32,7 @@ import {
   trainingEnrollmentsApi,
   unionMembershipsApi,
 } from "@/lib/api/endpoints";
-import { formatDate, formatDateTime, formatNaira, titleCase } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { PerformanceReview, Task, TrainingEnrollment } from "@/lib/types";
 
@@ -163,7 +163,7 @@ export default function MyWorkspacePage() {
         />
         <KpiTile
           label="Latest Net Pay"
-          value={latestPayslip ? formatNaira(latestPayslip.net_minor) : "—"}
+          value={latestPayslip ? formatMoney(latestPayslip.net_minor) : "—"}
           caption={latestPayslip ? formatDate(latestPayslip.period_end) : undefined}
         />
         <KpiTile
@@ -287,7 +287,7 @@ export default function MyWorkspacePage() {
                 {expenses.data.map((expense) => (
                   <tr key={expense.id}>
                     <Td>{expense.category}</Td>
-                    <Td align="right">{formatNaira(expense.amount_minor)}</Td>
+                    <Td align="right">{formatMoney(expense.amount_minor)}</Td>
                     <Td>
                       <StatusBadge status={expense.status} />
                     </Td>
@@ -315,8 +315,8 @@ export default function MyWorkspacePage() {
               <tbody>
                 {loans.data.map((loan) => (
                   <tr key={loan.id}>
-                    <Td align="right">{formatNaira(loan.outstanding_minor)}</Td>
-                    <Td align="right">{formatNaira(loan.installment_minor)}</Td>
+                    <Td align="right">{formatMoney(loan.outstanding_minor)}</Td>
+                    <Td align="right">{formatMoney(loan.installment_minor)}</Td>
                     <Td>
                       <StatusBadge status={loan.status} />
                     </Td>
@@ -346,7 +346,7 @@ export default function MyWorkspacePage() {
                   <tr key={benefit.id}>
                     <Td>{benefit.name}</Td>
                     <Td>{titleCase(benefit.frequency)}</Td>
-                    <Td align="right">{benefit.value_minor != null ? formatNaira(benefit.value_minor) : "—"}</Td>
+                    <Td align="right">{benefit.value_minor != null ? formatMoney(benefit.value_minor) : "—"}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -446,7 +446,7 @@ export default function MyWorkspacePage() {
                 {unionMemberships.data.map((membership) => (
                   <tr key={membership.id}>
                     <Td>{membership.union_name}</Td>
-                    <Td align="right">{formatNaira(membership.monthly_dues_minor)}</Td>
+                    <Td align="right">{formatMoney(membership.monthly_dues_minor)}</Td>
                     <Td>
                       <Badge tone={membership.status === "active" ? "good" : membership.status === "suspended" ? "warn" : "neutral"}>
                         {membership.status}
@@ -674,7 +674,7 @@ function PayslipFigure({ label, value, emphasize }: { label: string; value: numb
     <div>
       <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">{label}</div>
       <div className={`mt-1 text-[15px] font-extrabold ${emphasize ? "text-primary" : "text-ink"}`}>
-        {formatNaira(value)}
+        {formatMoney(value)}
       </div>
     </div>
   );

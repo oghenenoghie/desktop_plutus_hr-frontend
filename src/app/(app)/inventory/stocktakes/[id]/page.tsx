@@ -24,7 +24,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { inventoryApi, stocktakesApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatDateTime, formatNaira } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import {
   TRACKED_ITEM_TYPES,
@@ -200,7 +200,7 @@ export default function StocktakeDetailPage({ params }: { params: Promise<{ id: 
                 label="Post"
                 tone="primary"
                 confirmTitle={`Post ${doc.stocktake_number}?`}
-                confirmMessage={`The differences are posted to stock on ${formatDate(doc.count_date)}${showValues ? ` (found ${formatNaira(doc.gain_value_minor ?? 0)}, missing ${formatNaira(doc.loss_value_minor ?? 0)} at today's average cost)` : ""}. This can't be undone; correct a mistake with an adjustment.`}
+                confirmMessage={`The differences are posted to stock on ${formatDate(doc.count_date)}${showValues ? ` (found ${formatMoney(doc.gain_value_minor ?? 0)}, missing ${formatMoney(doc.loss_value_minor ?? 0)} at today's average cost)` : ""}. This can't be undone; correct a mistake with an adjustment.`}
                 confirmLabel="Post"
                 action={() => act(`${doc.stocktake_number} posted`, () => stocktakesApi.post(doc.id))}
               />
@@ -235,8 +235,8 @@ export default function StocktakeDetailPage({ params }: { params: Promise<{ id: 
                   {doc.counted_count} of {doc.line_count}
                 </Field>
                 <Field label="Differences">{doc.variance_count}</Field>
-                {showValues ? <Field label="Found">{formatNaira(doc.gain_value_minor ?? 0)}</Field> : null}
-                {showValues ? <Field label="Missing">{formatNaira(doc.loss_value_minor ?? 0)}</Field> : null}
+                {showValues ? <Field label="Found">{formatMoney(doc.gain_value_minor ?? 0)}</Field> : null}
+                {showValues ? <Field label="Missing">{formatMoney(doc.loss_value_minor ?? 0)}</Field> : null}
               </>
             ) : null}
             {doc.posted_at ? <Field label="Posted">{formatDateTime(doc.posted_at)}</Field> : null}
@@ -345,7 +345,7 @@ export default function StocktakeDetailPage({ params }: { params: Promise<{ id: 
                       <Td align="right">
                         {line.variance_value_minor === null || line.variance === null
                           ? "—"
-                          : formatNaira(line.variance_value_minor)}
+                          : formatMoney(line.variance_value_minor)}
                       </Td>
                     ) : null}
                     {counting && canAct ? (

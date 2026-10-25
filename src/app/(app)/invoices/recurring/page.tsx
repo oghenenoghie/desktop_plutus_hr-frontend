@@ -15,7 +15,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { chartAccountsApi, customersApi, recurringInvoicesApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor, titleCase } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { RecurrenceFrequency } from "@/lib/types";
 
@@ -92,7 +92,7 @@ export default function RecurringInvoicesPage() {
                 <tr key={template.id}>
                   <Td className="font-bold">{template.invoice_number_prefix}</Td>
                   <Td>{customerNameById.get(template.customer_id) ?? "—"}</Td>
-                  <Td align="right">{formatNaira(template.amount_minor)}</Td>
+                  <Td align="right">{formatMoney(template.amount_minor)}</Td>
                   <Td>{titleCase(template.frequency)}</Td>
                   <Td>{formatDate(template.next_run_date)}</Td>
                   <Td>
@@ -153,7 +153,7 @@ function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void
         customer_id: customerId,
         invoice_number_prefix: invoiceNumberPrefix,
         revenue_account_code: revenueAccountCode,
-        amount_minor: nairaToMinor(amount),
+        amount_minor: toMinorUnits(amount),
         frequency,
         next_run_date: nextRunDate,
       });
@@ -206,7 +206,7 @@ function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void
           </Select>
         </div>
         <div>
-          <Label htmlFor="amount">Amount (₦)</Label>
+          <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
           <Input id="amount" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" required />
         </div>
         <div className="grid grid-cols-2 gap-3">

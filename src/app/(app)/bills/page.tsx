@@ -28,7 +28,7 @@ import {
   goodsReceiptsApi,
   vendorsApi,
 } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { ApprovalInstance, Bill, GoodsReceipt } from "@/lib/types";
 
@@ -160,21 +160,21 @@ export default function BillsPage() {
                     </Td>
                     <Td>{vendorNameById.get(bill.vendor_id) ?? "—"}</Td>
                     <Td>{formatDate(bill.due_date)}</Td>
-                    <Td align="right">{formatNaira(bill.amount_minor)}</Td>
+                    <Td align="right">{formatMoney(bill.amount_minor)}</Td>
                     <Td align="right">
                       <div className="font-bold">
-                        {formatNaira(bill.net_payable_minor)}
+                        {formatMoney(bill.net_payable_minor)}
                       </div>
                       {bill.vat_minor > 0 || bill.wht_amount_minor > 0 ? (
                         <div className="text-[11px] text-ink-soft">
                           {bill.vat_minor > 0
-                            ? `VAT ${formatNaira(bill.vat_minor)}`
+                            ? `VAT ${formatMoney(bill.vat_minor)}`
                             : ""}
                           {bill.vat_minor > 0 && bill.wht_amount_minor > 0
                             ? " · "
                             : ""}
                           {bill.wht_amount_minor > 0
-                            ? `WHT -${formatNaira(bill.wht_amount_minor)}`
+                            ? `WHT -${formatMoney(bill.wht_amount_minor)}`
                             : ""}
                         </div>
                       ) : null}
@@ -193,8 +193,8 @@ export default function BillsPage() {
                               confirmTitle="Approve this vendor bill?"
                               confirmMessage={
                                 bill.goods_receipt_id
-                                  ? `This clears the goods receipt's accrual, posts any price difference to the expense account, and records ${formatNaira(bill.amount_minor)} as payable to "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
-                                  : `This posts ${formatNaira(bill.amount_minor)} as an expense and a payable against "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
+                                  ? `This clears the goods receipt's accrual, posts any price difference to the expense account, and records ${formatMoney(bill.amount_minor)} as payable to "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
+                                  : `This posts ${formatMoney(bill.amount_minor)} as an expense and a payable against "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
                               }
                               confirmLabel="Approve"
                             />
@@ -214,7 +214,7 @@ export default function BillsPage() {
                             label="Mark Paid"
                             tone="primary"
                             confirmTitle="Mark this vendor bill as paid?"
-                            confirmMessage={`This clears ${formatNaira(bill.amount_minor)} from accounts payable against cash.`}
+                            confirmMessage={`This clears ${formatMoney(bill.amount_minor)} from accounts payable against cash.`}
                             confirmLabel="Mark Paid"
                           />
                         ) : null}
@@ -266,7 +266,7 @@ export default function BillsPage() {
       {emailingBill ? (
         <EmailPdfDrawer
           title={`Email Vendor Bill ${emailingBill.bill_number}`}
-          description={`Sends vendor bill ${emailingBill.bill_number} (${formatNaira(emailingBill.amount_minor)}) as a PDF attachment.`}
+          description={`Sends vendor bill ${emailingBill.bill_number} (${formatMoney(emailingBill.amount_minor)}) as a PDF attachment.`}
           defaultTo={vendorById.get(emailingBill.vendor_id)?.contact_email}
           onClose={() => setEmailingBill(null)}
           onSend={(to) => billsApi.email(emailingBill.id, to)}
@@ -333,8 +333,8 @@ function NewBillDrawer({
         bill_date: billDate,
         due_date: dueDate,
         expense_account_code: expenseAccountCode,
-        amount_minor: nairaToMinor(amount),
-        vat_minor: vat ? nairaToMinor(vat) : 0,
+        amount_minor: toMinorUnits(amount),
+        vat_minor: vat ? toMinorUnits(vat) : 0,
         wht_category: whtCategory || null,
         description: description || null,
         goods_receipt_id: goodsReceiptId || null,
@@ -382,19 +382,19 @@ function NewBillDrawer({
               onChange={(event) => {
                 const receipt = linkable.find((option) => option.id === event.target.value);
                 setGoodsReceiptId(event.target.value);
-                if (receipt?.accrued_minor && !amount) setAmount(String(receipt.accrued_minor / 100));
+                if (receipt?.accrued_minor && !amount) setAmount(String(fromMinorUnits(receipt.accrued_minor)));
               }}
             >
               <option value="">Not for a goods receipt</option>
               {linkable.map((receipt) => (
                 <option key={receipt.id} value={receipt.id}>
-                  {receipt.grn_number} · {receipt.po_number} · {formatNaira(receipt.accrued_minor ?? 0)}
+                  {receipt.grn_number} · {receipt.po_number} · {formatMoney(receipt.accrued_minor ?? 0)}
                 </option>
               ))}
             </Select>
             <p className="mt-1 text-[11px] text-ink-soft">
               {linked
-                ? `Approving clears the ${formatNaira(linked.accrued_minor ?? 0)} accrued as goods received not invoiced. Any difference from the amount below (a price change, delivery or non-stock lines) goes to the expense account.`
+                ? `Approving clears the ${formatMoney(linked.accrued_minor ?? 0)} accrued as goods received not invoiced. Any difference from the amount below (a price change, delivery or non-stock lines) goes to the expense account.`
                 : "Link the delivery this bill invoices so approving it clears goods received not invoiced instead of expensing the stock twice."}
             </p>
           </div>
@@ -448,7 +448,7 @@ function NewBillDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="amount">Amount (₦)</Label>
+          <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
           <Input
             id="amount"
             value={amount}
@@ -459,7 +459,7 @@ function NewBillDrawer({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="vat">VAT (₦)</Label>
+            <Label htmlFor="vat">VAT ({currencyLabel()})</Label>
             <Input
               id="vat"
               value={vat}

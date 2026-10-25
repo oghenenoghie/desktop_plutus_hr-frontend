@@ -14,7 +14,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { benefitsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor, titleCase } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { BenefitFrequency } from "@/lib/types";
 
@@ -89,7 +89,7 @@ export default function BenefitsPage() {
                     ) : null}
                   </Td>
                   <Td>{titleCase(benefit.frequency)}</Td>
-                  <Td align="right">{benefit.value_minor != null ? formatNaira(benefit.value_minor) : "—"}</Td>
+                  <Td align="right">{benefit.value_minor != null ? formatMoney(benefit.value_minor) : "—"}</Td>
                   <Td>{formatDate(benefit.effective_date)}</Td>
                   <Td>{formatDate(benefit.end_date)}</Td>
                   <Td align="right">
@@ -163,7 +163,7 @@ function AddBenefitDrawer({
         frequency,
         effective_date: effectiveDate,
         description: description || null,
-        value_minor: value ? nairaToMinor(value) : null,
+        value_minor: value ? toMinorUnits(value) : null,
       });
       showToast("Benefit added", "good");
       onAdded();
@@ -199,7 +199,7 @@ function AddBenefitDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="value">Value (₦, optional)</Label>
+          <Label htmlFor="value">Value ({currencyLabel()}, optional)</Label>
           <Input
             id="value"
             inputMode="decimal"

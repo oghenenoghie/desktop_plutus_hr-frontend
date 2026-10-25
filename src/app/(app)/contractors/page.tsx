@@ -14,7 +14,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { contractorInvoicesApi, contractorsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor, titleCase } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Contractor, ContractorInvoice, WhtCategory, WhtPayment } from "@/lib/types";
 
@@ -179,9 +179,9 @@ export default function ContractorsPage() {
                                   {payments[contractor.id]!.map((payment) => (
                                     <tr key={payment.id}>
                                       <Td>{titleCase(payment.category)}</Td>
-                                      <Td align="right">{formatNaira(payment.gross_amount_minor)}</Td>
-                                      <Td align="right">{formatNaira(payment.wht_amount_minor)}</Td>
-                                      <Td align="right">{formatNaira(payment.net_amount_minor)}</Td>
+                                      <Td align="right">{formatMoney(payment.gross_amount_minor)}</Td>
+                                      <Td align="right">{formatMoney(payment.wht_amount_minor)}</Td>
+                                      <Td align="right">{formatMoney(payment.net_amount_minor)}</Td>
                                       <Td>{formatDate(payment.payment_date)}</Td>
                                       <Td>{payment.certificate_number}</Td>
                                     </tr>
@@ -215,7 +215,7 @@ export default function ContractorsPage() {
                                   {invoices[contractor.id]!.map((invoice) => (
                                     <tr key={invoice.id}>
                                       <Td className="font-bold">{invoice.invoice_number}</Td>
-                                      <Td align="right">{formatNaira(invoice.amount_minor)}</Td>
+                                      <Td align="right">{formatMoney(invoice.amount_minor)}</Td>
                                       <Td>{formatDate(invoice.invoice_date)}</Td>
                                       <Td>{formatDate(invoice.due_date)}</Td>
                                       <Td>
@@ -441,7 +441,7 @@ function RecordPaymentDrawer({
     try {
       await contractorsApi.recordPayment(contractor.id, {
         category,
-        gross_amount_minor: nairaToMinor(grossAmount),
+        gross_amount_minor: toMinorUnits(grossAmount),
         payment_date: paymentDate,
       });
       showToast("Payment recorded", "good");
@@ -467,7 +467,7 @@ function RecordPaymentDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="gross-amount">Gross Amount (₦)</Label>
+          <Label htmlFor="gross-amount">Gross Amount ({currencyLabel()})</Label>
           <Input
             id="gross-amount"
             inputMode="decimal"
@@ -491,7 +491,7 @@ function RecordPaymentDrawer({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting || nairaToMinor(grossAmount) <= 0}>
+          <Button type="submit" disabled={submitting || toMinorUnits(grossAmount) <= 0}>
             {submitting ? "Recording…" : "Record Payment"}
           </Button>
         </div>
@@ -523,7 +523,7 @@ function NewInvoiceDrawer({
     try {
       await contractorInvoicesApi.create(contractor.id, {
         invoice_number: invoiceNumber,
-        amount_minor: nairaToMinor(amount),
+        amount_minor: toMinorUnits(amount),
         invoice_date: invoiceDate,
         due_date: dueDate || null,
         description: description || null,
@@ -550,7 +550,7 @@ function NewInvoiceDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="invoice-amount">Amount (₦)</Label>
+          <Label htmlFor="invoice-amount">Amount ({currencyLabel()})</Label>
           <Input
             id="invoice-amount"
             inputMode="decimal"
@@ -586,7 +586,7 @@ function NewInvoiceDrawer({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting || !invoiceNumber || nairaToMinor(amount) <= 0}>
+          <Button type="submit" disabled={submitting || !invoiceNumber || toMinorUnits(amount) <= 0}>
             {submitting ? "Creating…" : "Create Draft"}
           </Button>
         </div>
@@ -628,7 +628,7 @@ function PayInvoiceDrawer({
     <Drawer title={`Pay Invoice ${invoice.invoice_number}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          Paying withholds tax at source on {formatNaira(invoice.amount_minor)} and posts the ledger
+          Paying withholds tax at source on {formatMoney(invoice.amount_minor)} and posts the ledger
           entries the same way a direct WHT payment would — the invoice links to the resulting
           certificate once paid.
         </p>

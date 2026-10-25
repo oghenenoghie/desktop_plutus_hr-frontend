@@ -26,7 +26,7 @@ import {
   customersApi,
   invoicesApi,
 } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Invoice } from "@/lib/types";
 
@@ -126,7 +126,7 @@ export default function InvoicesPage() {
                   <Td className="font-bold">{invoice.invoice_number}</Td>
                   <Td>{customerNameById.get(invoice.customer_id) ?? "—"}</Td>
                   <Td>{formatDate(invoice.due_date)}</Td>
-                  <Td align="right">{formatNaira(invoice.amount_minor)}</Td>
+                  <Td align="right">{formatMoney(invoice.amount_minor)}</Td>
                   <Td>
                     <StatusBadge status={invoice.status} />
                   </Td>
@@ -139,7 +139,7 @@ export default function InvoicesPage() {
                             label="Send"
                             tone="primary"
                             confirmTitle="Send this customer invoice?"
-                            confirmMessage={`This posts ${formatNaira(invoice.amount_minor)} as revenue and a receivable against "${customerNameById.get(invoice.customer_id) ?? "this customer"}".`}
+                            confirmMessage={`This posts ${formatMoney(invoice.amount_minor)} as revenue and a receivable against "${customerNameById.get(invoice.customer_id) ?? "this customer"}".`}
                             confirmLabel="Send"
                           />
                           <ConfirmActionButton
@@ -158,7 +158,7 @@ export default function InvoicesPage() {
                           label="Mark Paid"
                           tone="primary"
                           confirmTitle="Mark this customer invoice as paid?"
-                          confirmMessage={`This clears ${formatNaira(invoice.amount_minor)} from accounts receivable against cash.`}
+                          confirmMessage={`This clears ${formatMoney(invoice.amount_minor)} from accounts receivable against cash.`}
                           confirmLabel="Mark Paid"
                         />
                       ) : null}
@@ -202,7 +202,7 @@ export default function InvoicesPage() {
       {emailingInvoice ? (
         <EmailPdfDrawer
           title={`Email Customer Invoice ${emailingInvoice.invoice_number}`}
-          description={`Sends customer invoice ${emailingInvoice.invoice_number} (${formatNaira(emailingInvoice.amount_minor)}) as a PDF attachment.`}
+          description={`Sends customer invoice ${emailingInvoice.invoice_number} (${formatMoney(emailingInvoice.amount_minor)}) as a PDF attachment.`}
           defaultTo={
             customerById.get(emailingInvoice.customer_id)?.contact_email
           }
@@ -270,7 +270,7 @@ function CreditNoteDrawer({
       await creditNotesApi.create(invoice.id, {
         credit_note_number: creditNoteNumber,
         issue_date: issueDate,
-        amount_minor: nairaToMinor(amount),
+        amount_minor: toMinorUnits(amount),
         reason,
       });
       showToast("Credit note issued", "good");
@@ -290,9 +290,9 @@ function CreditNoteDrawer({
     <Drawer title={`Credit Note — ${invoice.invoice_number}`} onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          Invoice total {formatNaira(invoice.amount_minor)}, already credited{" "}
-          {formatNaira(alreadyCredited)}, remaining balance{" "}
-          <span className="font-bold text-ink">{formatNaira(remaining)}</span>.
+          Invoice total {formatMoney(invoice.amount_minor)}, already credited{" "}
+          {formatMoney(alreadyCredited)}, remaining balance{" "}
+          <span className="font-bold text-ink">{formatMoney(remaining)}</span>.
         </p>
 
         {creditNotes.data && creditNotes.data.length > 0 ? (
@@ -309,7 +309,7 @@ function CreditNoteDrawer({
                 <tr key={note.id}>
                   <Td className="font-bold">{note.credit_note_number}</Td>
                   <Td>{formatDate(note.issue_date)}</Td>
-                  <Td align="right">{formatNaira(note.amount_minor)}</Td>
+                  <Td align="right">{formatMoney(note.amount_minor)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -339,7 +339,7 @@ function CreditNoteDrawer({
               />
             </div>
             <div>
-              <Label htmlFor="amount">Amount (₦)</Label>
+              <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
               <Input
                 id="amount"
                 value={amount}
@@ -411,7 +411,7 @@ function NewInvoiceDrawer({
         issue_date: issueDate,
         due_date: dueDate,
         revenue_account_code: revenueAccountCode,
-        amount_minor: nairaToMinor(amount),
+        amount_minor: toMinorUnits(amount),
         description: description || null,
       });
       onCreated();
@@ -494,7 +494,7 @@ function NewInvoiceDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="amount">Amount (₦)</Label>
+          <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
           <Input
             id="amount"
             value={amount}

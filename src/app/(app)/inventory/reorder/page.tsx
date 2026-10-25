@@ -10,7 +10,7 @@ import { EmptyState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { inventoryReportsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatNaira } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, canOperateInventory, formatQuantity } from "@/lib/inventory";
 
@@ -94,10 +94,10 @@ export default function ReorderPage() {
                     </Td>
                     {showValues ? (
                       <Td align="right">
-                        {row.estimated_cost_minor === null ? "—" : formatNaira(row.estimated_cost_minor)}
+                        {row.estimated_cost_minor === null ? "—" : formatMoney(row.estimated_cost_minor)}
                         {row.last_unit_cost_minor !== null ? (
                           <div className="text-[11px] text-ink-soft">
-                            at {formatNaira(row.last_unit_cost_minor)} / {row.base_unit_code}
+                            at {formatMoney(row.last_unit_cost_minor)} / {row.base_unit_code}
                           </div>
                         ) : null}
                       </Td>
@@ -116,7 +116,7 @@ export default function ReorderPage() {
                     <Td> </Td>
                     <Td> </Td>
                     <Td align="right">
-                      <span className="font-bold">{formatNaira(total)}</span>
+                      <span className="font-bold">{formatMoney(total)}</span>
                     </Td>
                   </tr>
                 ) : null}

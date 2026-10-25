@@ -12,7 +12,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { jobGradesApi } from "@/lib/api/endpoints";
-import { formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { JobGrade } from "@/lib/types";
 
@@ -53,8 +53,8 @@ export default function JobGradesPage() {
                   <Td align="right">
                     {jobGrade.min_salary_minor == null && jobGrade.max_salary_minor == null
                       ? "—"
-                      : `${jobGrade.min_salary_minor != null ? formatNaira(jobGrade.min_salary_minor) : "—"} – ${
-                          jobGrade.max_salary_minor != null ? formatNaira(jobGrade.max_salary_minor) : "—"
+                      : `${jobGrade.min_salary_minor != null ? formatMoney(jobGrade.min_salary_minor) : "—"} – ${
+                          jobGrade.max_salary_minor != null ? formatMoney(jobGrade.max_salary_minor) : "—"
                         }`}
                   </Td>
                   <Td align="right">
@@ -106,10 +106,10 @@ function JobGradeDrawer({
   const [name, setName] = useState(jobGrade?.name ?? "");
   const [level, setLevel] = useState(jobGrade?.level != null ? String(jobGrade.level) : "");
   const [minSalary, setMinSalary] = useState(
-    jobGrade?.min_salary_minor != null ? String(Math.round(jobGrade.min_salary_minor / 100)) : "",
+    jobGrade?.min_salary_minor != null ? String(Math.round(fromMinorUnits(jobGrade.min_salary_minor))) : "",
   );
   const [maxSalary, setMaxSalary] = useState(
-    jobGrade?.max_salary_minor != null ? String(Math.round(jobGrade.max_salary_minor / 100)) : "",
+    jobGrade?.max_salary_minor != null ? String(Math.round(fromMinorUnits(jobGrade.max_salary_minor))) : "",
   );
   const [submitting, setSubmitting] = useState(false);
 
@@ -120,8 +120,8 @@ function JobGradeDrawer({
       const body = {
         name,
         level: level ? Number(level) : null,
-        min_salary_minor: minSalary ? nairaToMinor(minSalary) : null,
-        max_salary_minor: maxSalary ? nairaToMinor(maxSalary) : null,
+        min_salary_minor: minSalary ? toMinorUnits(minSalary) : null,
+        max_salary_minor: maxSalary ? toMinorUnits(maxSalary) : null,
       };
       if (jobGrade) {
         await jobGradesApi.update(jobGrade.id, body);
@@ -161,7 +161,7 @@ function JobGradeDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="min-salary">Minimum Salary (₦/month)</Label>
+          <Label htmlFor="min-salary">Minimum Salary ({currencyLabel()}/month)</Label>
           <Input
             id="min-salary"
             inputMode="decimal"
@@ -171,7 +171,7 @@ function JobGradeDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="max-salary">Maximum Salary (₦/month)</Label>
+          <Label htmlFor="max-salary">Maximum Salary ({currencyLabel()}/month)</Label>
           <Input
             id="max-salary"
             inputMode="decimal"

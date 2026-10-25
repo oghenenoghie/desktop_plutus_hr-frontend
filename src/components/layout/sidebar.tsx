@@ -275,15 +275,17 @@ function GroupHeading({
 
 export function Sidebar({
   role,
+  payrollAvailable,
   open,
   onClose,
 }: {
   role: Role;
+  payrollAvailable: boolean;
   open: boolean;
   onClose: () => void;
 }) {
   const pathname = usePathname();
-  const groups = navGroupsForRole(role);
+  const groups = navGroupsForRole(role, payrollAvailable);
   const activeHref = activeHrefFor(groups, pathname);
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
     initialCollapsed(groups, pathname),

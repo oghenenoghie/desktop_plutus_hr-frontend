@@ -14,7 +14,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { chartAccountsApi, companyBankAccountsApi, ledgerReconciliationApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type {
   BankStatementLine,
@@ -111,15 +111,15 @@ function ReconciliationView({ bankAccount }: { bankAccount: CompanyBankAccount }
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatTile
           label="Bank Balance"
-          value={summary.data ? formatNaira(summary.data.bank_balance_minor) : "—"}
+          value={summary.data ? formatMoney(summary.data.bank_balance_minor) : "—"}
         />
         <StatTile
           label="Ledger Balance"
-          value={summary.data ? formatNaira(summary.data.ledger_balance_minor) : "—"}
+          value={summary.data ? formatMoney(summary.data.ledger_balance_minor) : "—"}
         />
         <StatTile
           label="Difference"
-          value={summary.data ? formatNaira(summary.data.difference_minor) : "—"}
+          value={summary.data ? formatMoney(summary.data.difference_minor) : "—"}
           tone={summary.data && summary.data.difference_minor !== 0 ? "warn" : "good"}
         />
       </div>
@@ -151,7 +151,7 @@ function ReconciliationView({ bankAccount }: { bankAccount: CompanyBankAccount }
                     <tr key={line.id}>
                       <Td>{formatDate(line.statement_date)}</Td>
                       <Td>{line.description}</Td>
-                      <Td align="right">{formatNaira(line.amount_minor)}</Td>
+                      <Td align="right">{formatMoney(line.amount_minor)}</Td>
                       <Td align="right">
                         <Button variant="secondary" onClick={() => setMatching(line)}>
                           Match
@@ -183,9 +183,9 @@ function ReconciliationView({ bankAccount }: { bankAccount: CompanyBankAccount }
                     <tr key={entry.id}>
                       <Td>{formatDate(entry.created_at)}</Td>
                       <Td>{entry.description ?? "—"}</Td>
-                      <Td align="right">{entry.debit_minor ? formatNaira(entry.debit_minor) : "—"}</Td>
+                      <Td align="right">{entry.debit_minor ? formatMoney(entry.debit_minor) : "—"}</Td>
                       <Td align="right">
-                        {entry.credit_minor ? formatNaira(entry.credit_minor) : "—"}
+                        {entry.credit_minor ? formatMoney(entry.credit_minor) : "—"}
                       </Td>
                     </tr>
                   ))}
@@ -354,7 +354,7 @@ function NewStatementLineDrawer({
     event.preventDefault();
     setSubmitting(true);
     try {
-      const minor = nairaToMinor(amount);
+      const minor = toMinorUnits(amount);
       await companyBankAccountsApi.addStatementLine(bankAccount.id, {
         statement_date: statementDate,
         description,
@@ -403,7 +403,7 @@ function NewStatementLineDrawer({
             </Select>
           </div>
           <div>
-            <Label htmlFor="amount">Amount (₦)</Label>
+            <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
             <Input id="amount" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" required />
           </div>
         </div>
@@ -456,7 +456,7 @@ function MatchDrawer({
     <Drawer title={`Match "${line.description}"`} onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          Statement amount: <span className="font-bold text-ink">{formatNaira(line.amount_minor)}</span>.
+          Statement amount: <span className="font-bold text-ink">{formatMoney(line.amount_minor)}</span>.
           Only ledger entries with a matching amount are shown.
         </p>
         {eligible.length === 0 ? (
@@ -475,7 +475,7 @@ function MatchDrawer({
                   <span className="font-bold">{entry.description ?? "—"}</span>
                   <span className="block text-[11px] text-ink-soft">{formatDate(entry.created_at)}</span>
                 </span>
-                <span className="font-bold">{formatNaira(signedAmount(entry))}</span>
+                <span className="font-bold">{formatMoney(signedAmount(entry))}</span>
               </button>
             ))}
           </div>
@@ -545,7 +545,7 @@ function ByLedgerAccountTab() {
                     <tr key={line.id}>
                       <Td>{formatDate(line.transaction_date)}</Td>
                       <Td>{line.description}</Td>
-                      <Td align="right">{formatNaira(line.amount_minor)}</Td>
+                      <Td align="right">{formatMoney(line.amount_minor)}</Td>
                       <Td align="right">
                         <Button variant="secondary" onClick={() => setMatching(line)}>
                           Match
@@ -578,8 +578,8 @@ function ByLedgerAccountTab() {
                     <tr key={entry.id}>
                       <Td>{formatDate(entry.created_at)}</Td>
                       <Td>{entry.description ?? "—"}</Td>
-                      <Td align="right">{entry.debit_minor ? formatNaira(entry.debit_minor) : "—"}</Td>
-                      <Td align="right">{entry.credit_minor ? formatNaira(entry.credit_minor) : "—"}</Td>
+                      <Td align="right">{entry.debit_minor ? formatMoney(entry.debit_minor) : "—"}</Td>
+                      <Td align="right">{entry.credit_minor ? formatMoney(entry.credit_minor) : "—"}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -636,7 +636,7 @@ function ImportLedgerStatementLinesDrawer({
     event.preventDefault();
     setSubmitting(true);
     try {
-      const minor = nairaToMinor(amount);
+      const minor = toMinorUnits(amount);
       await ledgerReconciliationApi.importLines(accountCode, [
         {
           transaction_date: transactionDate,
@@ -683,7 +683,7 @@ function ImportLedgerStatementLinesDrawer({
             </Select>
           </div>
           <div>
-            <Label htmlFor="amount">Amount (₦)</Label>
+            <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
             <Input id="amount" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" required />
           </div>
         </div>
@@ -732,7 +732,7 @@ function LedgerMatchDrawer({
     <Drawer title={`Match "${line.description}"`} onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          Statement amount: <span className="font-bold text-ink">{formatNaira(line.amount_minor)}</span>.
+          Statement amount: <span className="font-bold text-ink">{formatMoney(line.amount_minor)}</span>.
           Only ledger entries with a matching amount are shown.
         </p>
         {eligible.length === 0 ? (
@@ -751,7 +751,7 @@ function LedgerMatchDrawer({
                   <span className="font-bold">{entry.description ?? "—"}</span>
                   <span className="block text-[11px] text-ink-soft">{formatDate(entry.created_at)}</span>
                 </span>
-                <span className="font-bold">{formatNaira(signedAmount(entry))}</span>
+                <span className="font-bold">{formatMoney(signedAmount(entry))}</span>
               </button>
             ))}
           </div>

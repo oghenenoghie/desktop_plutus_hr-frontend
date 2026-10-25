@@ -10,7 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { employeesApi, expensesApi, leaveApi, overtimeApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, titleCase } from "@/lib/format";
+import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Employee, Expense, LeaveRequest, Overtime } from "@/lib/types";
 
@@ -117,7 +117,7 @@ export default function MyTeamPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[12.5px] font-bold text-ink">{nameFor(expense.employee_id)}</p>
                 <p className="text-[11px] text-ink-soft">
-                  {expense.category} · {formatNaira(expense.amount_minor)}
+                  {expense.category} · {formatMoney(expense.amount_minor)}
                 </p>
               </div>
               <DecideButtons

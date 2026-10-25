@@ -17,7 +17,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { goodsReceiptsApi, purchaseOrdersApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatDateTime, formatNaira } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, canOperateInventory, canSeeInventoryValues, formatQuantity } from "@/lib/inventory";
 
@@ -128,10 +128,10 @@ export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ i
               {grn.warehouse_code} — {grn.warehouse_name}
             </Field>
             <Field label="Delivery note">{grn.supplier_reference ?? "—"}</Field>
-            <Field label="Stock value">{grn.value_minor === null ? "—" : formatNaira(grn.value_minor)}</Field>
+            <Field label="Stock value">{grn.value_minor === null ? "—" : formatMoney(grn.value_minor)}</Field>
             <Field label="Posted">{formatDateTime(grn.posted_at)}</Field>
             {grn.accrued_minor !== null ? (
-              <Field label="Accrued to GRNI">{formatNaira(grn.accrued_minor)}</Field>
+              <Field label="Accrued to GRNI">{formatMoney(grn.accrued_minor)}</Field>
             ) : null}
             {grn.bill_number ? (
               <Field label="Invoiced by">

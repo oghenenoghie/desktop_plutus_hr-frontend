@@ -12,7 +12,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { employeesApi, payRunsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, titleCase } from "@/lib/format";
+import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Payslip, PayslipDelivery } from "@/lib/types";
 
@@ -143,8 +143,8 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
           <Card className="mb-6">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <SummaryStat label="Status" value={<StatusBadge status={payRun.data.status} />} />
-              <SummaryStat label="Gross" value={formatNaira(payRun.data.gross_minor)} />
-              <SummaryStat label="Net" value={formatNaira(payRun.data.net_minor)} />
+              <SummaryStat label="Gross" value={formatMoney(payRun.data.gross_minor)} />
+              <SummaryStat label="Net" value={formatMoney(payRun.data.net_minor)} />
               <SummaryStat
                 label={payRun.data.status === "reversed" ? "Reversed" : "Completed"}
                 value={formatDate(
@@ -202,9 +202,9 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                           <Td className="font-bold">
                             {employeesById.get(slip.employee_id)?.full_name ?? "—"}
                           </Td>
-                          <Td align="right">{formatNaira(slip.gross_minor)}</Td>
-                          <Td align="right">{formatNaira(slip.paye_minor)}</Td>
-                          <Td align="right">{formatNaira(slip.net_minor)}</Td>
+                          <Td align="right">{formatMoney(slip.gross_minor)}</Td>
+                          <Td align="right">{formatMoney(slip.paye_minor)}</Td>
+                          <Td align="right">{formatMoney(slip.net_minor)}</Td>
                           <Td align="right">
                             <div className="flex items-center justify-end gap-2">
                               <Button size="md" variant="secondary" onClick={() => toggleExpand(slip)}>
@@ -277,7 +277,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                     <div className="!mt-6 flex items-center justify-between border-t-2 border-primary pt-4">
                                       <span className="text-[13px] font-extrabold text-ink">Net Pay</span>
                                       <span className="text-[20px] font-extrabold text-primary">
-                                        {formatNaira(outputs.net_pay_minor)}
+                                        {formatMoney(outputs.net_pay_minor)}
                                       </span>
                                     </div>
                                   </div>
@@ -361,7 +361,7 @@ function DerivationRow({
       <span className={`text-[13px] ${muted ? "text-ink-soft" : "font-bold text-ink"}`}>{label}</span>
       <span className={`text-[13px] font-bold ${subtract ? "text-bad" : "text-ink"}`}>
         {subtract ? "− " : ""}
-        {formatNaira(value)}
+        {formatMoney(value)}
       </span>
     </div>
   );

@@ -97,6 +97,12 @@ closes only the window and the backend and Postgres otherwise keep the old
 files locked; the app runs it at startup when leftovers from a crashed run
 still hold its ports.
 
+The Linux AppImage is built with AppImage's static runtime (`toolsets.appimage`
+in `electron-builder.yml`), so it opens on Ubuntu 22.04 and later without
+libfuse2; it needs only FUSE's `fusermount3`, which those systems install.
+The build workflow opens the Linux and macOS apps that way, with no locale
+set, on every run.
+
 `npm run electron:dist` runs all three in sequence. `.github/workflows/build-desktop.yml`
 does the same for macOS/Windows/Linux on `workflow_dispatch` or a
 `desktop-v*` tag.

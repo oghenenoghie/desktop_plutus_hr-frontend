@@ -2042,6 +2042,7 @@ export const MOCK_FIXTURES = {
       currency: "NGN",
       tax_authority: "Nigeria Revenue Service / relevant state tax authorities",
       status: "active",
+      selectable: true,
       enabled_modules: ["vat", "withholding_tax", "corporate_tax", "employment_tax"],
     },
     {
@@ -2049,7 +2050,8 @@ export const MOCK_FIXTURES = {
       name: "The Gambia",
       currency: "GMD",
       tax_authority: "Gambia Revenue Authority",
-      status: "configuration_required",
+      status: "draft",
+      selectable: false,
       enabled_modules: ["vat", "withholding_tax", "corporate_tax", "employment_tax"],
     },
     {
@@ -2057,7 +2059,8 @@ export const MOCK_FIXTURES = {
       name: "Rwanda",
       currency: "RWF",
       tax_authority: "Rwanda Revenue Authority",
-      status: "configuration_required",
+      status: "draft",
+      selectable: false,
       enabled_modules: ["vat", "withholding_tax", "corporate_tax", "employment_tax"],
     },
     {
@@ -2065,7 +2068,8 @@ export const MOCK_FIXTURES = {
       name: "Kenya",
       currency: "KES",
       tax_authority: "Kenya Revenue Authority",
-      status: "configuration_required",
+      status: "draft",
+      selectable: false,
       enabled_modules: ["vat", "withholding_tax", "corporate_tax", "employment_tax"],
     },
     {
@@ -2073,7 +2077,8 @@ export const MOCK_FIXTURES = {
       name: "Ghana",
       currency: "GHS",
       tax_authority: "Ghana Revenue Authority",
-      status: "configuration_required",
+      status: "draft",
+      selectable: false,
       enabled_modules: ["vat", "withholding_tax", "corporate_tax", "employment_tax"],
     },
     {
@@ -2081,8 +2086,18 @@ export const MOCK_FIXTURES = {
       name: "Côte d'Ivoire",
       currency: "XOF",
       tax_authority: "Direction Générale des Impôts",
-      status: "configuration_required",
+      status: "draft",
+      selectable: false,
       enabled_modules: ["vat", "withholding_tax", "corporate_tax", "employment_tax"],
     },
+  ],
+  // GET /organisation/countries, the public sign-up list.
+  "/organisation/countries": [
+    { code: "NG", name: "Nigeria", currency: "NGN", status: "active", selectable: true },
+    { code: "GM", name: "The Gambia", currency: "GMD", status: "draft", selectable: false },
+    { code: "RW", name: "Rwanda", currency: "RWF", status: "draft", selectable: false },
+    { code: "KE", name: "Kenya", currency: "KES", status: "draft", selectable: false },
+    { code: "GH", name: "Ghana", currency: "GHS", status: "draft", selectable: false },
+    { code: "CI", name: "Côte d'Ivoire", currency: "XOF", status: "draft", selectable: false },
   ],
 } as const;

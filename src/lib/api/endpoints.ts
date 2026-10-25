@@ -193,6 +193,7 @@ import type {
   ShiftRosterEntryCreateBody,
   ShiftUpdateBody,
   SignDocumentBody,
+  SignupCountry,
   SimulationOut,
   SimulationRequestBody,
   StatutoryLiability,
@@ -1482,6 +1483,7 @@ export const organisationApi = {
       body,
       auth: false,
     }),
+  countries: () => apiFetch<SignupCountry[]>("/organisation/countries", { auth: false }),
 };
 
 // --- subscription / usage ---

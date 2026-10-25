@@ -3,15 +3,24 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { countryOptionLabel } from "@/components/country-status";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api/client";
 import { organisationApi } from "@/lib/api/endpoints";
+import { useApiResource } from "@/lib/hooks";
 import type { OrganisationSignupOut } from "@/lib/types";
 
+// The server sets up an organisation in Nigeria when no country is sent,
+// and refuses any country whose tax rules aren't approved.
+const DEFAULT_COUNTRY = "NG";
+
 export default function SignupPage() {
+  const countries = useApiResource(() => organisationApi.countries());
   const [orgName, setOrgName] = useState("");
   const [orgAddress, setOrgAddress] = useState("");
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +37,9 @@ export default function SignupPage() {
         org_address: orgAddress.trim() || undefined,
         admin_email: email,
         admin_password: password,
+        // Sent only when the list loaded, so it came from the server's own
+        // catalogue; otherwise the server's default applies.
+        country_code: countries.data ? countryCode : undefined,
       });
       setCreated(result);
     } catch (err) {
@@ -96,6 +108,33 @@ export default function SignupPage() {
               onChange={(e) => setOrgAddress(e.target.value)}
               placeholder="12 Adeola Odeku Street, Victoria Island, Lagos"
             />
+          </div>
+
+          <div>
+            <Label htmlFor="org-country">Country</Label>
+            {countries.data ? (
+              <Select
+                id="org-country"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                aria-describedby="org-country-help"
+              >
+                {countries.data.map((country) => (
+                  <option key={country.code} value={country.code} disabled={!country.selectable}>
+                    {countryOptionLabel(country)}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <div className="rounded-panel border border-border bg-bg px-[13px] py-[11px] text-[13px] text-ink-soft">
+                {countries.loading ? "Loading countries…" : "Nigeria (NGN)"}
+              </div>
+            )}
+            <p id="org-country-help" className="mt-1.5 text-[11.5px] text-ink-soft">
+              {countries.error
+                ? "We couldn't load the country list, so your workspace will be set up for Nigeria. You can change it in Setup before your first pay run."
+                : "Sets the tax rules and currency Plutus uses. Other countries open once a local tax adviser has approved their rules."}
+            </p>
           </div>
 
           <div>

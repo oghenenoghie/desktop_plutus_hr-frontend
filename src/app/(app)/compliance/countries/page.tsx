@@ -1,13 +1,12 @@
 "use client";
 
+import { CountryStatusBadge } from "@/components/country-status";
 import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { complianceApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
-import type { CountryTaxStatus } from "@/lib/types";
 
 const MODULE_LABELS: Record<string, string> = {
   vat: "VAT",
@@ -16,16 +15,9 @@ const MODULE_LABELS: Record<string, string> = {
   employment_tax: "Employment tax",
 };
 
-function ReadinessBadge({ status }: { status: CountryTaxStatus }) {
-  return status === "active" ? (
-    <Badge tone="good">Active</Badge>
-  ) : (
-    <Badge tone="warn">Setup required</Badge>
-  );
-}
-
-// Read-only. Choosing a country for an organisation, and administering its
-// rates, belongs in an authorised settings workflow on the backend, not here.
+// Read-only. An admin chooses the organisation's country in Setup &
+// Onboarding; administering a country's rates belongs to the backend's
+// review and approval workflow, not this screen.
 export default function CountryCompliancePage() {
   const countries = useApiResource(() => complianceApi.countries());
 
@@ -52,6 +44,7 @@ export default function CountryCompliancePage() {
               <tr>
                 <Th>Country</Th>
                 <Th>Status</Th>
+                <Th>Can be chosen</Th>
                 <Th>Currency</Th>
                 <Th>Tax authority</Th>
                 <Th>Modules</Th>
@@ -65,8 +58,9 @@ export default function CountryCompliancePage() {
                     <span className="ml-2 text-ink-soft">{country.code}</span>
                   </Td>
                   <Td>
-                    <ReadinessBadge status={country.status} />
+                    <CountryStatusBadge status={country.status} />
                   </Td>
+                  <Td>{country.selectable ? "Yes" : "Not yet"}</Td>
                   <Td>{country.currency}</Td>
                   <Td className="max-w-xs">{country.tax_authority}</Td>
                   <Td className="max-w-xs">
@@ -79,11 +73,20 @@ export default function CountryCompliancePage() {
         ) : null}
       </Card>
 
-      <p className="text-[13px] text-ink-soft">
-        Only approved, effective-dated rules are used for live calculations or ledger postings.
-        Nigeria runs on the rules shown in the Compliance Engine. A country marked &ldquo;Setup
-        required&rdquo; has no approved rules yet, so Plutus will not calculate or post tax for it.
-      </p>
+      <div className="space-y-2 text-[13px] text-ink-soft">
+        <p>
+          Only approved, effective-dated rules are used for live calculations or ledger postings.
+          Nigeria runs on the rules shown in the Compliance Engine. Plutus will not calculate, post
+          or file tax for any country that isn&apos;t active, and an organisation can&apos;t
+          choose one.
+        </p>
+        <p>
+          <strong className="text-ink">Draft:</strong> the rules are written up with their sources
+          and wait for review by a tax adviser in that country.{" "}
+          <strong className="text-ink">Awaiting review:</strong> the adviser is checking them.{" "}
+          <strong className="text-ink">Setup required:</strong> nothing drafted yet.
+        </p>
+      </div>
     </div>
   );
 }

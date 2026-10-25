@@ -15,7 +15,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { unionMembershipsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { UnionMembershipStatus } from "@/lib/types";
 
@@ -78,7 +78,7 @@ export default function UnionDuesPage() {
                 <tr key={membership.id}>
                   <Td className="font-bold">{membership.union_name}</Td>
                   <Td>{membership.membership_number ?? "—"}</Td>
-                  <Td align="right">{formatNaira(membership.monthly_dues_minor)}</Td>
+                  <Td align="right">{formatMoney(membership.monthly_dues_minor)}</Td>
                   <Td>{formatDate(membership.joined_date)}</Td>
                   <Td>
                     <Badge tone={STATUS_TONE[membership.status]}>{membership.status}</Badge>
@@ -164,7 +164,7 @@ function AssignMembershipDrawer({
       await unionMembershipsApi.assign(employeeId, {
         union_name: unionName,
         membership_number: membershipNumber || null,
-        monthly_dues_minor: Math.round(Number(monthlyDues) * 100),
+        monthly_dues_minor: toMinorUnits(monthlyDues),
         joined_date: joinedDate,
       });
       showToast("Union membership assigned", "good");
@@ -197,7 +197,7 @@ function AssignMembershipDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="monthly-dues">Monthly Dues (₦)</Label>
+          <Label htmlFor="monthly-dues">Monthly Dues ({currencyLabel()})</Label>
           <Input
             id="monthly-dues"
             type="number"

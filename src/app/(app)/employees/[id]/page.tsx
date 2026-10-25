@@ -25,9 +25,9 @@ import {
   probationApi,
 } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatNaira, titleCase } from "@/lib/format";
+import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { NIGERIA_STATES } from "@/lib/nigeria-states";
+import { RegionField, useRegionLabel } from "@/components/region-field";
 import type {
   ChecklistItem,
   ChecklistType,
@@ -170,6 +170,7 @@ function EditDetailsDrawer({
   onSaved: () => void;
   onPhotoChanged: () => void;
 }) {
+  const regionLabel = useRegionLabel();
   const { showToast } = useToast();
   const branches = useApiResource(() => branchesApi.list());
   const [stateOfOrigin, setStateOfOrigin] = useState(employee.state_of_origin ?? "");
@@ -225,19 +226,13 @@ function EditDetailsDrawer({
     <Drawer title={`Edit Details — ${employee.full_name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
-          <Label htmlFor="edit-state-of-origin">State of Origin</Label>
-          <Select
+          <Label htmlFor="edit-state-of-origin">{regionLabel} of Origin</Label>
+          <RegionField
             id="edit-state-of-origin"
             value={stateOfOrigin}
-            onChange={(event) => setStateOfOrigin(event.target.value)}
-          >
-            <option value="">Not set</option>
-            {NIGERIA_STATES.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </Select>
+            onChange={setStateOfOrigin}
+            emptyLabel="Not set"
+          />
         </div>
         <div>
           <Label htmlFor="edit-branch">Branch (Work Location)</Label>
@@ -381,6 +376,7 @@ function LoginCredentialsDialog({
 }
 
 function OverviewTab({ employeeId }: { employeeId: string }) {
+  const regionLabel = useRegionLabel();
   const employee = useApiResource(() => employeesApi.get(employeeId), [employeeId]);
   const branches = useApiResource(() => branchesApi.list());
   if (!employee.data) return null;
@@ -399,9 +395,9 @@ function OverviewTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader title="Employment" />
         <dl className="grid grid-cols-[160px_1fr] gap-y-2.5 text-[13px]">
-          <dt className="text-ink-soft">State of Residence</dt>
+          <dt className="text-ink-soft">{regionLabel} of Residence</dt>
           <dd className="font-bold">{e.state_of_residence}</dd>
-          <dt className="text-ink-soft">State of Origin</dt>
+          <dt className="text-ink-soft">{regionLabel} of Origin</dt>
           <dd className="font-bold">{e.state_of_origin ?? "—"}</dd>
           <dt className="text-ink-soft">Branch</dt>
           <dd className="font-bold">{branch?.name ?? "—"}</dd>
@@ -424,15 +420,15 @@ function OverviewTab({ employeeId }: { employeeId: string }) {
         ) : (
           <dl className="grid grid-cols-[160px_1fr] gap-y-2.5 text-[13px]">
             <dt className="text-ink-soft">Basic</dt>
-            <dd className="font-bold">{formatNaira(e.basic_minor!)}</dd>
+            <dd className="font-bold">{formatMoney(e.basic_minor!)}</dd>
             <dt className="text-ink-soft">Housing</dt>
-            <dd className="font-bold">{formatNaira(e.housing_minor!)}</dd>
+            <dd className="font-bold">{formatMoney(e.housing_minor!)}</dd>
             <dt className="text-ink-soft">Transport</dt>
-            <dd className="font-bold">{formatNaira(e.transport_minor!)}</dd>
+            <dd className="font-bold">{formatMoney(e.transport_minor!)}</dd>
             <dt className="text-ink-soft">Other Earnings</dt>
-            <dd className="font-bold">{formatNaira(e.other_earnings_minor!)}</dd>
+            <dd className="font-bold">{formatMoney(e.other_earnings_minor!)}</dd>
             <dt className="text-ink-soft">Gross / Period</dt>
-            <dd className="font-extrabold text-primary">{formatNaira(grossMinor)}</dd>
+            <dd className="font-extrabold text-primary">{formatMoney(grossMinor)}</dd>
           </dl>
         )}
       </Card>

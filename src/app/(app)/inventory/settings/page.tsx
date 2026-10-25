@@ -18,7 +18,7 @@ import { chartAccountsApi, inventoryApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory } from "@/lib/inventory";
-import { formatDateTime, formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatDateTime, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import type { InventoryCategory, InventorySettings, InventoryUnit } from "@/lib/types";
 
 function errorText(err: unknown): string {
@@ -200,7 +200,7 @@ function OperationsCard({
   const [limit, setLimit] = useState(
     settings.adjustment_gain_approval_limit_minor === null
       ? ""
-      : String(settings.adjustment_gain_approval_limit_minor / 100),
+      : String(fromMinorUnits(settings.adjustment_gain_approval_limit_minor)),
   );
   const [issueApproval, setIssueApproval] = useState(settings.require_issue_approval);
   const [transferApproval, setTransferApproval] = useState(settings.require_transfer_approval);
@@ -219,7 +219,7 @@ function OperationsCard({
     try {
       await inventoryApi.updateSettings({
         over_receipt_tolerance_bp: Math.round(percent * 100),
-        adjustment_gain_approval_limit_minor: limit.trim() ? nairaToMinor(limit.trim()) : null,
+        adjustment_gain_approval_limit_minor: limit.trim() ? toMinorUnits(limit.trim()) : null,
         require_issue_approval: issueApproval,
         require_transfer_approval: transferApproval,
       });
@@ -254,7 +254,7 @@ function OperationsCard({
             </p>
           </div>
           <div>
-            <Label htmlFor="ops-limit">Adjustment gain approval limit (₦)</Label>
+            <Label htmlFor="ops-limit">Adjustment gain approval limit ({currencyLabel()})</Label>
             <Input
               id="ops-limit"
               inputMode="decimal"
@@ -267,7 +267,7 @@ function OperationsCard({
               Write-offs always need approval. Gains need it when worth this much or more
               {settings.adjustment_gain_approval_limit_minor === null
                 ? "; blank means gains never do."
-                : ` (now ${formatNaira(settings.adjustment_gain_approval_limit_minor)}).`}
+                : ` (now ${formatMoney(settings.adjustment_gain_approval_limit_minor)}).`}
             </p>
           </div>
         </div>

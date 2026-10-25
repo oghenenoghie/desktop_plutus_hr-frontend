@@ -12,7 +12,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api/client";
 import { employeesApi, payRunsApi } from "@/lib/api/endpoints";
-import { nairaToMinor } from "@/lib/format";
+import { currencyLabel, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Employee, PayFrequency, PayRunType } from "@/lib/types";
 
@@ -62,7 +62,7 @@ export default function NewPayRunPage() {
     try {
       const extraEarningsByEmployee = Object.fromEntries(
         Object.entries(extraEarnings)
-          .map(([employeeId, value]) => [employeeId, nairaToMinor(value)] as const)
+          .map(([employeeId, value]) => [employeeId, toMinorUnits(value)] as const)
           .filter(([, minor]) => minor > 0),
       );
       const payRun = await payRunsApi.create({
@@ -193,7 +193,7 @@ export default function NewPayRunPage() {
                   <div className="w-36">
                     <Input
                       inputMode="decimal"
-                      placeholder="₦0"
+                      placeholder={`${currencyLabel()} 0`}
                       value={extraEarnings[employee.id] ?? ""}
                       onChange={(e) =>
                         setExtraEarnings((prev) => ({ ...prev, [employee.id]: e.target.value }))

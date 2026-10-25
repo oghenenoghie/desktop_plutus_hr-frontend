@@ -44,7 +44,7 @@ export default function CountryCompliancePage() {
               <tr>
                 <Th>Country</Th>
                 <Th>Status</Th>
-                <Th>Can be chosen</Th>
+                <Th>Payroll</Th>
                 <Th>Currency</Th>
                 <Th>Tax authority</Th>
                 <Th>Modules</Th>
@@ -60,7 +60,7 @@ export default function CountryCompliancePage() {
                   <Td>
                     <CountryStatusBadge status={country.status} />
                   </Td>
-                  <Td>{country.selectable ? "Yes" : "Not yet"}</Td>
+                  <Td>{country.payroll_available ? "Available" : "Not yet"}</Td>
                   <Td>{country.currency}</Td>
                   <Td className="max-w-xs">{country.tax_authority}</Td>
                   <Td className="max-w-xs">
@@ -76,9 +76,9 @@ export default function CountryCompliancePage() {
       <div className="space-y-2 text-[13px] text-ink-soft">
         <p>
           Only approved, effective-dated rules are used for live calculations or ledger postings.
-          Nigeria runs on the rules shown in the Compliance Engine. Plutus will not calculate, post
-          or file tax for any country that isn&apos;t active, and an organisation can&apos;t
-          choose one.
+          Nigeria runs on the rules shown in the Compliance Engine. An organisation can choose any
+          country listed here and runs in its currency straight away, but Plutus won&apos;t
+          calculate, post or file payroll or statutory tax for a country that isn&apos;t active.
         </p>
         <p>
           <strong className="text-ink">Draft:</strong> the rules are written up with their sources

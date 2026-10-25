@@ -23,7 +23,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { inventoryApi, stockIssuesApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatDateTime, formatNaira } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import {
   canManageInventory,
@@ -175,7 +175,7 @@ export default function StockIssueDetailPage({ params }: { params: Promise<{ id:
             </Field>
             <Field label="Department">{doc.department_name ?? "—"}</Field>
             <Field label="Requested by">{doc.requested_by_name ?? "—"}</Field>
-            {doc.value_minor !== null ? <Field label="Value issued">{formatNaira(doc.value_minor)}</Field> : null}
+            {doc.value_minor !== null ? <Field label="Value issued">{formatMoney(doc.value_minor)}</Field> : null}
             <Field label="Posted">{formatDateTime(doc.posted_at)}</Field>
             {doc.reversed_at ? <Field label="Reversed">{formatDateTime(doc.reversed_at)}</Field> : null}
             {doc.cancelled_at ? <Field label="Cancelled">{formatDateTime(doc.cancelled_at)}</Field> : null}

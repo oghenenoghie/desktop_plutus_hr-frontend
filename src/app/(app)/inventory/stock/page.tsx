@@ -12,7 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { inventoryApi, inventoryLotsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, formatQuantity, isLowStock } from "@/lib/inventory";
 
@@ -133,7 +133,7 @@ export default function StockOnHandPage() {
                     <Td>{""}</Td>
                     <Td>{""}</Td>
                     <Td align="right" className="font-extrabold">
-                      {formatNaira(totalValue)}
+                      {formatMoney(totalValue)}
                     </Td>
                   </tr>
                 ) : null}

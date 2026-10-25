@@ -7,7 +7,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { inventoryApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 // Inventory against the general ledger (Phase 3): stock value against the
@@ -65,11 +65,11 @@ export function ReconciliationCard() {
                   <div className="font-bold">Inventory value</div>
                   <div className="text-[11px] text-ink-soft">Stock on hand and in transit, at average cost</div>
                 </Td>
-                <Td align="right">{formatNaira(data.stock_value_minor)}</Td>
-                <Td align="right">{formatNaira(data.gl_inventory_minor)}</Td>
+                <Td align="right">{formatMoney(data.stock_value_minor)}</Td>
+                <Td align="right">{formatMoney(data.gl_inventory_minor)}</Td>
                 <Td align="right">
                   <span className={data.inventory_difference_minor ? "font-bold text-bad" : ""}>
-                    {formatNaira(data.inventory_difference_minor)}
+                    {formatMoney(data.inventory_difference_minor)}
                   </span>
                 </Td>
               </tr>
@@ -80,11 +80,11 @@ export function ReconciliationCard() {
                     {data.unbilled_receipts} receipt{data.unbilled_receipts === 1 ? "" : "s"} awaiting a vendor bill
                   </div>
                 </Td>
-                <Td align="right">{formatNaira(data.unbilled_receipts_minor)}</Td>
-                <Td align="right">{formatNaira(data.gl_grni_minor)}</Td>
+                <Td align="right">{formatMoney(data.unbilled_receipts_minor)}</Td>
+                <Td align="right">{formatMoney(data.gl_grni_minor)}</Td>
                 <Td align="right">
                   <span className={data.grni_difference_minor ? "font-bold text-bad" : ""}>
-                    {formatNaira(data.grni_difference_minor)}
+                    {formatMoney(data.grni_difference_minor)}
                   </span>
                 </Td>
               </tr>

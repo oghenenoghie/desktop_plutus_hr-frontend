@@ -12,7 +12,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { financialStatementsApi } from "@/lib/api/endpoints";
-import { formatNaira } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 export default function BalanceSheetPage() {
@@ -95,13 +95,13 @@ export default function BalanceSheetPage() {
                   {balanceSheet.data.assets.map((line) => (
                     <tr key={line.account}>
                       <Td>{line.account_name}</Td>
-                      <Td align="right">{formatNaira(line.balance_minor)}</Td>
+                      <Td align="right">{formatMoney(line.balance_minor)}</Td>
                     </tr>
                   ))}
                   <tr>
                     <Td className="font-bold">Total Assets</Td>
                     <Td align="right" className="font-bold">
-                      {formatNaira(balanceSheet.data.total_assets_minor)}
+                      {formatMoney(balanceSheet.data.total_assets_minor)}
                     </Td>
                   </tr>
                 </tbody>
@@ -122,13 +122,13 @@ export default function BalanceSheetPage() {
                   {balanceSheet.data.liabilities.map((line) => (
                     <tr key={line.account}>
                       <Td>{line.account_name}</Td>
-                      <Td align="right">{formatNaira(line.balance_minor)}</Td>
+                      <Td align="right">{formatMoney(line.balance_minor)}</Td>
                     </tr>
                   ))}
                   {balanceSheet.data.equity.map((line) => (
                     <tr key={line.account}>
                       <Td>{line.account_name}</Td>
-                      <Td align="right">{formatNaira(line.balance_minor)}</Td>
+                      <Td align="right">{formatMoney(line.balance_minor)}</Td>
                     </tr>
                   ))}
                   {balanceSheet.data.equity.length === 0 ? (
@@ -140,7 +140,7 @@ export default function BalanceSheetPage() {
                   <tr>
                     <Td className="font-bold">Total Liabilities &amp; Equity</Td>
                     <Td align="right" className="font-bold">
-                      {formatNaira(
+                      {formatMoney(
                         balanceSheet.data.total_liabilities_minor +
                           balanceSheet.data.total_equity_minor,
                       )}

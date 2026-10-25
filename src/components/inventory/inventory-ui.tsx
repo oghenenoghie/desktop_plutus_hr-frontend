@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { MOVEMENT_LABELS, formatSignedQuantity, isPositive } from "@/lib/inventory";
 import type { InventoryMovement, StockSourceType } from "@/lib/types";
 
@@ -58,10 +58,10 @@ export function InventoryOffNotice({ canManage }: { canManage: boolean }) {
 }
 
 // A value the caller may not be allowed to see (null without
-// inventory.valuation). Negative values read "-₦25,000", not "₦-25,000".
+// inventory.valuation). Negative values read "-₦25,000" (or "-KES 25,000"), not "₦-25,000".
 export function MoneyOrHidden({ minor }: { minor: number | null }) {
   if (minor === null) return <span className="text-ink-soft">—</span>;
-  return <>{minor < 0 ? `-${formatNaira(-minor)}` : formatNaira(minor)}</>;
+  return <>{minor < 0 ? `-${formatMoney(-minor)}` : formatMoney(minor)}</>;
 }
 
 export function MovementTypeBadge({ type }: { type: InventoryMovement["movement_type"] }) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { useIsNigeria } from "@/components/region-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
@@ -18,6 +19,7 @@ import { useApiResource } from "@/lib/hooks";
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function PublicHolidaysPage() {
+  const isNigeria = useIsNigeria();
   const holidays = useApiResource(() => publicHolidaysApi.list());
   const { showToast } = useToast();
   const [name, setName] = useState("");
@@ -71,25 +73,28 @@ export default function PublicHolidaysPage() {
     <div>
       <PageHeader
         title="Public Holidays"
-        subtitle="Federal and state holidays observed by this organisation — leave duration is counted in working days against this calendar"
+        subtitle="Holidays observed by this organisation — leave duration is counted in working days against this calendar"
       />
 
-      <Card className="mb-6">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-32">
-            <Label htmlFor="seed-year">Seed federal holidays for a year</Label>
-            <Input
-              id="seed-year"
-              type="number"
-              value={seedYear}
-              onChange={(event) => setSeedYear(event.target.value)}
-            />
+      {/* Plutus holds default holidays only for Nigeria; elsewhere each is added below. */}
+      {isNigeria ? (
+        <Card className="mb-6">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-32">
+              <Label htmlFor="seed-year">Seed federal holidays for a year</Label>
+              <Input
+                id="seed-year"
+                type="number"
+                value={seedYear}
+                onChange={(event) => setSeedYear(event.target.value)}
+              />
+            </div>
+            <Button variant="secondary" disabled={seeding} onClick={onSeed}>
+              {seeding ? "Seeding…" : "Seed Defaults"}
+            </Button>
           </div>
-          <Button variant="secondary" disabled={seeding} onClick={onSeed}>
-            {seeding ? "Seeding…" : "Seed Defaults"}
-          </Button>
-        </div>
-      </Card>
+        </Card>
+      ) : null}
 
       <Card className="mb-6">
         <form onSubmit={onAdd} className="flex flex-wrap items-end gap-3">

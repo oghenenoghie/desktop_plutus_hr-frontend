@@ -14,7 +14,7 @@ import { MovementsTable } from "@/components/inventory/inventory-ui";
 import { Badge } from "@/components/ui/badge";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { approvalInstancesApi, inventoryApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { TRACKED_ITEM_TYPES, formatQuantity, isValidQuantityInput } from "@/lib/inventory";
 import type {
@@ -159,8 +159,8 @@ function JournalCard({ journal }: { journal: JournalEntry }) {
                 <div className="font-bold">{line.account_name ?? line.account}</div>
                 <div className="text-[11px] text-ink-soft">{line.account}</div>
               </Td>
-              <Td align="right">{line.debit_minor ? formatNaira(line.debit_minor) : ""}</Td>
-              <Td align="right">{line.credit_minor ? formatNaira(line.credit_minor) : ""}</Td>
+              <Td align="right">{line.debit_minor ? formatMoney(line.debit_minor) : ""}</Td>
+              <Td align="right">{line.credit_minor ? formatMoney(line.credit_minor) : ""}</Td>
             </tr>
           ))}
         </tbody>

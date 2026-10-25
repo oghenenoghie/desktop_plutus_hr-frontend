@@ -14,7 +14,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { chartAccountsApi, departmentsApi, generalLedgerApi } from "@/lib/api/endpoints";
-import { formatDateTime, formatLedgerBalance, formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatDateTime, formatLedgerBalance, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { ChartAccount } from "@/lib/types";
 
@@ -65,8 +65,8 @@ export default function GeneralLedgerPage() {
               {trialBalance.data.map((line) => (
                 <tr key={line.account}>
                   <Td className="font-bold">{line.account_name ?? line.account}</Td>
-                  <Td align="right">{formatNaira(line.total_debit_minor)}</Td>
-                  <Td align="right">{formatNaira(line.total_credit_minor)}</Td>
+                  <Td align="right">{formatMoney(line.total_debit_minor)}</Td>
+                  <Td align="right">{formatMoney(line.total_credit_minor)}</Td>
                   <Td align="right" className="font-bold">
                     {formatLedgerBalance(line.balance_minor)}
                   </Td>
@@ -121,8 +121,8 @@ export default function GeneralLedgerPage() {
                   <Td>{entry.description ?? "—"}</Td>
                   <Td className="font-bold">{entry.account_name ?? entry.account}</Td>
                   <Td>{entry.department_id ? (departmentsById.get(entry.department_id)?.name ?? "—") : "—"}</Td>
-                  <Td align="right">{entry.debit_minor ? formatNaira(entry.debit_minor) : "—"}</Td>
-                  <Td align="right">{entry.credit_minor ? formatNaira(entry.credit_minor) : "—"}</Td>
+                  <Td align="right">{entry.debit_minor ? formatMoney(entry.debit_minor) : "—"}</Td>
+                  <Td align="right">{entry.credit_minor ? formatMoney(entry.credit_minor) : "—"}</Td>
                 </tr>
               ))}
             </tbody>
@@ -169,11 +169,11 @@ function NewJournalEntryDrawer({
 
   const activeAccounts = (accounts.data ?? []).filter((account: ChartAccount) => account.is_active);
   const totalDebit = lines.reduce(
-    (sum, line) => sum + (line.side === "debit" ? nairaToMinor(line.amount) : 0),
+    (sum, line) => sum + (line.side === "debit" ? toMinorUnits(line.amount) : 0),
     0,
   );
   const totalCredit = lines.reduce(
-    (sum, line) => sum + (line.side === "credit" ? nairaToMinor(line.amount) : 0),
+    (sum, line) => sum + (line.side === "credit" ? toMinorUnits(line.amount) : 0),
     0,
   );
   const balanced = totalDebit > 0 && totalDebit === totalCredit;
@@ -198,11 +198,11 @@ function NewJournalEntryDrawer({
       await generalLedgerApi.postJournalEntry({
         description,
         lines: lines
-          .filter((line) => line.accountCode && nairaToMinor(line.amount) > 0)
+          .filter((line) => line.accountCode && toMinorUnits(line.amount) > 0)
           .map((line) => ({
             account_code: line.accountCode,
-            debit_minor: line.side === "debit" ? nairaToMinor(line.amount) : 0,
-            credit_minor: line.side === "credit" ? nairaToMinor(line.amount) : 0,
+            debit_minor: line.side === "debit" ? toMinorUnits(line.amount) : 0,
+            credit_minor: line.side === "credit" ? toMinorUnits(line.amount) : 0,
           })),
       });
       showToast("Journal entry posted", "good");
@@ -258,7 +258,7 @@ function NewJournalEntryDrawer({
                 </Select>
               </div>
               <div className="w-32">
-                <Label>Amount (₦)</Label>
+                <Label>Amount ({currencyLabel()})</Label>
                 <Input
                   value={line.amount}
                   onChange={(event) => updateLine(index, { amount: event.target.value })}
@@ -282,11 +282,11 @@ function NewJournalEntryDrawer({
         <div className="rounded-panel border border-border bg-bg px-3 py-2.5 text-[12px]">
           <div className="flex justify-between">
             <span>Total debits</span>
-            <span className="font-bold">{formatNaira(totalDebit)}</span>
+            <span className="font-bold">{formatMoney(totalDebit)}</span>
           </div>
           <div className="flex justify-between">
             <span>Total credits</span>
-            <span className="font-bold">{formatNaira(totalCredit)}</span>
+            <span className="font-bold">{formatMoney(totalCredit)}</span>
           </div>
           {!balanced ? (
             <p className="mt-1 font-bold text-bad">Debits and credits must balance to post.</p>

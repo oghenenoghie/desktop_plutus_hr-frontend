@@ -81,6 +81,10 @@ export interface NavItem {
     | "analyticsFinancial"
     | "analyticsReports";
   roles: Role[];
+  // Needs the organisation's country to have approved statutory rules
+  // (payroll, PAYE, statutory contributions, withholding). Hidden, and the
+  // screen replaced by a notice, where payroll isn't available yet.
+  payrollOnly?: boolean;
 }
 
 // A group is either a flat list of items, or split into subgroups when it's
@@ -371,12 +375,14 @@ export const NAV_GROUPS: NavGroup[] = [
             label: "Payroll Runs",
             icon: "payroll",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
           },
           {
             href: "/compliance",
             label: "Compliance Engine",
             icon: "compliance",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
           },
           {
             href: "/compliance/countries",
@@ -389,30 +395,35 @@ export const NAV_GROUPS: NavGroup[] = [
             label: "PAYE Calculator",
             icon: "payeCalculator",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
           },
           {
             href: "/payroll-reports",
             label: "Payroll Reports",
             icon: "payrollReports",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
           },
           {
             href: "/settlement",
             label: "Final Settlement",
             icon: "settlement",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
           },
           {
             href: "/simulation",
             label: "Simulation",
             icon: "simulation",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
           },
           {
             href: "/contractors",
             label: "Contractors",
             icon: "contractors",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
           },
         ],
       },
@@ -681,26 +692,30 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-function filterItems(items: NavItem[], role: Role): NavItem[] {
-  return items.filter((item) => item.roles.includes(role));
+function filterItems(items: NavItem[], role: Role, payrollAvailable: boolean): NavItem[] {
+  return items.filter(
+    (item) => item.roles.includes(role) && (payrollAvailable || !item.payrollOnly),
+  );
 }
 
 // Filters every group/subgroup down to what this role can see, dropping
 // anything left empty rather than rendering a heading with nothing under it.
-export function navGroupsForRole(role: Role): NavGroup[] {
+// Payroll-only items go too while the organisation's country has no
+// approved rules.
+export function navGroupsForRole(role: Role, payrollAvailable = true): NavGroup[] {
   return NAV_GROUPS.map((group) => {
     if (group.subgroups) {
       const subgroups = group.subgroups
         .map((subgroup) => ({
           ...subgroup,
-          items: filterItems(subgroup.items, role),
+          items: filterItems(subgroup.items, role, payrollAvailable),
         }))
         .filter((subgroup) => subgroup.items.length > 0);
       return { heading: group.heading, subgroups };
     }
     return {
       heading: group.heading,
-      items: filterItems(group.items ?? [], role),
+      items: filterItems(group.items ?? [], role, payrollAvailable),
     };
   }).filter((group) =>
     group.subgroups
@@ -718,6 +733,19 @@ export function navForRole(role: Role): NavItem[] {
       ? group.subgroups.flatMap((subgroup) => subgroup.items)
       : (group.items ?? []),
   );
+}
+
+// Whether a path belongs to a payroll-only screen: the most specific nav
+// item it falls under is payroll-only. "/compliance" (Nigeria's rules) is,
+// "/compliance/countries" (the catalogue) isn't.
+export function isPayrollOnlyPath(pathname: string): boolean {
+  const items = NAV_GROUPS.flatMap((group) =>
+    group.subgroups ? group.subgroups.flatMap((subgroup) => subgroup.items) : (group.items ?? []),
+  );
+  const match = items
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+  return Boolean(match?.payrollOnly);
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

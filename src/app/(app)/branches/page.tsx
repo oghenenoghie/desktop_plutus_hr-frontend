@@ -14,7 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { branchesApi, employeesApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
-import { NIGERIA_STATES } from "@/lib/nigeria-states";
+import { RegionField, useRegionLabel } from "@/components/region-field";
 import type { Branch, Employee } from "@/lib/types";
 
 export default function BranchesPage() {
@@ -109,6 +109,7 @@ function BranchDrawer({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const regionLabel = useRegionLabel();
   const { showToast } = useToast();
   const [name, setName] = useState(branch?.name ?? "");
   const [state, setState] = useState(branch?.state ?? "");
@@ -154,15 +155,8 @@ function BranchDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="state">State</Label>
-          <Select id="state" value={state ?? ""} onChange={(event) => setState(event.target.value)}>
-            <option value="">Not specified</option>
-            {NIGERIA_STATES.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </Select>
+          <Label htmlFor="state">{regionLabel}</Label>
+          <RegionField id="state" value={state ?? ""} onChange={setState} emptyLabel="Not specified" />
         </div>
         <div>
           <Label htmlFor="address">Address</Label>

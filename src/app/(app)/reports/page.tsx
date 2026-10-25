@@ -26,7 +26,7 @@ import {
   statutoryLiabilitiesApi,
   vendorsApi,
 } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { AgingBucket, AgingLine, StatutoryLiability } from "@/lib/types";
 
@@ -130,7 +130,7 @@ function StatutoryLiabilitiesTab() {
                     {formatDate(liability.period_start)} –{" "}
                     {formatDate(liability.period_end)}
                   </Td>
-                  <Td align="right">{formatNaira(liability.amount_minor)}</Td>
+                  <Td align="right">{formatMoney(liability.amount_minor)}</Td>
                   <Td>{formatDate(liability.due_date)}</Td>
                   <Td>
                     <StatusBadge status={liability.status} />
@@ -143,7 +143,7 @@ function StatutoryLiabilitiesTab() {
                           label="Mark Filed"
                           tone="primary"
                           confirmTitle="Mark this liability as filed?"
-                          confirmMessage={`${liability.scheme.toUpperCase()} for ${formatDate(liability.period_start)} – ${formatDate(liability.period_end)} (${formatNaira(liability.amount_minor)}) will be marked filed with ${liability.authority}.`}
+                          confirmMessage={`${liability.scheme.toUpperCase()} for ${formatDate(liability.period_start)} – ${formatDate(liability.period_end)} (${formatMoney(liability.amount_minor)}) will be marked filed with ${liability.authority}.`}
                           confirmLabel="Mark Filed"
                         />
                       ) : null}
@@ -219,7 +219,7 @@ function RemitDrawer({
           {liability.scheme.toUpperCase()} for{" "}
           {formatDate(liability.period_start)} –{" "}
           {formatDate(liability.period_end)} (
-          {formatNaira(liability.amount_minor)}), payable to{" "}
+          {formatMoney(liability.amount_minor)}), payable to{" "}
           {liability.authority}.
         </p>
         <div>
@@ -267,7 +267,7 @@ function AgingTab({ type }: { type: "ap" | "ar" }) {
               {BUCKET_LABELS[bucket]}
             </div>
             <div className="mt-1 text-[16px] font-extrabold text-ink">
-              {formatNaira(totalByBucket.get(bucket) ?? 0)}
+              {formatMoney(totalByBucket.get(bucket) ?? 0)}
             </div>
           </Card>
         ))}
@@ -299,7 +299,7 @@ function AgingTab({ type }: { type: "ap" | "ar" }) {
                   <Td>{line.reference_number}</Td>
                   <Td>{formatDate(line.due_date)}</Td>
                   <Td>{BUCKET_LABELS[line.bucket]}</Td>
-                  <Td align="right">{formatNaira(line.amount_minor)}</Td>
+                  <Td align="right">{formatMoney(line.amount_minor)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -407,9 +407,9 @@ function VendorStatementTab() {
                     <Td>
                       <StatusBadge status={line.status} />
                     </Td>
-                    <Td align="right">{formatNaira(line.amount_minor)}</Td>
+                    <Td align="right">{formatMoney(line.amount_minor)}</Td>
                     <Td align="right" className="font-bold">
-                      {formatNaira(line.running_balance_minor)}
+                      {formatMoney(line.running_balance_minor)}
                     </Td>
                   </tr>
                 ))}
@@ -529,9 +529,9 @@ function CustomerStatementTab() {
                     <Td>
                       <StatusBadge status={line.status} />
                     </Td>
-                    <Td align="right">{formatNaira(line.amount_minor)}</Td>
+                    <Td align="right">{formatMoney(line.amount_minor)}</Td>
                     <Td align="right" className="font-bold">
-                      {formatNaira(line.running_balance_minor)}
+                      {formatMoney(line.running_balance_minor)}
                     </Td>
                   </tr>
                 ))}

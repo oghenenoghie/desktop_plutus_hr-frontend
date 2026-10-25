@@ -14,7 +14,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { finalSettlementApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, nairaToMinor } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 export default function SettlementPage() {
@@ -76,11 +76,11 @@ function SettlementPageInner() {
                 <tr key={settlement.id}>
                   <Td>{formatDate(settlement.termination_date)}</Td>
                   <Td align="right">{settlement.leave_days_paid_out}</Td>
-                  <Td align="right">{formatNaira(settlement.leave_payout_minor)}</Td>
-                  <Td align="right">{formatNaira(settlement.gratuity_minor)}</Td>
-                  <Td align="right">{formatNaira(settlement.outstanding_loan_recovered_minor)}</Td>
+                  <Td align="right">{formatMoney(settlement.leave_payout_minor)}</Td>
+                  <Td align="right">{formatMoney(settlement.gratuity_minor)}</Td>
+                  <Td align="right">{formatMoney(settlement.outstanding_loan_recovered_minor)}</Td>
                   <Td align="right" className="font-extrabold">
-                    {formatNaira(settlement.net_settlement_minor)}
+                    {formatMoney(settlement.net_settlement_minor)}
                   </Td>
                 </tr>
               ))}
@@ -125,9 +125,9 @@ function ProcessSettlementDrawer({
     try {
       await finalSettlementApi.process(employeeId, {
         termination_date: terminationDate,
-        gratuity_minor: nairaToMinor(gratuity),
+        gratuity_minor: toMinorUnits(gratuity),
         leave_days_paid_out: Number(leaveDaysPaidOut) || 0,
-        leave_payout_minor: nairaToMinor(leavePayout),
+        leave_payout_minor: toMinorUnits(leavePayout),
       });
       showToast("Settlement processed", "good");
       onProcessed();
@@ -151,7 +151,7 @@ function ProcessSettlementDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="gratuity">Gratuity (₦)</Label>
+          <Label htmlFor="gratuity">Gratuity ({currencyLabel()})</Label>
           <Input
             id="gratuity"
             inputMode="decimal"
@@ -171,7 +171,7 @@ function ProcessSettlementDrawer({
           />
         </div>
         <div>
-          <Label htmlFor="leave-payout">Leave Payout (₦)</Label>
+          <Label htmlFor="leave-payout">Leave Payout ({currencyLabel()})</Label>
           <Input
             id="leave-payout"
             inputMode="decimal"

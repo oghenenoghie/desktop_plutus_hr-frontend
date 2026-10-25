@@ -12,7 +12,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { financialStatementsApi } from "@/lib/api/endpoints";
-import { formatNaira } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 export default function FinancialStatementsPage() {
@@ -119,13 +119,13 @@ export default function FinancialStatementsPage() {
               {incomeStatement.data.revenue.map((line) => (
                 <tr key={line.account}>
                   <Td>{line.account_name}</Td>
-                  <Td align="right">{formatNaira(line.balance_minor)}</Td>
+                  <Td align="right">{formatMoney(line.balance_minor)}</Td>
                 </tr>
               ))}
               <tr>
                 <Td className="font-bold">Total Revenue</Td>
                 <Td align="right" className="font-bold">
-                  {formatNaira(incomeStatement.data.total_revenue_minor)}
+                  {formatMoney(incomeStatement.data.total_revenue_minor)}
                 </Td>
               </tr>
               <tr>
@@ -137,19 +137,19 @@ export default function FinancialStatementsPage() {
               {incomeStatement.data.expenses.map((line) => (
                 <tr key={line.account}>
                   <Td>{line.account_name}</Td>
-                  <Td align="right">{formatNaira(line.balance_minor)}</Td>
+                  <Td align="right">{formatMoney(line.balance_minor)}</Td>
                 </tr>
               ))}
               <tr>
                 <Td className="font-bold">Total Expenses</Td>
                 <Td align="right" className="font-bold">
-                  {formatNaira(incomeStatement.data.total_expenses_minor)}
+                  {formatMoney(incomeStatement.data.total_expenses_minor)}
                 </Td>
               </tr>
               <tr>
                 <Td className="pt-5 text-[14px] font-extrabold">Net Income</Td>
                 <Td align="right" className="pt-5 text-[14px] font-extrabold">
-                  {formatNaira(incomeStatement.data.net_income_minor)}
+                  {formatMoney(incomeStatement.data.net_income_minor)}
                 </Td>
               </tr>
             </tbody>

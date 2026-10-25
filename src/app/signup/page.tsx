@@ -10,11 +10,18 @@ import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api/client";
 import { organisationApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
-import type { OrganisationSignupOut } from "@/lib/types";
+import type { OrganisationSignupOut, SignupCountry } from "@/lib/types";
 
-// The server sets up an organisation in Nigeria when no country is sent,
-// and refuses any country whose tax rules aren't approved.
+// The server sets up an organisation in Nigeria when no country is sent.
+// Any listed country can be chosen; payroll waits for approved rules.
 const DEFAULT_COUNTRY = "NG";
+
+function countryHelp(country: SignupCountry | undefined): string {
+  if (!country || country.payroll_available) {
+    return "Sets the currency and the tax rules Plutus uses, from the moment your workspace is created.";
+  }
+  return `Your workspace will run in ${country.currency}. Payroll for ${country.name} switches on once a local tax adviser approves its tax rules; everything else works straight away.`;
+}
 
 export default function SignupPage() {
   const countries = useApiResource(() => organisationApi.countries());
@@ -120,7 +127,7 @@ export default function SignupPage() {
                 aria-describedby="org-country-help"
               >
                 {countries.data.map((country) => (
-                  <option key={country.code} value={country.code} disabled={!country.selectable}>
+                  <option key={country.code} value={country.code}>
                     {countryOptionLabel(country)}
                   </option>
                 ))}
@@ -133,7 +140,7 @@ export default function SignupPage() {
             <p id="org-country-help" className="mt-1.5 text-[11.5px] text-ink-soft">
               {countries.error
                 ? "We couldn't load the country list, so your workspace will be set up for Nigeria. You can change it in Setup before your first pay run."
-                : "Sets the tax rules and currency Plutus uses. Other countries open once a local tax adviser has approved their rules."}
+                : countryHelp(countries.data?.find((country) => country.code === countryCode))}
             </p>
           </div>
 

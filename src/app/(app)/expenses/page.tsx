@@ -13,7 +13,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { approvalInstancesApi, expensesApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { ApprovalInstance, Expense, ExpenseStatus } from "@/lib/types";
 
@@ -92,7 +92,7 @@ export default function ExpensesPage() {
                       <Td>{expense.category}</Td>
                       <Td className="max-w-xs truncate">{expense.description}</Td>
                       <Td>{formatDate(expense.expense_date)}</Td>
-                      <Td align="right">{formatNaira(expense.amount_minor)}</Td>
+                      <Td align="right">{formatMoney(expense.amount_minor)}</Td>
                       <Td>
                         <StatusBadge status={expense.status} />
                       </Td>
@@ -103,7 +103,7 @@ export default function ExpensesPage() {
                               action={() => act(expensesApi.reject, expense.id, "Expense claim rejected")}
                               label="Reject"
                               confirmTitle="Reject this expense claim?"
-                              confirmMessage={`${expense.category} — ${formatNaira(expense.amount_minor)} will be rejected.`}
+                              confirmMessage={`${expense.category} — ${formatMoney(expense.amount_minor)} will be rejected.`}
                               confirmLabel="Reject"
                             />
                           ) : null}
@@ -119,7 +119,7 @@ export default function ExpensesPage() {
                               label={next.label}
                               tone="primary"
                               confirmTitle={`${next.label} this expense claim?`}
-                              confirmMessage={`${expense.category} — ${formatNaira(expense.amount_minor)} will be marked ${next.label === "Approve" ? "approved" : "reimbursed"}.`}
+                              confirmMessage={`${expense.category} — ${formatMoney(expense.amount_minor)} will be marked ${next.label === "Approve" ? "approved" : "reimbursed"}.`}
                               confirmLabel={next.label}
                             />
                           ) : null}

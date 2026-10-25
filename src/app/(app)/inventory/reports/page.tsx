@@ -16,7 +16,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { inventoryApi, inventoryReportsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import {
   MOVEMENT_LABELS,
@@ -148,10 +148,10 @@ function ValuationTab() {
         {data ? (
           <>
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <KpiTile label="Stock value" value={formatNaira(data.total_value_minor)} caption={`at the end of ${formatDate(data.as_of)}`} />
+              <KpiTile label="Stock value" value={formatMoney(data.total_value_minor)} caption={`at the end of ${formatDate(data.as_of)}`} />
               <KpiTile
                 label="Inventory account (GL)"
-                value={data.gl_balance_minor === null ? "—" : formatNaira(data.gl_balance_minor)}
+                value={data.gl_balance_minor === null ? "—" : formatMoney(data.gl_balance_minor)}
                 caption={
                   data.gl_balance_minor === null
                     ? data.posts_to_gl
@@ -169,7 +169,7 @@ function ValuationTab() {
                     <Badge tone="good">Reconciled</Badge>
                   ) : (
                     <>
-                      <Badge tone="bad">Out by {formatNaira(Math.abs(data.difference_minor))}</Badge>
+                      <Badge tone="bad">Out by {formatMoney(Math.abs(data.difference_minor))}</Badge>
                       <Link href="/inventory" className="text-[12px] font-bold text-primary hover:underline">
                         See reconciliation
                       </Link>
@@ -204,8 +204,8 @@ function ValuationTab() {
                       <Td align="right">
                         {formatQuantity(row.quantity)} <span className="text-[11px] text-ink-soft">{row.base_unit_code}</span>
                       </Td>
-                      <Td align="right">{row.average_cost_minor === null ? "—" : formatNaira(row.average_cost_minor)}</Td>
-                      <Td align="right">{formatNaira(row.value_minor)}</Td>
+                      <Td align="right">{row.average_cost_minor === null ? "—" : formatMoney(row.average_cost_minor)}</Td>
+                      <Td align="right">{formatMoney(row.value_minor)}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -318,7 +318,7 @@ function MovementsTab() {
                   <span className="font-bold">{formatQuantity(row.closing_quantity)}</span>
                 </Td>
                 {showValues ? (
-                  <Td align="right">{row.closing_value_minor === null ? "—" : formatNaira(row.closing_value_minor)}</Td>
+                  <Td align="right">{row.closing_value_minor === null ? "—" : formatMoney(row.closing_value_minor)}</Td>
                 ) : null}
               </tr>
             ))}
@@ -379,9 +379,9 @@ function VariancesTab() {
       {report.loading && !data ? <LoadingState /> : null}
       {data && showValues ? (
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <KpiTile label="Gains" value={formatNaira(data.gain_value_minor ?? 0)} />
-          <KpiTile label="Losses" value={formatNaira(data.loss_value_minor ?? 0)} />
-          <KpiTile label="Net" value={formatNaira((data.gain_value_minor ?? 0) - (data.loss_value_minor ?? 0))} />
+          <KpiTile label="Gains" value={formatMoney(data.gain_value_minor ?? 0)} />
+          <KpiTile label="Losses" value={formatMoney(data.loss_value_minor ?? 0)} />
+          <KpiTile label="Net" value={formatMoney((data.gain_value_minor ?? 0) - (data.loss_value_minor ?? 0))} />
         </div>
       ) : null}
       {data && data.rows.length === 0 ? <EmptyState label="No adjustments or variances in this period." /> : null}
@@ -426,7 +426,7 @@ function VariancesTab() {
                 <Td align="right">
                   <Signed quantity={row.quantity} /> <span className="text-[11px] text-ink-soft">{row.base_unit_code}</span>
                 </Td>
-                {showValues ? <Td align="right">{row.value_minor === null ? "—" : formatNaira(row.value_minor)}</Td> : null}
+                {showValues ? <Td align="right">{row.value_minor === null ? "—" : formatMoney(row.value_minor)}</Td> : null}
               </tr>
             ))}
           </tbody>
@@ -470,8 +470,8 @@ function ExpiryTab() {
       {report.loading && !data ? <LoadingState /> : null}
       {data && showValues ? (
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <KpiTile label="Expired" value={formatNaira(data.expired_value_minor ?? 0)} caption="at average cost" />
-          <KpiTile label="Expiring" value={formatNaira(data.expiring_value_minor ?? 0)} caption={`within ${data.within_days} days`} />
+          <KpiTile label="Expired" value={formatMoney(data.expired_value_minor ?? 0)} caption="at average cost" />
+          <KpiTile label="Expiring" value={formatMoney(data.expiring_value_minor ?? 0)} caption={`within ${data.within_days} days`} />
         </div>
       ) : null}
       {data && data.rows.length === 0 ? <EmptyState label="No lots expiring in that window." /> : null}
@@ -507,7 +507,7 @@ function ExpiryTab() {
                 <Td align="right">
                   {formatQuantity(row.quantity)} <span className="text-[11px] text-ink-soft">{row.base_unit_code}</span>
                 </Td>
-                {showValues ? <Td align="right">{row.value_minor === null ? "—" : formatNaira(row.value_minor)}</Td> : null}
+                {showValues ? <Td align="right">{row.value_minor === null ? "—" : formatMoney(row.value_minor)}</Td> : null}
               </tr>
             ))}
           </tbody>
@@ -541,7 +541,7 @@ function OutstandingTab() {
       {data && data.rows.length > 0 ? (
         <>
           <div className="mb-4 max-w-xs">
-            <KpiTile label="Outstanding" value={formatNaira(data.total_value_minor)} caption={`${data.rows.length} order lines`} />
+            <KpiTile label="Outstanding" value={formatMoney(data.total_value_minor)} caption={`${data.rows.length} order lines`} />
           </div>
           <Table>
             <Thead>
@@ -580,7 +580,7 @@ function OutstandingTab() {
                     <span className="font-bold">{formatQuantity(row.outstanding)}</span>{" "}
                     <span className="text-[11px] text-ink-soft">{row.base_unit_code}</span>
                   </Td>
-                  <Td align="right">{formatNaira(row.outstanding_value_minor)}</Td>
+                  <Td align="right">{formatMoney(row.outstanding_value_minor)}</Td>
                 </tr>
               ))}
             </tbody>

@@ -12,7 +12,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { subscriptionApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira, titleCase } from "@/lib/format";
+import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { PlanCode } from "@/lib/types";
 
@@ -70,7 +70,7 @@ export default function SubscriptionPage() {
             </div>
             <dl className="mt-4 grid grid-cols-[160px_1fr] gap-y-2.5 text-[13px]">
               <dt className="text-ink-soft">Monthly Price</dt>
-              <dd className="font-bold">{formatNaira(usage.data.monthly_price_minor)}</dd>
+              <dd className="font-bold">{formatMoney(usage.data.monthly_price_minor)}</dd>
               <dt className="text-ink-soft">Employees</dt>
               <dd className="font-bold">
                 {usage.data.employee_count}

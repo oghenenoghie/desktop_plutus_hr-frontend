@@ -9,7 +9,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { overtimeApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { Overtime } from "@/lib/types";
 
@@ -58,7 +58,7 @@ export default function OvertimePage() {
                   <Td>{formatDate(entry.work_date)}</Td>
                   <Td align="right">{entry.hours}</Td>
                   <Td align="right">{entry.rate_multiplier}×</Td>
-                  <Td align="right">{formatNaira(entry.amount_minor)}</Td>
+                  <Td align="right">{formatMoney(entry.amount_minor)}</Td>
                   <Td>
                     <StatusBadge status={entry.status} />
                   </Td>
@@ -69,7 +69,7 @@ export default function OvertimePage() {
                           action={() => act(overtimeApi.reject, entry.id, "Overtime entry rejected")}
                           label="Reject"
                           confirmTitle="Reject this overtime entry?"
-                          confirmMessage={`${entry.hours}h at ${entry.rate_multiplier}× (${formatNaira(entry.amount_minor)}) will be rejected.`}
+                          confirmMessage={`${entry.hours}h at ${entry.rate_multiplier}× (${formatMoney(entry.amount_minor)}) will be rejected.`}
                           confirmLabel="Reject"
                         />
                         <ConfirmActionButton
@@ -77,7 +77,7 @@ export default function OvertimePage() {
                           label="Approve"
                           tone="primary"
                           confirmTitle="Approve this overtime entry?"
-                          confirmMessage={`${entry.hours}h at ${entry.rate_multiplier}× (${formatNaira(entry.amount_minor)}) will be approved and picked up by the next pay run.`}
+                          confirmMessage={`${entry.hours}h at ${entry.rate_multiplier}× (${formatMoney(entry.amount_minor)}) will be approved and picked up by the next pay run.`}
                           confirmLabel="Approve"
                         />
                       </div>

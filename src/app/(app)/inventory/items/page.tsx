@@ -16,7 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { inventoryApi, vendorsApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
-import { nairaToMinor } from "@/lib/format";
+import { currencyLabel, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import {
   ITEM_TYPE_LABELS,
@@ -40,7 +40,7 @@ function errorText(err: unknown): string {
 }
 
 function minorToNairaInput(minor: number | null): string {
-  return minor === null ? "" : String(minor / 100);
+  return minor === null ? "" : String(fromMinorUnits(minor));
 }
 
 export default function InventoryItemsPage() {
@@ -304,7 +304,7 @@ function ItemDrawer({
       category_id: categoryId || null,
       reorder_level: reorderLevel || null,
       max_level: maxLevel || null,
-      default_cost_minor: defaultCost ? nairaToMinor(defaultCost) : null,
+      default_cost_minor: defaultCost ? toMinorUnits(defaultCost) : null,
       preferred_vendor_id: vendorId || null,
       barcode: barcode || null,
       track_lots: holdsStock && trackLots,
@@ -405,7 +405,7 @@ function ItemDrawer({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="item-cost">Default unit cost (₦)</Label>
+            <Label htmlFor="item-cost">Default unit cost ({currencyLabel()})</Label>
             <Input
               id="item-cost"
               inputMode="decimal"

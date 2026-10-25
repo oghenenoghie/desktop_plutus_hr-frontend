@@ -13,7 +13,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { payRunsApi, payrollReportsApi } from "@/lib/api/endpoints";
-import { formatDate, formatNaira } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -86,16 +86,16 @@ function PayrollRegisterTab() {
                         {line.full_name}
                         <div className="text-[11px] font-normal text-ink-soft">{line.employee_number}</div>
                       </Td>
-                      <Td align="right">{formatNaira(line.gross_minor)}</Td>
-                      <Td align="right">{formatNaira(line.pension_employee_minor)}</Td>
-                      <Td align="right">{formatNaira(line.pension_employer_minor)}</Td>
-                      <Td align="right">{formatNaira(line.nhf_minor)}</Td>
-                      <Td align="right">{formatNaira(line.paye_minor)}</Td>
-                      <Td align="right">{formatNaira(line.loan_deduction_minor)}</Td>
-                      <Td align="right">{formatNaira(line.benefit_deduction_minor)}</Td>
-                      <Td align="right">{formatNaira(line.union_dues_deduction_minor)}</Td>
+                      <Td align="right">{formatMoney(line.gross_minor)}</Td>
+                      <Td align="right">{formatMoney(line.pension_employee_minor)}</Td>
+                      <Td align="right">{formatMoney(line.pension_employer_minor)}</Td>
+                      <Td align="right">{formatMoney(line.nhf_minor)}</Td>
+                      <Td align="right">{formatMoney(line.paye_minor)}</Td>
+                      <Td align="right">{formatMoney(line.loan_deduction_minor)}</Td>
+                      <Td align="right">{formatMoney(line.benefit_deduction_minor)}</Td>
+                      <Td align="right">{formatMoney(line.union_dues_deduction_minor)}</Td>
                       <Td align="right" className="font-bold">
-                        {formatNaira(line.net_minor)}
+                        {formatMoney(line.net_minor)}
                       </Td>
                     </tr>
                   ))}
@@ -131,7 +131,7 @@ function PayeByStateTab() {
               <tr key={line.state_of_residence}>
                 <Td className="font-bold">{line.state_of_residence}</Td>
                 <Td align="right">{line.employee_count}</Td>
-                <Td align="right">{formatNaira(line.total_paye_minor)}</Td>
+                <Td align="right">{formatMoney(line.total_paye_minor)}</Td>
               </tr>
             ))}
           </tbody>
@@ -202,10 +202,10 @@ function AnnualReconciliationTab() {
                     <div className="text-[11px] font-normal text-ink-soft">{line.employee_number}</div>
                   </Td>
                   <Td>{line.tin ?? "Missing"}</Td>
-                  <Td align="right">{formatNaira(line.total_gross_minor)}</Td>
-                  <Td align="right">{formatNaira(line.total_pension_employee_minor)}</Td>
-                  <Td align="right">{formatNaira(line.total_nhf_minor)}</Td>
-                  <Td align="right">{formatNaira(line.total_paye_minor)}</Td>
+                  <Td align="right">{formatMoney(line.total_gross_minor)}</Td>
+                  <Td align="right">{formatMoney(line.total_pension_employee_minor)}</Td>
+                  <Td align="right">{formatMoney(line.total_nhf_minor)}</Td>
+                  <Td align="right">{formatMoney(line.total_paye_minor)}</Td>
                   <Td align="right">{line.payslip_count}</Td>
                   <Td align="right">
                     <Button size="md" variant="secondary" onClick={() => downloadCertificate(line.employee_id)}>

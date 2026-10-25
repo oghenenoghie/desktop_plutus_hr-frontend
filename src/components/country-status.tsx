@@ -20,15 +20,14 @@ export function CountryStatusBadge({ status }: { status: CountryTaxStatus }) {
   return <Badge tone={tone}>{label}</Badge>;
 }
 
-// An option label for a country picker: an organisation can only choose a
-// country whose rules are approved, so the others say why they're disabled.
+// An option label for a country picker. Every country can be chosen; one
+// whose rules aren't approved yet says payroll isn't available there.
 export function countryOptionLabel(country: {
   name: string;
   currency: string;
-  status: CountryTaxStatus;
-  selectable: boolean;
+  payroll_available: boolean;
 }): string {
-  return country.selectable
+  return country.payroll_available
     ? `${country.name} (${country.currency})`
-    : `${country.name} (${country.currency}) — not available yet: ${countryStatusLabel(country.status).toLowerCase()}`;
+    : `${country.name} (${country.currency}) — payroll not available yet`;
 }

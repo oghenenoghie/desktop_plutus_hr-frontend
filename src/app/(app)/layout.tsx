@@ -33,13 +33,16 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   if (!user) return null;
-  const payrollLocked = !user.payroll_available && isPayrollOnlyPath(pathname);
+  // Only an explicit false locks payroll: an API from before /auth/me
+  // reported it only ever served Nigeria, where payroll runs.
+  const payrollAvailable = user.payroll_available !== false;
+  const payrollLocked = !payrollAvailable && isPayrollOnlyPath(pathname);
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
       <Sidebar
         role={user.role}
-        payrollAvailable={user.payroll_available}
+        payrollAvailable={payrollAvailable}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

@@ -40,8 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const me = await authApi.me();
       // Before the screens render, so every amount is in the
-      // organisation's currency.
-      setDisplayCurrency(me.currency);
+      // organisation's currency. An API from before /auth/me carried the
+      // currency only ever served Nigeria.
+      setDisplayCurrency(me.currency ?? "NGN");
       setUser(me);
       setStatus("authenticated");
     } catch {
@@ -70,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       setTokens(tokens.access_token, tokens.refresh_token);
       const me = await authApi.me();
-      setDisplayCurrency(me.currency);
+      setDisplayCurrency(me.currency ?? "NGN");
       setUser(me);
       setStatus("authenticated");
       return me;

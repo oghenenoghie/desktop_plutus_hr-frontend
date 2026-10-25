@@ -2130,8 +2130,9 @@ export interface RuleVersion {
 
 // GET /compliance/countries — the jurisdiction catalogue. A listed country
 // is not necessarily enabled: only an "active" one has approved rules the
-// engine calculates or posts with.
-export type CountryTaxStatus = "active" | "configuration_required";
+// engine calculates or posts with. "draft" rules are written up with their
+// sources and wait for the country's tax adviser; "in_review" is with them.
+export type CountryTaxStatus = "active" | "in_review" | "draft" | "configuration_required";
 
 export interface CountryProfile {
   code: string;
@@ -2140,6 +2141,17 @@ export interface CountryProfile {
   tax_authority: string;
   status: CountryTaxStatus;
   enabled_modules: string[];
+  // Whether an organisation can choose it: active, with rules encoded.
+  selectable: boolean;
+}
+
+// GET /organisation/countries — public, for the sign-up form.
+export interface SignupCountry {
+  code: string;
+  name: string;
+  currency: string;
+  status: CountryTaxStatus;
+  selectable: boolean;
 }
 
 export interface PayeEstimateRequestBody {
@@ -2172,6 +2184,11 @@ export interface Organisation {
   default_pay_frequency: PayFrequency;
   default_pfa: string | null;
   states_of_operation: string[];
+  // The country whose statutory rules the organisation runs on; its
+  // currency follows from it.
+  country_code: string;
+  country_name: string;
+  currency: string;
 }
 
 export interface OrganisationUpdateBody {
@@ -2182,6 +2199,7 @@ export interface OrganisationUpdateBody {
   default_pay_frequency?: PayFrequency;
   default_pfa?: string;
   states_of_operation?: string[];
+  country_code?: string;
 }
 
 export interface OrganisationSignupBody {
@@ -2189,6 +2207,7 @@ export interface OrganisationSignupBody {
   org_address?: string;
   admin_email: string;
   admin_password: string;
+  country_code?: string;
 }
 
 export interface OrganisationSignupOut {

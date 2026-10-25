@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 
+import { CountryStatusBadge, countryOptionLabel } from "@/components/country-status";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { organisationApi } from "@/lib/api/endpoints";
+import { complianceApi, organisationApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
 import { NIGERIA_STATES } from "@/lib/nigeria-states";
 import type { PayFrequency } from "@/lib/types";
@@ -23,6 +25,7 @@ const PAY_FREQUENCIES: { value: PayFrequency; label: string }[] = [
 
 export default function SetupPage() {
   const organisation = useApiResource(() => organisationApi.get());
+  const countries = useApiResource(() => complianceApi.countries());
   const { showToast } = useToast();
 
   const [rcNumber, setRcNumber] = useState("");
@@ -32,6 +35,7 @@ export default function SetupPage() {
   const [pfa, setPfa] = useState("");
   const [states, setStates] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [countryCode, setCountryCode] = useState("");
 
   useEffect(() => {
     // Seeds local editable state from the server once per load — not a
@@ -44,6 +48,7 @@ export default function SetupPage() {
       setPayFrequency(organisation.data.default_pay_frequency);
       setPfa(organisation.data.default_pfa ?? "");
       setStates(organisation.data.states_of_operation);
+      setCountryCode(organisation.data.country_code);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [organisation.data]);
@@ -52,6 +57,27 @@ export default function SetupPage() {
     setStates((prev) =>
       prev.includes(state) ? prev.filter((s) => s !== state) : [...prev, state],
     );
+  }
+
+  const chosenCountry = countries.data?.find((country) => country.code === countryCode);
+  const currentCountry = countries.data?.find(
+    (country) => country.code === organisation.data?.country_code,
+  );
+
+  // Separate from Save setup: the server refuses a country without approved
+  // rules (422) and any change once a pay run or posted journal exists (409),
+  // and says which.
+  async function changeCountry() {
+    try {
+      await organisationApi.update({ country_code: countryCode });
+      showToast(`The organisation now runs on ${chosenCountry?.name ?? countryCode}'s rules.`, "good");
+      organisation.reload();
+    } catch (err) {
+      showToast(
+        err instanceof ApiError ? String(err.detail ?? err.message) : "The country couldn't be changed.",
+        "bad",
+      );
+    }
   }
 
   async function save(event: React.FormEvent) {
@@ -87,6 +113,62 @@ export default function SetupPage() {
 
       {organisation.data ? (
         <form onSubmit={save} className="flex flex-col gap-6">
+          <Card>
+            <CardHeader
+              title="Country"
+              subtitle="Decides which statutory rules and currency Plutus uses for this organisation"
+            />
+            <dl className="mb-4 grid grid-cols-[110px_1fr] gap-y-2 text-[13px]">
+              <dt className="text-ink-soft">Country</dt>
+              <dd className="flex flex-wrap items-center gap-2 font-bold">
+                {organisation.data.country_name} ({organisation.data.country_code})
+                {currentCountry ? <CountryStatusBadge status={currentCountry.status} /> : null}
+              </dd>
+              <dt className="text-ink-soft">Currency</dt>
+              <dd className="font-bold">{organisation.data.currency}</dd>
+            </dl>
+            {countries.error ? <ErrorState message={countries.error} /> : null}
+            {countries.data ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <Label htmlFor="org-country">Change to</Label>
+                  <Select
+                    id="org-country"
+                    value={countryCode}
+                    onChange={(event) => setCountryCode(event.target.value)}
+                    aria-describedby="org-country-help"
+                  >
+                    {countries.data.map((country) => (
+                      <option
+                        key={country.code}
+                        value={country.code}
+                        disabled={!country.selectable && country.code !== organisation.data?.country_code}
+                      >
+                        {countryOptionLabel(country)}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <ConfirmActionButton
+                  action={changeCountry}
+                  label="Change country"
+                  pendingLabel="Changing…"
+                  tone="primary"
+                  confirmTitle="Change the organisation's country?"
+                  confirmMessage={`Plutus will use ${chosenCountry?.name ?? countryCode}'s tax rules and ${chosenCountry?.currency ?? ""} for this organisation.`}
+                  confirmLabel="Change country"
+                  disabled={
+                    !chosenCountry?.selectable || countryCode === organisation.data.country_code
+                  }
+                />
+              </div>
+            ) : null}
+            <p id="org-country-help" className="mt-3 text-[12px] text-ink-soft">
+              The country can change only before the first pay run or posted journal, and only to a
+              country whose rules a local tax adviser has approved.
+            </p>
+          </Card>
+
           <Card>
             <CardHeader
               title="Statutory registration"
@@ -156,31 +238,33 @@ export default function SetupPage() {
             </div>
           </Card>
 
-          <Card>
-            <CardHeader
-              title="States of operation"
-              subtitle="Nigerian states this organisation employs staff in"
-            />
-            <div className="flex flex-wrap gap-2">
-              {NIGERIA_STATES.map((state) => {
-                const selected = states.includes(state);
-                return (
-                  <button
-                    key={state}
-                    type="button"
-                    onClick={() => toggleState(state)}
-                    className={`rounded-badge border px-3 py-[5px] text-[11px] font-bold uppercase tracking-[0.03em] transition-colors ${
-                      selected
-                        ? "border-primary bg-primary text-white"
-                        : "border-border bg-bg text-ink-soft hover:text-ink"
-                    }`}
-                  >
-                    {state}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
+          {organisation.data.country_code === "NG" ? (
+            <Card>
+              <CardHeader
+                title="States of operation"
+                subtitle="Nigerian states this organisation employs staff in"
+              />
+              <div className="flex flex-wrap gap-2">
+                {NIGERIA_STATES.map((state) => {
+                  const selected = states.includes(state);
+                  return (
+                    <button
+                      key={state}
+                      type="button"
+                      onClick={() => toggleState(state)}
+                      className={`rounded-badge border px-3 py-[5px] text-[11px] font-bold uppercase tracking-[0.03em] transition-colors ${
+                        selected
+                          ? "border-primary bg-primary text-white"
+                          : "border-border bg-bg text-ink-soft hover:text-ink"
+                      }`}
+                    >
+                      {state}
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
+          ) : null}
 
           <div>
             <Button type="submit" disabled={saving}>

@@ -28,6 +28,7 @@ import {
 } from "@/lib/api/endpoints";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { liabilityLabel } from "@/lib/liabilities";
 import type { AgingBucket, AgingLine, StatutoryLiability } from "@/lib/types";
 
 const BUCKET_LABELS: Record<AgingBucket, string> = {
@@ -86,7 +87,7 @@ function StatutoryLiabilitiesTab() {
   async function file(liability: StatutoryLiability) {
     try {
       await statutoryLiabilitiesApi.file(liability.id);
-      showToast(`${liability.scheme.toUpperCase()} marked filed`, "good");
+      showToast(`${liabilityLabel(liability)} marked filed`, "good");
       liabilities.reload();
     } catch (err) {
       showToast(
@@ -123,7 +124,7 @@ function StatutoryLiabilitiesTab() {
             <tbody>
               {liabilities.data.map((liability) => (
                 <tr key={liability.id}>
-                  <Td>{liability.scheme.toUpperCase()}</Td>
+                  <Td>{liabilityLabel(liability)}</Td>
                   <Td>{liability.authority}</Td>
                   <Td>{liability.state ?? "—"}</Td>
                   <Td>
@@ -143,7 +144,7 @@ function StatutoryLiabilitiesTab() {
                           label="Mark Filed"
                           tone="primary"
                           confirmTitle="Mark this liability as filed?"
-                          confirmMessage={`${liability.scheme.toUpperCase()} for ${formatDate(liability.period_start)} – ${formatDate(liability.period_end)} (${formatMoney(liability.amount_minor)}) will be marked filed with ${liability.authority}.`}
+                          confirmMessage={`${liabilityLabel(liability)} for ${formatDate(liability.period_start)} – ${formatDate(liability.period_end)} (${formatMoney(liability.amount_minor)}) will be marked filed with ${liability.authority}.`}
                           confirmLabel="Mark Filed"
                         />
                       ) : null}
@@ -199,7 +200,7 @@ function RemitDrawer({
     setSubmitting(true);
     try {
       await statutoryLiabilitiesApi.remit(liability.id, reference || undefined);
-      showToast(`${liability.scheme.toUpperCase()} marked remitted`, "good");
+      showToast(`${liabilityLabel(liability)} marked remitted`, "good");
       onRemitted();
     } catch (err) {
       showToast(
@@ -216,7 +217,7 @@ function RemitDrawer({
     <Drawer title="Mark as Remitted" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          {liability.scheme.toUpperCase()} for{" "}
+          {liabilityLabel(liability)} for{" "}
           {formatDate(liability.period_start)} –{" "}
           {formatDate(liability.period_end)} (
           {formatMoney(liability.amount_minor)}), payable to{" "}

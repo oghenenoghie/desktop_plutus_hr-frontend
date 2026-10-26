@@ -18,6 +18,7 @@ import { ApiError } from "@/lib/api/client";
 import { dashboardApi, employeesApi, notificationsApi, payRunsApi, remindersApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { liabilityLabel } from "@/lib/liabilities";
 import type { PayRun } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -260,7 +261,7 @@ export default function DashboardPage() {
             <tbody>
               {deadlines.data.map((liability) => (
                 <tr key={liability.id}>
-                  <Td>{liability.scheme.toUpperCase()}</Td>
+                  <Td>{liabilityLabel(liability)}</Td>
                   <Td>{liability.authority}</Td>
                   <Td>{liability.state ?? "—"}</Td>
                   <Td align="right">{formatMoney(liability.amount_minor)}</Td>

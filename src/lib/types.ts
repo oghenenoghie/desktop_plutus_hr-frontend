@@ -47,7 +47,10 @@ export type LiabilityScheme =
   | "nhf"
   | "nsitf"
   | "itf"
-  | "wht";
+  | "wht"
+  // An obligation from a country's own rule set on the country rule engine
+  // (every country but Nigeria): named by line_code, not by a Nigerian scheme.
+  | "country";
 export type LiabilityStatus = "pending" | "filed" | "remitted";
 
 // --- auth ---
@@ -108,6 +111,11 @@ export interface Employee {
   transport_minor: number | null;
   other_earnings_minor: number | null;
   annual_rent_paid_minor: number | null;
+  // Tax inputs some countries' rules need (not Nigeria's): family shares
+  // counted in halves, and expatriate status. null when not recorded, and
+  // when masked like the pay figures above. Optional for older servers.
+  tax_half_shares?: number | null;
+  is_expatriate?: boolean | null;
   pay_frequency: PayFrequency;
   annual_leave_entitlement_days: number;
   salary_masked: boolean;
@@ -127,6 +135,8 @@ export interface EmployeeCreateBody {
   transport_minor: number;
   other_earnings_minor?: number;
   annual_rent_paid_minor?: number;
+  tax_half_shares?: number | null;
+  is_expatriate?: boolean | null;
   pay_frequency?: PayFrequency;
   annual_leave_entitlement_days?: number;
   date_of_birth?: string;
@@ -185,6 +195,8 @@ export interface EmployeeUpdateBody {
   transport_minor?: number;
   other_earnings_minor?: number;
   annual_rent_paid_minor?: number;
+  tax_half_shares?: number | null;
+  is_expatriate?: boolean | null;
   pay_frequency?: PayFrequency;
   annual_leave_entitlement_days?: number;
   salary_masked?: boolean;
@@ -702,7 +714,26 @@ export interface Payslip {
   cumulative_chargeable_income_minor: number;
   rule_version_id: string;
   derivation: Record<string, unknown>;
+  // A payslip from the country rule engine (every country but Nigeria)
+  // carries its statutory lines here; a Nigerian payslip has none, its
+  // figures being the pension, NHF and PAYE fields above.
+  statutory_lines?: PayslipStatutoryLine[];
   created_at: string;
+}
+
+export type StatutoryLineKind = "employee_contribution" | "employer_contribution" | "income_tax";
+
+export interface PayslipStatutoryLine {
+  code: string;
+  name: string;
+  kind: StatutoryLineKind;
+  authority: string;
+  base_minor: number;
+  rate_ppm: number | null;
+  amount_minor: number;
+  due_date: string;
+  rule_set_id: string;
+  source: string;
 }
 
 export interface Disbursement {
@@ -923,6 +954,10 @@ export interface StatutoryLiability {
   pay_run_id: string | null;
   scheme: LiabilityScheme;
   state: string | null;
+  // scheme "country" only: the rule set's line codes it totals ("PENSION+PENSION-ER")
+  // and the payable account its remittance clears.
+  line_code?: string | null;
+  liability_account?: string | null;
   authority: string;
   base_minor: number;
   amount_minor: number;
@@ -1823,6 +1858,25 @@ export interface PayrollRegisterLine {
   benefit_deduction_minor: number;
   union_dues_deduction_minor: number;
   net_minor: number;
+  // An engine country's statutory lines; empty for Nigeria.
+  statutory_lines?: StatutoryAmount[];
+}
+
+export interface StatutoryAmount {
+  code: string;
+  name: string;
+  kind: StatutoryLineKind;
+  amount_minor: number;
+}
+
+export interface StatutorySummaryLine {
+  code: string;
+  name: string;
+  kind: StatutoryLineKind;
+  authority: string;
+  employee_count: number;
+  base_minor: number;
+  amount_minor: number;
 }
 
 export interface PayeByStateLine {
@@ -1842,6 +1896,8 @@ export interface AnnualTaxReconciliationLine {
   total_nhf_minor: number;
   total_paye_minor: number;
   payslip_count: number;
+  // An engine country's lines totalled for the year; empty for Nigeria.
+  statutory_totals?: StatutoryAmount[];
 }
 
 // --- document generation ---

@@ -27,7 +27,7 @@ import {
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { RegionField, useRegionLabel } from "@/components/region-field";
+import { RegionField, useIsNigeria, useRegionLabel } from "@/components/region-field";
 import type {
   ChecklistItem,
   ChecklistType,
@@ -171,8 +171,16 @@ function EditDetailsDrawer({
   onPhotoChanged: () => void;
 }) {
   const regionLabel = useRegionLabel();
+  const isNigeria = useIsNigeria();
   const { showToast } = useToast();
   const branches = useApiResource(() => branchesApi.list());
+  // Tax inputs some countries' rules need. Shown only to someone who can see
+  // the employee's pay (they're masked with it), and sent only when changed.
+  const showTaxInputs = !isNigeria && employee.basic_minor !== null;
+  const initialHalfShares = employee.tax_half_shares?.toString() ?? "";
+  const initialExpatriate = employee.is_expatriate == null ? "" : employee.is_expatriate ? "yes" : "no";
+  const [halfShares, setHalfShares] = useState(initialHalfShares);
+  const [expatriate, setExpatriate] = useState(initialExpatriate);
   const [stateOfOrigin, setStateOfOrigin] = useState(employee.state_of_origin ?? "");
   const [branchId, setBranchId] = useState(employee.branch_id ?? "");
   const [contractEndDate, setContractEndDate] = useState(employee.contract_end_date ?? "");
@@ -187,6 +195,12 @@ function EditDetailsDrawer({
         state_of_origin: stateOfOrigin || null,
         branch_id: branchId || null,
         contract_end_date: contractEndDate || null,
+        ...(showTaxInputs && halfShares !== initialHalfShares
+          ? { tax_half_shares: halfShares === "" ? null : Number(halfShares) }
+          : {}),
+        ...(showTaxInputs && expatriate !== initialExpatriate
+          ? { is_expatriate: expatriate === "" ? null : expatriate === "yes" }
+          : {}),
       });
       showToast("Employee details updated", "good");
       onSaved();
@@ -254,6 +268,31 @@ function EditDetailsDrawer({
             onChange={(event) => setContractEndDate(event.target.value)}
           />
         </div>
+        {showTaxInputs ? (
+          <>
+            <div>
+              <Label htmlFor="edit-half-shares">Family Shares (in halves)</Label>
+              <Input
+                id="edit-half-shares"
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={halfShares}
+                onChange={(event) => setHalfShares(event.target.value)}
+                placeholder="Where income tax depends on family; 1 share = 2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-expatriate">Expatriate Status</Label>
+              <Select id="edit-expatriate" value={expatriate} onChange={(event) => setExpatriate(event.target.value)}>
+                <option value="">Not recorded</option>
+                <option value="no">Local staff</option>
+                <option value="yes">Expatriate</option>
+              </Select>
+            </div>
+          </>
+        ) : null}
         <div>
           <Label>Photo</Label>
           <EmployeePhotoField
@@ -377,6 +416,7 @@ function LoginCredentialsDialog({
 
 function OverviewTab({ employeeId }: { employeeId: string }) {
   const regionLabel = useRegionLabel();
+  const isNigeria = useIsNigeria();
   const employee = useApiResource(() => employeesApi.get(employeeId), [employeeId]);
   const branches = useApiResource(() => branchesApi.list());
   if (!employee.data) return null;
@@ -429,11 +469,30 @@ function OverviewTab({ employeeId }: { employeeId: string }) {
             <dd className="font-bold">{formatMoney(e.other_earnings_minor!)}</dd>
             <dt className="text-ink-soft">Gross / Period</dt>
             <dd className="font-extrabold text-primary">{formatMoney(grossMinor)}</dd>
+            {isNigeria ? null : (
+              <>
+                <dt className="text-ink-soft">Family Shares</dt>
+                <dd className="font-bold">{halfSharesLabel(e.tax_half_shares)}</dd>
+                <dt className="text-ink-soft">Expatriate Status</dt>
+                <dd className="font-bold">{expatriateLabel(e.is_expatriate)}</dd>
+              </>
+            )}
           </dl>
         )}
       </Card>
     </div>
   );
+}
+
+// Family shares are stored in halves (1 share = 2).
+function halfSharesLabel(halfShares: number | null | undefined): string {
+  if (halfShares === null || halfShares === undefined) return "Not recorded";
+  return `${halfShares / 2} (${halfShares} halves)`;
+}
+
+function expatriateLabel(isExpatriate: boolean | null | undefined): string {
+  if (isExpatriate === null || isExpatriate === undefined) return "Not recorded";
+  return isExpatriate ? "Expatriate" : "Local staff";
 }
 
 function HistoryTab({ employeeId }: { employeeId: string }) {

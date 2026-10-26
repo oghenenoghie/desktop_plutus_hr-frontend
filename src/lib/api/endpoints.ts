@@ -146,6 +146,7 @@ import type {
   Overtime,
   OvertimeCreateBody,
   PayeByStateLine,
+  StatutorySummaryLine,
   PayeEstimateOut,
   PayeEstimateRequestBody,
   PayrollRegisterLine,
@@ -1370,6 +1371,15 @@ export const payrollReportsApi = {
     const qs = query.toString();
     return apiFetch<PayeByStateLine[]>(
       `/reports/paye-by-state${qs ? `?${qs}` : ""}`,
+    );
+  },
+  statutorySummary: (params?: { fromDate?: string; toDate?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.fromDate) query.set("from_date", params.fromDate);
+    if (params?.toDate) query.set("to_date", params.toDate);
+    const qs = query.toString();
+    return apiFetch<StatutorySummaryLine[]>(
+      `/reports/statutory-summary${qs ? `?${qs}` : ""}`,
     );
   },
   annualTaxReconciliation: (taxYear: number) =>

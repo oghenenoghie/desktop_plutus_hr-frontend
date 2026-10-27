@@ -34,6 +34,7 @@ import {
 } from "@/lib/api/endpoints";
 import { formatDate, formatDateTime, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { employeeLines, isEnginePayslip } from "@/lib/payslip-lines";
 import type { PerformanceReview, Task, TrainingEnrollment } from "@/lib/types";
 
 export default function MyWorkspacePage() {
@@ -181,9 +182,18 @@ export default function MyWorkspacePage() {
           />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <PayslipFigure label="Gross" value={latestPayslip.gross_minor} />
-            <PayslipFigure label="PAYE" value={latestPayslip.paye_minor} />
-            <PayslipFigure label="Pension" value={latestPayslip.pension_employee_minor} />
-            <PayslipFigure label="NHF" value={latestPayslip.nhf_minor} />
+            {isEnginePayslip(latestPayslip) ? (
+              // The country's own deductions, in the order they were calculated.
+              employeeLines(latestPayslip.statutory_lines).map((line) => (
+                <PayslipFigure key={line.code} label={line.name} value={line.amount_minor} />
+              ))
+            ) : (
+              <>
+                <PayslipFigure label="PAYE" value={latestPayslip.paye_minor} />
+                <PayslipFigure label="Pension" value={latestPayslip.pension_employee_minor} />
+                <PayslipFigure label="NHF" value={latestPayslip.nhf_minor} />
+              </>
+            )}
             <PayslipFigure label="Net" value={latestPayslip.net_minor} emphasize />
           </div>
         </Card>

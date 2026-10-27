@@ -3,6 +3,7 @@
 import { Fragment, use, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { useIsNigeria } from "@/components/region-field";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import { ApiError } from "@/lib/api/client";
 import { employeesApi, payRunsApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { isEnginePayslip } from "@/lib/payslip-lines";
 import type { Payslip, PayslipDelivery } from "@/lib/types";
 
 interface PayslipDerivationOutputs {
@@ -34,6 +36,7 @@ interface PayslipDerivationOutputs {
 export default function PayRunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { showToast } = useToast();
+  const isNigeria = useIsNigeria();
   const payRun = useApiResource(() => payRunsApi.get(id), [id]);
   const payslips = useApiResource(() => payRunsApi.payslips(id), [id]);
   const employees = useApiResource(() => employeesApi.list());
@@ -175,7 +178,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
           <Card>
             <CardHeader
               title="Payslips"
-              subtitle="Every figure derived step by step, the way the engine computes it"
+              subtitle="Every figure derived step by step, the way it was computed"
             />
             {payslips.loading ? <LoadingState /> : null}
             {payslips.error ? <ErrorState message={payslips.error} /> : null}
@@ -188,7 +191,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                   <tr>
                     <Th>Employee</Th>
                     <Th align="right">Gross</Th>
-                    <Th align="right">PAYE</Th>
+                    <Th align="right">{isNigeria ? "PAYE" : "Income tax"}</Th>
                     <Th align="right">Net</Th>
                     <Th align="right">Actions</Th>
                   </tr>
@@ -228,31 +231,37 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                 <div className="grid gap-6 lg:grid-cols-2">
                                   <div className="space-y-3">
                                     <DerivationRow label="Gross Pay" value={outputs.gross_minor} />
-                                    <DerivationRow
-                                      label="Pensionable Pay"
-                                      value={outputs.pensionable_pay_minor}
-                                    />
-                                    <DerivationRow
-                                      label="Pension (Employee, 8%)"
-                                      value={outputs.pension_employee_minor}
-                                      subtract
-                                    />
-                                    <DerivationRow
-                                      label="Pension (Employer, 10%)"
-                                      value={outputs.pension_employer_minor}
-                                      muted
-                                    />
-                                    <DerivationRow label="NHF (2.5%)" value={outputs.nhf_minor} subtract />
-                                    <DerivationRow
-                                      label="Cumulative Rent Relief"
-                                      value={outputs.cumulative_rent_relief_minor}
-                                      muted
-                                    />
-                                    <DerivationRow
-                                      label="Cumulative Chargeable Income"
-                                      value={outputs.cumulative_chargeable_income_minor}
-                                    />
-                                    <DerivationRow label="PAYE" value={outputs.paye_minor} subtract />
+                                    {isEnginePayslip(slip) ? (
+                                      <StatutoryLineRows slip={slip} />
+                                    ) : (
+                                      <>
+                                        <DerivationRow
+                                          label="Pensionable Pay"
+                                          value={outputs.pensionable_pay_minor}
+                                        />
+                                        <DerivationRow
+                                          label="Pension (Employee, 8%)"
+                                          value={outputs.pension_employee_minor}
+                                          subtract
+                                        />
+                                        <DerivationRow
+                                          label="Pension (Employer, 10%)"
+                                          value={outputs.pension_employer_minor}
+                                          muted
+                                        />
+                                        <DerivationRow label="NHF (2.5%)" value={outputs.nhf_minor} subtract />
+                                        <DerivationRow
+                                          label="Cumulative Rent Relief"
+                                          value={outputs.cumulative_rent_relief_minor}
+                                          muted
+                                        />
+                                        <DerivationRow
+                                          label="Cumulative Chargeable Income"
+                                          value={outputs.cumulative_chargeable_income_minor}
+                                        />
+                                        <DerivationRow label="PAYE" value={outputs.paye_minor} subtract />
+                                      </>
+                                    )}
                                     {outputs.loan_deduction_minor > 0 ? (
                                       <DerivationRow
                                         label="Loan Deduction"
@@ -342,6 +351,26 @@ function SummaryStat({ label, value }: { label: string; value: React.ReactNode }
       <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">{label}</p>
       <div className="mt-1 text-[15px] font-extrabold text-ink">{value}</div>
     </div>
+  );
+}
+
+// A payslip from the country rule engine: its statutory lines in the order
+// they were calculated. What the employer pays on top is shown, not
+// subtracted.
+function StatutoryLineRows({ slip }: { slip: Payslip }) {
+  return (
+    <>
+      {(slip.statutory_lines ?? []).map((line) => (
+        <DerivationRow
+          key={line.code}
+          label={line.kind === "employer_contribution" ? `${line.name} (employer)` : line.name}
+          value={line.amount_minor}
+          subtract={line.kind !== "employer_contribution"}
+          muted={line.kind === "employer_contribution"}
+        />
+      ))}
+      <p className="text-[11px] text-ink-soft">Rule set {slip.rule_version_id}</p>
+    </>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { useIsNigeria } from "@/components/region-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
@@ -15,17 +16,30 @@ import { ApiError } from "@/lib/api/client";
 import { payRunsApi, payrollReportsApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { LINE_KIND_LABELS, amountFor, lineColumns } from "@/lib/payslip-lines";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function PayrollReportsPage() {
+  // Nigerian PAYE is owed to each employee's state; every other country's
+  // statutory payments come from its own rule set, line by line.
+  const isNigeria = useIsNigeria();
   return (
     <div>
-      <PageHeader title="Payroll Reports" subtitle="Payroll register, PAYE by state, and annual tax reconciliation" />
+      <PageHeader
+        title="Payroll Reports"
+        subtitle={
+          isNigeria
+            ? "Payroll register, PAYE by state, and annual tax reconciliation"
+            : "Payroll register, statutory summary, and annual tax reconciliation"
+        }
+      />
       <Tabs
         tabs={[
           { id: "register", label: "Payroll Register", content: <PayrollRegisterTab /> },
-          { id: "paye-by-state", label: "PAYE by State", content: <PayeByStateTab /> },
+          isNigeria
+            ? { id: "paye-by-state", label: "PAYE by State", content: <PayeByStateTab /> }
+            : { id: "statutory-summary", label: "Statutory Summary", content: <StatutorySummaryTab /> },
           { id: "annual-reconciliation", label: "Annual Tax Reconciliation", content: <AnnualReconciliationTab /> },
         ]}
       />
@@ -34,12 +48,14 @@ export default function PayrollReportsPage() {
 }
 
 function PayrollRegisterTab() {
+  const isNigeria = useIsNigeria();
   const payRuns = useApiResource(() => payRunsApi.list());
   const [payRunId, setPayRunId] = useState("");
   const register = useApiResource(
     () => (payRunId ? payrollReportsApi.register(payRunId) : Promise.resolve([])),
     [payRunId],
   );
+  const columns = lineColumns((register.data ?? []).map((line) => line.statutory_lines));
 
   return (
     <div>
@@ -69,10 +85,21 @@ function PayrollRegisterTab() {
                   <tr>
                     <Th>Employee</Th>
                     <Th align="right">Gross</Th>
-                    <Th align="right">Pension (Ee)</Th>
-                    <Th align="right">Pension (Er)</Th>
-                    <Th align="right">NHF</Th>
-                    <Th align="right">PAYE</Th>
+                    {isNigeria ? (
+                      <>
+                        <Th align="right">Pension (Ee)</Th>
+                        <Th align="right">Pension (Er)</Th>
+                        <Th align="right">NHF</Th>
+                        <Th align="right">PAYE</Th>
+                      </>
+                    ) : (
+                      columns.map((column) => (
+                        <Th key={column.code} align="right">
+                          {column.name}
+                          {column.kind === "employer_contribution" ? " (Er)" : ""}
+                        </Th>
+                      ))
+                    )}
                     <Th align="right">Loan</Th>
                     <Th align="right">Benefit</Th>
                     <Th align="right">Union Dues</Th>
@@ -87,10 +114,20 @@ function PayrollRegisterTab() {
                         <div className="text-[11px] font-normal text-ink-soft">{line.employee_number}</div>
                       </Td>
                       <Td align="right">{formatMoney(line.gross_minor)}</Td>
-                      <Td align="right">{formatMoney(line.pension_employee_minor)}</Td>
-                      <Td align="right">{formatMoney(line.pension_employer_minor)}</Td>
-                      <Td align="right">{formatMoney(line.nhf_minor)}</Td>
-                      <Td align="right">{formatMoney(line.paye_minor)}</Td>
+                      {isNigeria ? (
+                        <>
+                          <Td align="right">{formatMoney(line.pension_employee_minor)}</Td>
+                          <Td align="right">{formatMoney(line.pension_employer_minor)}</Td>
+                          <Td align="right">{formatMoney(line.nhf_minor)}</Td>
+                          <Td align="right">{formatMoney(line.paye_minor)}</Td>
+                        </>
+                      ) : (
+                        columns.map((column) => (
+                          <Td key={column.code} align="right">
+                            {formatMoney(amountFor(line.statutory_lines, column.code))}
+                          </Td>
+                        ))
+                      )}
                       <Td align="right">{formatMoney(line.loan_deduction_minor)}</Td>
                       <Td align="right">{formatMoney(line.benefit_deduction_minor)}</Td>
                       <Td align="right">{formatMoney(line.union_dues_deduction_minor)}</Td>
@@ -141,13 +178,62 @@ function PayeByStateTab() {
   );
 }
 
+function StatutorySummaryTab() {
+  const lines = useApiResource(() => payrollReportsApi.statutorySummary());
+
+  return (
+    <Card>
+      {lines.loading ? <LoadingState /> : null}
+      {lines.error ? <ErrorState message={lines.error} /> : null}
+      {lines.data && lines.data.length === 0 ? (
+        <EmptyState label="No statutory payments on a locked pay run yet." />
+      ) : null}
+      {lines.data && lines.data.length > 0 ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Line</Th>
+                <Th>Kind</Th>
+                <Th>Paid to</Th>
+                <Th align="right">Employees</Th>
+                <Th align="right">Base</Th>
+                <Th align="right">Amount</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {lines.data.map((line) => (
+                <tr key={line.code}>
+                  <Td className="font-bold">
+                    {line.name}
+                    <div className="text-[11px] font-normal text-ink-soft">{line.code}</div>
+                  </Td>
+                  <Td>{LINE_KIND_LABELS[line.kind]}</Td>
+                  <Td>{line.authority}</Td>
+                  <Td align="right">{line.employee_count}</Td>
+                  <Td align="right">{formatMoney(line.base_minor)}</Td>
+                  <Td align="right" className="font-bold">
+                    {formatMoney(line.amount_minor)}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 function AnnualReconciliationTab() {
+  const isNigeria = useIsNigeria();
   const [taxYear, setTaxYear] = useState(CURRENT_YEAR);
   const { showToast } = useToast();
   const reconciliation = useApiResource(
     () => payrollReportsApi.annualTaxReconciliation(taxYear),
     [taxYear],
   );
+  const columns = lineColumns((reconciliation.data ?? []).map((line) => line.statutory_totals));
 
   async function downloadCertificate(employeeId: string) {
     try {
@@ -185,11 +271,22 @@ function AnnualReconciliationTab() {
             <Thead>
               <tr>
                 <Th>Employee</Th>
-                <Th>TIN</Th>
+                <Th>{isNigeria ? "TIN" : "Tax ID"}</Th>
                 <Th align="right">Gross</Th>
-                <Th align="right">Pension</Th>
-                <Th align="right">NHF</Th>
-                <Th align="right">PAYE</Th>
+                {isNigeria ? (
+                  <>
+                    <Th align="right">Pension</Th>
+                    <Th align="right">NHF</Th>
+                    <Th align="right">PAYE</Th>
+                  </>
+                ) : (
+                  columns.map((column) => (
+                    <Th key={column.code} align="right">
+                      {column.name}
+                      {column.kind === "employer_contribution" ? " (Er)" : ""}
+                    </Th>
+                  ))
+                )}
                 <Th align="right">Payslips</Th>
                 <Th align="right">Certificate</Th>
               </tr>
@@ -203,9 +300,19 @@ function AnnualReconciliationTab() {
                   </Td>
                   <Td>{line.tin ?? "Missing"}</Td>
                   <Td align="right">{formatMoney(line.total_gross_minor)}</Td>
-                  <Td align="right">{formatMoney(line.total_pension_employee_minor)}</Td>
-                  <Td align="right">{formatMoney(line.total_nhf_minor)}</Td>
-                  <Td align="right">{formatMoney(line.total_paye_minor)}</Td>
+                  {isNigeria ? (
+                    <>
+                      <Td align="right">{formatMoney(line.total_pension_employee_minor)}</Td>
+                      <Td align="right">{formatMoney(line.total_nhf_minor)}</Td>
+                      <Td align="right">{formatMoney(line.total_paye_minor)}</Td>
+                    </>
+                  ) : (
+                    columns.map((column) => (
+                      <Td key={column.code} align="right">
+                        {formatMoney(amountFor(line.statutory_totals, column.code))}
+                      </Td>
+                    ))
+                  )}
                   <Td align="right">{line.payslip_count}</Td>
                   <Td align="right">
                     <Button size="md" variant="secondary" onClick={() => downloadCertificate(line.employee_id)}>

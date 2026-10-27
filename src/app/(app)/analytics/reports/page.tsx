@@ -29,6 +29,7 @@ const REPORTS: ReportDefinition[] = [
   { key: "payroll", title: "Payroll summary", description: "Payroll cost, pay, deductions and contributions by month and group.", section: "payroll", kind: "section" },
   { key: "pay_runs", title: "Pay runs", description: "Each pay run's totals for runs ending in the period.", section: "payroll", kind: "records" },
   { key: "payslips", title: "Payslip register", description: "One row per payslip: gross, statutory deductions and net.", section: "payroll", kind: "records", individual: true },
+  { key: "statutory_lines", title: "Payslip statutory lines", description: "One row per statutory line on each payslip, for countries on the country rule engine (not Nigeria).", section: "payroll", kind: "records", individual: true },
   { key: "attendance", title: "Attendance summary", description: "Rates, punctuality and hours against rostered shifts.", section: "attendance", kind: "section" },
   { key: "attendance", title: "Rostered shifts", description: "Each rostered shift with its clock-in, clock-out and outcome.", section: "attendance", kind: "records" },
   { key: "leave", title: "Leave summary", description: "Requests, approved days, utilisation and balances.", section: "leave", kind: "section" },

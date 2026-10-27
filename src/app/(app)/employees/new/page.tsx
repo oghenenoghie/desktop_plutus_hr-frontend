@@ -38,6 +38,8 @@ interface FormState {
   transport: string;
   other_earnings: string;
   annual_rent_paid: string;
+  tax_half_shares: string;
+  is_expatriate: "" | "yes" | "no";
   pay_frequency: PayFrequency;
   annual_leave_entitlement_days: string;
   tin: string;
@@ -71,6 +73,8 @@ const INITIAL_STATE: FormState = {
   transport: "",
   other_earnings: "",
   annual_rent_paid: "",
+  tax_half_shares: "",
+  is_expatriate: "",
   pay_frequency: "monthly",
   annual_leave_entitlement_days: "20",
   tin: "",
@@ -125,6 +129,10 @@ export default function NewEmployeePage() {
         transport_minor: toMinorUnits(form.transport),
         other_earnings_minor: form.other_earnings ? toMinorUnits(form.other_earnings) : undefined,
         annual_rent_paid_minor: form.annual_rent_paid ? toMinorUnits(form.annual_rent_paid) : undefined,
+        // Only some countries' rules need these, never Nigeria's; left unset
+        // they stay unrecorded, and a rule that needs one refuses the run.
+        tax_half_shares: !isNigeria && form.tax_half_shares !== "" ? Number(form.tax_half_shares) : undefined,
+        is_expatriate: !isNigeria && form.is_expatriate ? form.is_expatriate === "yes" : undefined,
         pay_frequency: form.pay_frequency,
         annual_leave_entitlement_days: form.annual_leave_entitlement_days
           ? Number(form.annual_leave_entitlement_days)
@@ -297,7 +305,31 @@ export default function NewEmployeePage() {
                   <Input value={form.nhf_number} onChange={(e) => set("nhf_number", e.target.value)} />
                 </Field>
               </>
-            ) : null}
+            ) : (
+              <>
+                <Field label="Family shares (in halves)">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    value={form.tax_half_shares}
+                    onChange={(e) => set("tax_half_shares", e.target.value)}
+                    placeholder="Where income tax depends on family; 1 share = 2"
+                  />
+                </Field>
+                <Field label="Expatriate status">
+                  <Select
+                    value={form.is_expatriate}
+                    onChange={(e) => set("is_expatriate", e.target.value as FormState["is_expatriate"])}
+                  >
+                    <option value="">Not recorded</option>
+                    <option value="no">Local staff</option>
+                    <option value="yes">Expatriate</option>
+                  </Select>
+                </Field>
+              </>
+            )}
           </div>
         </Card>
 

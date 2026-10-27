@@ -24,4 +24,8 @@ description: Build and maintain Plutus country selection, tax settings, VAT/WHT 
 - Money: `formatMoney(minor)` and `toMinorUnits(value)` in `src/lib/format.ts` use the signed-in organisation's currency (set from `/auth/me` in `auth-context.tsx`) and its own decimal places; `currencyLabel()` labels amount fields ("₦" or "KES"). Never divide by 100 or write "₦" by hand.
 - Payroll availability: `user.payroll_available` from `useAuth()`. Mark a payroll-only nav item `payrollOnly: true` in `src/lib/nav.ts`; the app shell then hides it and shows `PayrollUnavailable` on its routes where payroll isn't available.
 - Nigerian-only inputs: use `RegionField`, `useIsNigeria` and `useRegionLabel` from `src/components/region-field.tsx` rather than `NIGERIA_STATES` directly.
+- Payslips from the country rule engine (every country but Nigeria) carry `statutory_lines`; a Nigerian payslip has none and uses its pension, NHF and PAYE fields.
+  - Use `isEnginePayslip`, `employeeLines`, `employerLines` and `lineColumns` from `src/lib/payslip-lines.ts` rather than reading `paye_minor` alone.
+  - Name a statutory liability with `liabilityLabel` (`src/lib/liabilities.ts`): a `country` liability is named by its `line_code`.
+  - Family shares (`tax_half_shares`, in halves) and `is_expatriate` are shown only for a non-Nigerian organisation, only to someone who can see the employee's pay. Send them only when changed.
 - End-to-end tests: `e2e/countries.spec.ts` in `plutus-hr-system-frontend` (sign-up, a Kenyan company's journey, Setup, the catalogue, and the API's refusals); this repo has no e2e suite.

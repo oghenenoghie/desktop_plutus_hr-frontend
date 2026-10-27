@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { TaxSettingsNotice } from "@/components/tax-settings-notice";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,6 +24,8 @@ export default function PayrollPage() {
         subtitle="Multi-frequency runs with full audit trail"
         action={<Button onClick={() => router.push("/payroll/new")}>New Pay Run</Button>}
       />
+
+      <TaxSettingsNotice />
 
       <Card>
         {payRuns.loading ? <LoadingState /> : null}

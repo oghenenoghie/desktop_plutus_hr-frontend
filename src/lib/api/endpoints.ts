@@ -209,6 +209,8 @@ import type {
   TaskCreateBody,
   TaskStatus,
   TaskUpdateBody,
+  TaxSettings,
+  TaxSettingsUpdateBody,
   TokenResponse,
   TrainingCourse,
   TrainingCourseAttachment,
@@ -278,6 +280,9 @@ export const complianceApi = {
   countries: () => apiFetch<CountryProfile[]>("/compliance/countries"),
   payeEstimate: (body: PayeEstimateRequestBody) =>
     apiFetch<PayeEstimateOut>("/compliance/paye-estimate", { method: "POST", body }),
+  taxSettings: () => apiFetch<TaxSettings>("/compliance/tax-settings"),
+  enterTaxSettings: (body: TaxSettingsUpdateBody) =>
+    apiFetch<TaxSettings>("/compliance/tax-settings", { method: "POST", body }),
 };
 
 export const dashboardApi = {

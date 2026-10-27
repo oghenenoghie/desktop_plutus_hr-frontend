@@ -138,7 +138,7 @@ export default function SetupPage() {
                 {currentCountry
                   ? currentCountry.payroll_available
                     ? "Available"
-                    : "Not available yet: the tax rules await a local adviser's approval"
+                    : "Not available yet: the tax rules aren't approved"
                   : "—"}
               </dd>
             </dl>
@@ -178,8 +178,8 @@ export default function SetupPage() {
             ) : null}
             <p id="org-country-help" className="mt-3 text-[12px] text-ink-soft">
               The country can change only before the first pay run or posted journal. Payroll runs
-              only in a country whose tax rules a local adviser has approved; everything else works
-              in any country.
+              only on approved tax rules; outside Nigeria, an admin also enters the figures the
+              rules leave to each organisation under Tax Settings.
             </p>
           </Card>
 

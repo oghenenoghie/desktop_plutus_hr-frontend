@@ -17,6 +17,7 @@ export interface NavItem {
     | "overtime"
     | "compliance"
     | "countryCompliance"
+    | "taxSettings"
     | "payeCalculator"
     | "setup"
     | "notifications"
@@ -85,6 +86,13 @@ export interface NavItem {
   // (payroll, PAYE, statutory contributions, withholding). Hidden, and the
   // screen replaced by a notice, where payroll isn't available yet.
   payrollOnly?: boolean;
+  // Runs on Nigeria's own rule versions (its PAYE, pension, NHF and
+  // withholding tables), which the API serves only for Nigeria. Hidden, and
+  // the screen replaced by a notice, in every other country.
+  nigeriaOnly?: boolean;
+  // Only for a country on the country rule engine (every country but
+  // Nigeria): its Tax Settings.
+  engineOnly?: boolean;
 }
 
 // A group is either a flat list of items, or split into subgroups when it's
@@ -383,6 +391,14 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: "compliance",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
             payrollOnly: true,
+            nigeriaOnly: true,
+          },
+          {
+            href: "/tax-settings",
+            label: "Tax Settings",
+            icon: "taxSettings",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            engineOnly: true,
           },
           {
             href: "/compliance/countries",
@@ -396,6 +412,7 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: "payeCalculator",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
             payrollOnly: true,
+            nigeriaOnly: true,
           },
           {
             href: "/payroll-reports",
@@ -417,6 +434,7 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: "simulation",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
             payrollOnly: true,
+            nigeriaOnly: true,
           },
           {
             href: "/contractors",
@@ -424,6 +442,7 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: "contractors",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
             payrollOnly: true,
+            nigeriaOnly: true,
           },
         ],
       },
@@ -692,30 +711,44 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-function filterItems(items: NavItem[], role: Role, payrollAvailable: boolean): NavItem[] {
-  return items.filter(
-    (item) => item.roles.includes(role) && (payrollAvailable || !item.payrollOnly),
-  );
+// What the organisation's country allows: payroll at all, and which of
+// Nigeria's own screens or the engine's Tax Settings apply.
+export interface CountryAccess {
+  payrollAvailable: boolean;
+  isNigeria: boolean;
+}
+
+const NIGERIAN_PAYROLL: CountryAccess = { payrollAvailable: true, isNigeria: true };
+
+function itemAllowed(item: NavItem, access: CountryAccess): boolean {
+  if (item.payrollOnly && !access.payrollAvailable) return false;
+  if (item.nigeriaOnly && !access.isNigeria) return false;
+  if (item.engineOnly && access.isNigeria) return false;
+  return true;
+}
+
+function filterItems(items: NavItem[], role: Role, access: CountryAccess): NavItem[] {
+  return items.filter((item) => item.roles.includes(role) && itemAllowed(item, access));
 }
 
 // Filters every group/subgroup down to what this role can see, dropping
 // anything left empty rather than rendering a heading with nothing under it.
 // Payroll-only items go too while the organisation's country has no
-// approved rules.
-export function navGroupsForRole(role: Role, payrollAvailable = true): NavGroup[] {
+// approved rules, and so do the screens for another country's rules.
+export function navGroupsForRole(role: Role, access: CountryAccess = NIGERIAN_PAYROLL): NavGroup[] {
   return NAV_GROUPS.map((group) => {
     if (group.subgroups) {
       const subgroups = group.subgroups
         .map((subgroup) => ({
           ...subgroup,
-          items: filterItems(subgroup.items, role, payrollAvailable),
+          items: filterItems(subgroup.items, role, access),
         }))
         .filter((subgroup) => subgroup.items.length > 0);
       return { heading: group.heading, subgroups };
     }
     return {
       heading: group.heading,
-      items: filterItems(group.items ?? [], role, payrollAvailable),
+      items: filterItems(group.items ?? [], role, access),
     };
   }).filter((group) =>
     group.subgroups
@@ -735,17 +768,34 @@ export function navForRole(role: Role): NavItem[] {
   );
 }
 
-// Whether a path belongs to a payroll-only screen: the most specific nav
-// item it falls under is payroll-only. "/compliance" (Nigeria's rules) is,
-// "/compliance/countries" (the catalogue) isn't.
-export function isPayrollOnlyPath(pathname: string): boolean {
+// The most specific nav item a path falls under: "/compliance" for Nigeria's
+// rules, "/compliance/countries" for the catalogue.
+function itemForPath(pathname: string): NavItem | undefined {
   const items = NAV_GROUPS.flatMap((group) =>
     group.subgroups ? group.subgroups.flatMap((subgroup) => subgroup.items) : (group.items ?? []),
   );
-  const match = items
+  return items
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0];
-  return Boolean(match?.payrollOnly);
+}
+
+// Why the organisation's country can't use the screen at a path, if it
+// can't: no payroll yet, a screen for Nigeria's own rules, or the engine's
+// Tax Settings in Nigeria.
+export function lockedReason(
+  pathname: string,
+  access: CountryAccess,
+): "payroll" | "nigeria" | "engine" | null {
+  const item = itemForPath(pathname);
+  if (!item) return null;
+  if (item.payrollOnly && !access.payrollAvailable) return "payroll";
+  if (item.nigeriaOnly && !access.isNigeria) return "nigeria";
+  if (item.engineOnly && access.isNigeria) return "engine";
+  return null;
+}
+
+export function isPayrollOnlyPath(pathname: string): boolean {
+  return Boolean(itemForPath(pathname)?.payrollOnly);
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

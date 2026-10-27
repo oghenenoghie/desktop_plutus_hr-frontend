@@ -35,6 +35,17 @@ export function formatMoney(minor: number, currency: string = displayCurrency): 
   return currency === "NGN" ? `₦${whole}` : `${currency} ${whole}`;
 }
 
+// With the currency's own decimal places, for statutory limits and rates
+// that aren't whole units: "GMD 3,833.33", "XOF 1,647,315".
+export function formatMoneyExact(minor: number, currency: string = displayCurrency): string {
+  const digits = minorDigits(currency);
+  const amount = (minor / 10 ** digits).toLocaleString("en-NG", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  return currency === "NGN" ? `₦${amount}` : `${currency} ${amount}`;
+}
+
 // Inverse of formatMoney, for form inputs collecting an amount in whole or
 // decimal units of the organisation's currency.
 export function toMinorUnits(value: string, currency: string = displayCurrency): number {

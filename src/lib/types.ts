@@ -2292,6 +2292,16 @@ export interface CountryRules {
   lines: CountryRuleLine[];
 }
 
+// The rules that take over when the current ones end: the settings they
+// add, and any missing on the day they start.
+export interface UpcomingTaxRules {
+  rule_set_id: string;
+  effective_from: string;
+  effective_to: string | null;
+  settings: TaxSetting[];
+  missing: string[];
+}
+
 export interface TaxSettings {
   country_code: string;
   country_name: string;
@@ -2312,6 +2322,7 @@ export interface TaxSettings {
   locked_through: string | null;
   rules: CountryRules | null;
   rules_problem: string | null;
+  upcoming?: UpcomingTaxRules | null;
 }
 
 export interface TaxSettingsUpdateBody {

@@ -2122,6 +2122,7 @@ export const MOCK_FIXTURES = {
     locked_through: null,
     rules: null,
     rules_problem: null,
+    upcoming: null,
   },
   // GET /organisation/countries, the public sign-up list.
   "/organisation/countries": [

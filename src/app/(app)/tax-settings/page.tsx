@@ -17,7 +17,14 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatDateTime, formatMoneyExact, formatPpmAsPercent } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { todayInLagos } from "@/lib/inventory";
-import type { CountryRuleLine, CountryRules, TaxSetting, TaxSettings, TaxSource } from "@/lib/types";
+import type {
+  CountryRuleLine,
+  CountryRules,
+  TaxSetting,
+  TaxSettings,
+  TaxSource,
+  UpcomingTaxRules,
+} from "@/lib/types";
 
 // The figures this organisation enters for its country's payroll rules:
 // those the sources behind the rules didn't settle. Only an admin enters
@@ -70,6 +77,9 @@ export default function TaxSettingsPage() {
           <RulesCard data={data} />
           {data.missing.length > 0 ? <MissingCard data={data} canChange={canChange} /> : null}
           <SettingsCard data={data} canChange={canChange} onSaved={settings.reload} />
+          {data.upcoming && data.upcoming.settings.length > 0 ? (
+            <UpcomingCard data={data} upcoming={data.upcoming} canChange={canChange} onSaved={settings.reload} />
+          ) : null}
           {data.rules ? <RulesInForce data={data} rules={data.rules} /> : null}
           {data.rules_problem ? (
             <Card>
@@ -267,6 +277,78 @@ function SettingsCard({
   );
 }
 
+// The figures the next rules add, entered before they start so the first
+// pay run under them isn't refused.
+function UpcomingCard({
+  data,
+  upcoming,
+  canChange,
+  onSaved,
+}: {
+  data: TaxSettings;
+  upcoming: UpcomingTaxRules;
+  canChange: boolean;
+  onSaved: () => void;
+}) {
+  const { showToast } = useToast();
+  const earliest = [upcoming.effective_from, data.locked_through ? nextDay(data.locked_through) : ""].sort().at(-1)!;
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const changed = Object.entries(edits).filter(([key, value]) => {
+    const setting = upcoming.settings.find((candidate) => candidate.key === key);
+    return setting && value.trim() !== "" && value !== setting.entry;
+  });
+  const missing = upcoming.missing.length;
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (changed.length === 0) return;
+    setSaving(true);
+    try {
+      await complianceApi.enterTaxSettings({ effective_from: earliest, values: Object.fromEntries(changed) });
+      showToast(`Saved from ${formatDate(earliest)}`, "good");
+      setEdits({});
+      onSaved();
+    } catch (err) {
+      showToast(errorText(err), "bad");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className={missing > 0 ? "border-warn" : ""}>
+      <CardHeader
+        title={`From ${formatDate(upcoming.effective_from)}: rule set ${upcoming.rule_set_id}`}
+        subtitle={`${data.country_name}'s next rules ask for ${upcoming.settings.length === 1 ? "one more figure" : `${upcoming.settings.length} more figures`}. Enter ${upcoming.settings.length === 1 ? "it" : "them"} now so the first pay run under them isn't refused.`}
+        action={<Badge tone={missing > 0 ? "warn" : "good"}>{missing > 0 ? `${missing} missing` : "Ready"}</Badge>}
+      />
+      <form onSubmit={onSubmit} className="flex flex-col gap-5">
+        {upcoming.settings.map((setting) => (
+          <SettingField
+            key={setting.key}
+            setting={setting}
+            currency={data.currency}
+            value={currentValue(setting, edits) ?? ""}
+            canChange={canChange}
+            onChange={(value) => setEdits((prev) => ({ ...prev, [setting.key]: value }))}
+          />
+        ))}
+        {canChange ? (
+          <div className="flex flex-col gap-3 border-t border-border pt-5">
+            <p className="text-[12px] text-ink-soft">Takes effect from {formatDate(earliest)}.</p>
+            <div>
+              <Button type="submit" disabled={saving || changed.length === 0}>
+                {saving ? "Saving…" : `Save for ${formatDate(upcoming.effective_from)}`}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </form>
+    </Card>
+  );
+}
+
 function SettingField({
   setting,
   currency,
@@ -333,7 +415,7 @@ function SettingField({
                   : setting.minimum
                     ? `At least ${setting.minimum}`
                     : `At most ${setting.maximum}`}
-                {unit && unit !== "day" ? ` ${unit}` : ""}
+                {unit === "%" ? "%" : unit && unit !== "day" ? ` ${unit}` : ""}
               </p>
             ) : null}
           </div>

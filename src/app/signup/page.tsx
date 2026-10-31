@@ -17,10 +17,13 @@ import type { OrganisationSignupOut, SignupCountry } from "@/lib/types";
 const DEFAULT_COUNTRY = "NG";
 
 function countryHelp(country: SignupCountry | undefined): string {
-  if (!country || country.payroll_available) {
+  if (!country || (country.payroll_available && country.code === DEFAULT_COUNTRY)) {
     return "Sets the currency and the tax rules Plutus uses, from the moment your workspace is created.";
   }
-  return `Your workspace will run in ${country.currency}. Payroll for ${country.name} switches on once a local tax adviser approves its tax rules; everything else works straight away.`;
+  if (country.payroll_available) {
+    return `Your workspace will run in ${country.currency}, on ${country.name}'s payroll rules. Before the first pay run, an admin enters the few figures those rules leave to each organisation, under Tax Settings.`;
+  }
+  return `Your workspace will run in ${country.currency}. Payroll for ${country.name} switches on once its tax rules are approved; everything else works straight away.`;
 }
 
 export default function SignupPage() {

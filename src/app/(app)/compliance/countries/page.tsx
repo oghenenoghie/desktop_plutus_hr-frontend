@@ -76,14 +76,16 @@ export default function CountryCompliancePage() {
       <div className="space-y-2 text-[13px] text-ink-soft">
         <p>
           Only approved, effective-dated rules are used for live calculations or ledger postings.
-          Nigeria runs on the rules shown in the Compliance Engine. An organisation can choose any
-          country listed here and runs in its currency straight away, but Plutus won&apos;t
-          calculate, post or file payroll or statutory tax for a country that isn&apos;t active.
+          Nigeria runs on the rules shown in the Compliance Engine. The Gambia, Rwanda, Kenya, Ghana
+          and Côte d&apos;Ivoire run on rules approved by Plutus Technologies from published
+          sources; where those sources didn&apos;t settle a figure, each organisation enters it under
+          Tax Settings, and payroll waits until it has. Their VAT and withholding tax rates
+          aren&apos;t approved yet.
         </p>
         <p>
           <strong className="text-ink">Draft:</strong> the rules are written up with their sources
-          and wait for review by a tax adviser in that country.{" "}
-          <strong className="text-ink">Awaiting review:</strong> the adviser is checking them.{" "}
+          and wait for review.{" "}
+          <strong className="text-ink">Awaiting review:</strong> they are being checked.{" "}
           <strong className="text-ink">Setup required:</strong> nothing drafted yet.
         </p>
       </div>

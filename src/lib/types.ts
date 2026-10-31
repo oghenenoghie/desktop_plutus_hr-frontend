@@ -2193,7 +2193,7 @@ export interface RuleVersion {
 // GET /compliance/countries — the jurisdiction catalogue. A listed country
 // is not necessarily enabled: only an "active" one has approved rules the
 // engine calculates or posts with. "draft" rules are written up with their
-// sources and wait for the country's tax adviser; "in_review" is with them.
+// sources and wait for review; "in_review" is being checked.
 export type CountryTaxStatus = "active" | "in_review" | "draft" | "configuration_required";
 
 export interface CountryProfile {
@@ -2207,6 +2207,128 @@ export interface CountryProfile {
   // statutory tax run only where its rules are approved and encoded.
   selectable: boolean;
   payroll_available: boolean;
+}
+
+// GET /compliance/tax-settings — the figures an organisation enters itself
+// for its country's payroll rules, where the sources behind them didn't
+// settle a figure. Values are in stored form (a percentage in parts per
+// million, an amount in minor units, a day of the following month, or an
+// option's value); "entry" is the same value as a person types it.
+export type TaxSettingKind = "percent" | "amount" | "day" | "choice";
+
+export interface TaxSettingOption {
+  value: string;
+  label: string;
+  source: string;
+  entry: string;
+  display: string;
+}
+
+export interface TaxSetting {
+  key: string;
+  label: string;
+  help: string;
+  kind: TaxSettingKind;
+  options: TaxSettingOption[];
+  minimum: string | null;
+  maximum: string | null;
+  required_when_key: string | null;
+  required_when_value: string | null;
+  required: boolean;
+  value: string | null;
+  entry: string | null;
+  display: string | null;
+  effective_from: string | null;
+  entered_by: string | null;
+  entered_at: string | null;
+}
+
+export interface TaxSettingEntry {
+  id: string;
+  key: string;
+  label: string;
+  display: string;
+  effective_from: string;
+  note: string | null;
+  entered_by: string | null;
+  entered_at: string;
+}
+
+export interface TaxSource {
+  id: string;
+  title: string;
+  reference: string;
+  official: boolean;
+}
+
+export interface CountryRuleLine {
+  code: string;
+  name: string;
+  kind: "employee_contribution" | "employer_contribution" | "payroll_levy" | "tax_credit";
+  authority: string;
+  base: string;
+  rate_ppm: number | null;
+  amount_minor: number | null;
+  base_ceiling_minor: number | null;
+  amount_floor_minor: number | null;
+  amount_cap_minor: number | null;
+  applies_to: "all" | "local_staff" | "expatriates";
+  tax_deductible: boolean;
+  due: string;
+  source: string;
+}
+
+export interface CountryRules {
+  rule_set_id: string;
+  income_tax: {
+    code: string;
+    name: string;
+    authority: string;
+    method: string;
+    bands: { up_to_minor: number | null; rate_ppm: number }[];
+    due: string;
+    source: string;
+  };
+  lines: CountryRuleLine[];
+}
+
+// The rules that take over when the current ones end: the settings they
+// add, and any missing on the day they start.
+export interface UpcomingTaxRules {
+  rule_set_id: string;
+  effective_from: string;
+  effective_to: string | null;
+  settings: TaxSetting[];
+  missing: string[];
+}
+
+export interface TaxSettings {
+  country_code: string;
+  country_name: string;
+  currency: string;
+  // False where the country's rules take no Tax Settings (Nigeria).
+  applies: boolean;
+  rule_set_id: string | null;
+  effective_from: string | null;
+  effective_to: string | null;
+  approved_by: string | null;
+  approved_on: string | null;
+  approval_basis: "owner_approved" | "adviser_reviewed" | null;
+  summary: string[];
+  settings: TaxSetting[];
+  missing: string[];
+  history: TaxSettingEntry[];
+  sources: TaxSource[];
+  locked_through: string | null;
+  rules: CountryRules | null;
+  rules_problem: string | null;
+  upcoming?: UpcomingTaxRules | null;
+}
+
+export interface TaxSettingsUpdateBody {
+  effective_from: string;
+  values: Record<string, string>;
+  note?: string | null;
 }
 
 // GET /organisation/countries — public, for the sign-up form.

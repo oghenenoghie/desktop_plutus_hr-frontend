@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { TaxSettingsNotice } from "@/components/tax-settings-notice";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -84,6 +85,7 @@ export default function NewPayRunPage() {
   return (
     <div>
       <PageHeader title="New Pay Run" subtitle="Opens a run against every registered employee unless scoped below" />
+      <TaxSettingsNotice />
 
       <form onSubmit={onSubmit} className="max-w-2xl space-y-6">
         <Card>

@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   ArrowLeftRight,
   ArrowUpDown,
+  BadgePercent,
   Banknote,
   BookLock,
   BarChart3,
@@ -82,6 +83,7 @@ import {
 import {
   navGroupsForRole,
   ROLE_LABELS,
+  type CountryAccess,
   type NavGroup,
   type NavItem,
   type NavSubgroup,
@@ -120,6 +122,7 @@ const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   payroll: Banknote,
   compliance: Scale,
   countryCompliance: Earth,
+  taxSettings: BadgePercent,
   payeCalculator: Percent,
   setup: Settings2,
   leave: ClipboardList,
@@ -275,17 +278,17 @@ function GroupHeading({
 
 export function Sidebar({
   role,
-  payrollAvailable,
+  access,
   open,
   onClose,
 }: {
   role: Role;
-  payrollAvailable: boolean;
+  access: CountryAccess;
   open: boolean;
   onClose: () => void;
 }) {
   const pathname = usePathname();
-  const groups = navGroupsForRole(role, payrollAvailable);
+  const groups = navGroupsForRole(role, access);
   const activeHref = activeHrefFor(groups, pathname);
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
     initialCollapsed(groups, pathname),

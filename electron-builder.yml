@@ -60,7 +60,8 @@ win:
   icon: electron/assets/icon.ico
 nsis:
   # Stops every Plutus process (not just the window) before an update
-  # replaces the installed files — see the comments in the file itself.
+  # replaces the installed files, asking Windows for administrator
+  # permission when it needs it — see the comments in the file itself.
   include: electron/installer.nsh
 # The AppImage's own runtime, the program that mounts it when it's opened.
 # The default (legacy) one loads libfuse.so.2, which Ubuntu 22.04 and later

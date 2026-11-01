@@ -385,7 +385,15 @@ async function stopLeftoverProcesses() {
       ],
       { windowsHide: true, timeout: 60_000 },
       (error) => {
-        if (error) logStartup(`Stopping leftover processes failed: ${error}`);
+        if (error?.code === 2) {
+          // The script's "still running" exit code: usually a previous run
+          // started with "Run as administrator", which this run can't stop.
+          logStartup(
+            "Some processes left from a previous run couldn't be stopped. They may be running as administrator; restarting Windows stops them.",
+          );
+        } else if (error) {
+          logStartup(`Stopping leftover processes failed: ${error}`);
+        }
         resolve();
       },
     );

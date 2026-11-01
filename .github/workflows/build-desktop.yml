@@ -668,7 +668,11 @@ jobs:
   # This runner always has administrator rights and no permission prompt,
   # so the job reproduces the problem the other way round: Plutus runs with
   # the runner's full rights while the installer runs with a normal user's
-  # (the restricted token "runas /trustlevel:0x20000" gives). The installer
+  # (the restricted token "runas /trustlevel:0x20000" gives). With UAC off,
+  # a process started with full rights still lets that token stop it, so
+  # the job also gives Plutus's processes the access rules of one started
+  # with "Run as administrator": only SYSTEM and Administrators may touch
+  # them. The installer
   # has to show its own explanation, not electron-builder's message, and
   # Cancel has to leave the install as it was; run with full rights, it
   # then has to replace it. Windows' permission prompt itself can't appear
@@ -787,6 +791,29 @@ jobs:
             static extern bool GetExitCodeProcess(IntPtr process, out uint code);
             [DllImport("kernel32.dll", SetLastError = true)]
             static extern bool CloseHandle(IntPtr handle);
+            [DllImport("kernel32.dll", SetLastError = true)]
+            static extern IntPtr OpenProcess(uint access, bool inherit, int processId);
+            [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            static extern bool ConvertStringSecurityDescriptorToSecurityDescriptor(string sddl, uint revision, out IntPtr descriptor, out uint size);
+            [DllImport("advapi32.dll", SetLastError = true)]
+            static extern bool SetKernelObjectSecurity(IntPtr handle, uint securityInformation, IntPtr descriptor);
+            [DllImport("kernel32.dll")]
+            static extern IntPtr LocalFree(IntPtr memory);
+
+            // Lets only SYSTEM and Administrators open the process, so a
+            // normal user's rights can't stop it.
+            public static void AdminOnly(int processId) {
+              IntPtr process = OpenProcess(0x00040000 /* WRITE_DAC */, false, processId);
+              if (process == IntPtr.Zero) throw new Win32Exception();
+              try {
+                IntPtr descriptor;
+                uint size;
+                if (!ConvertStringSecurityDescriptorToSecurityDescriptor("D:P(A;;0x1fffff;;;SY)(A;;0x1fffff;;;BA)", 1, out descriptor, out size)) throw new Win32Exception();
+                try {
+                  if (!SetKernelObjectSecurity(process, 4 /* DACL_SECURITY_INFORMATION */, descriptor)) throw new Win32Exception();
+                } finally { LocalFree(descriptor); }
+              } finally { CloseHandle(process); }
+            }
 
             // Returns the process handle; its ID goes in processId.
             public static IntPtr Start(string commandLine, out int processId) {
@@ -840,6 +867,8 @@ jobs:
             return -1
           }
 
+          $processId = 0
+
           # 1. Install this build and start it with the runner's rights.
           $run = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
           $exe = Find-PlutusExe
@@ -849,9 +878,27 @@ jobs:
           $appIds = @(Get-Process -Name $productName).Id
           Write-Host "Plutus is running with full rights (processes $($appIds -join ', '))."
 
+          # The restricted token has to be a normal user's: Administrators
+          # switched off ("Group used for deny only").
+          $groupsFile = Join-Path $env:TEMP 'normal-user-groups.txt'
+          $handle = [NormalUser]::Start("`"$env:SystemRoot\System32\cmd.exe`" /c whoami /groups /priv > `"$groupsFile`"", [ref]$processId)
+          Wait-Exit $handle 60 | Out-Null
+          $groups = Get-Content $groupsFile -Raw
+          Write-Host $groups
+          if (-not ($groups -match 'BUILTIN\\Administrators.*Group used for deny only')) { throw "The restricted token still has the Administrators group, so it isn't a normal user's." }
+
+          # Like a Plutus started with "Run as administrator": only SYSTEM
+          # and Administrators may stop anything running from its folder.
+          $installDir = $exe.DirectoryName
+          $protected = @(Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith("$installDir\", [StringComparison]::OrdinalIgnoreCase) })
+          foreach ($process in $protected) {
+            # One that has just exited (a Postgres connection, say) can't be.
+            try { [NormalUser]::AdminOnly($process.Id) } catch { Write-Host "Not changed: $($process.Name) $($process.Id): $($_.Exception.Message)" }
+          }
+          Write-Host "Only administrators may stop: $(($protected | ForEach-Object { "$($_.Name) $($_.Id)" }) -join ', ')."
+
           # 2. A silent install with a normal user's rights can't ask, so it
           #    has to stop with exit code 2 and leave Plutus alone.
-          $processId = 0
           $handle = [NormalUser]::Start("`"$installer`" /S", [ref]$processId)
           $code = Wait-Exit $handle 180
           $stillRunning = @(Get-Process -Id $appIds -ErrorAction SilentlyContinue).Count -gt 0

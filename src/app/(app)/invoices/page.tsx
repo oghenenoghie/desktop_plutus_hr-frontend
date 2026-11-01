@@ -435,7 +435,7 @@ function NewInvoiceDrawer({
         <div>
           <div className="mb-1 flex items-center justify-between gap-3">
             <Label htmlFor="customer">Customer</Label>
-            <Button type="button" size="sm" variant="secondary" onClick={() => setCreatingCustomer(true)}>
+            <Button type="button" size="md" variant="secondary" onClick={() => setCreatingCustomer(true)}>
               + New Customer
             </Button>
           </div>

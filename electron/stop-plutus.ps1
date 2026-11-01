@@ -48,19 +48,44 @@ function Get-PlutusProcesses {
   })
 }
 
-$targets = Get-PlutusProcesses
-if ($targets.Count -eq 0) { exit 0 }
-if ($CheckOnly) { exit 2 }
+# Stopping can start more: Postgres, losing one of its processes, starts
+# others to recover before it is stopped itself, and those then exit on
+# their own a moment later. So this keeps stopping what's there until
+# nothing is left, and reports something still running only once what's
+# left has stayed for a few seconds without any of it being stoppable.
+# -CheckOnly waits the same few seconds for anything on its way out. The
+# whole run stays inside the minute electron/main.js allows it.
+$idleRounds = 0
+$deadline = (Get-Date).AddSeconds(40)
+while ($true) {
+  $targets = Get-PlutusProcesses
+  if ($targets.Count -eq 0) { exit 0 }
+  if ($idleRounds -ge 6 -or (Get-Date) -gt $deadline) { exit 2 }
 
-# The app first, so it doesn't report its backend or database stopping.
-$stopped = @()
-$targets | Sort-Object { $_.Name -ne 'Plutus Technologies.exe' } | ForEach-Object {
-  Stop-Process -Id $_.ProcessId -Force
-  if ($?) { $stopped += $_.ProcessId }
+  # The app first, so it doesn't report its backend or database stopping,
+  # then the database server before the processes it started.
+  $postgresIds = @($targets | Where-Object { $_.Name -eq 'postgres.exe' } | ForEach-Object { $_.ProcessId })
+  $stopped = @()
+  if (-not $CheckOnly) {
+    $targets | Sort-Object {
+      if ($_.Name -eq 'Plutus Technologies.exe') { 0 }
+      elseif ($_.Name -eq 'postgres.exe' -and $postgresIds -notcontains $_.ParentProcessId) { 1 }
+      else { 2 }
+    } | ForEach-Object {
+      Stop-Process -Id $_.ProcessId -Force
+      if ($?) { $stopped += $_.ProcessId }
+    }
+  }
+
+  if ($stopped.Count -gt 0) {
+    $idleRounds = 0
+    # Only the ones it could stop: waiting for the rest would just use up
+    # the timeout.
+    Wait-Process -Id $stopped -Timeout 15
+  } else {
+    # Nothing left could be (or, with -CheckOnly, was) stopped: it needs
+    # administrator rights, or is already on its way out.
+    $idleRounds++
+    Start-Sleep -Milliseconds 500
+  }
 }
-# Only the ones it could stop: waiting for the rest would just use up the
-# timeout.
-if ($stopped.Count -gt 0) { Wait-Process -Id $stopped -Timeout 15 }
-
-if ((Get-PlutusProcesses).Count -gt 0) { exit 2 }
-exit 0

@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 
+import { useOverlayLayer } from "@/components/ui/overlay-stack";
+
 // A side panel for "add/create without leaving the page" — same dismiss
 // shape as ConfirmDialog (portal to body, backdrop click + Escape) but a
 // slide-over sized for a form rather than a confirm/cancel choice. Keyboard
@@ -22,14 +24,17 @@ export function Drawer({
 }) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
+  // A Modal or ConfirmDialog opened from inside this drawer handles Escape
+  // itself; the drawer (and what's typed into it) stays put.
+  const isTop = useOverlayLayer();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && isTop()) onClose();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, isTop]);
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;

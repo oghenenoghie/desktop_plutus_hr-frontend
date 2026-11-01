@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
+import { CustomerCreateModal } from "@/components/accounting/customer-create-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ import {
 } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { Invoice } from "@/lib/types";
+import type { Customer, Invoice } from "@/lib/types";
 
 export default function InvoicesPage() {
   const invoices = useApiResource(() => invoicesApi.list());
@@ -389,6 +390,8 @@ function NewInvoiceDrawer({
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
   const [customerId, setCustomerId] = useState("");
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState<Customer | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [issueDate, setIssueDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -430,7 +433,12 @@ function NewInvoiceDrawer({
     <Drawer title="New Customer Invoice" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
-          <Label htmlFor="customer">Customer</Label>
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <Label htmlFor="customer">Customer</Label>
+            <Button type="button" size="sm" variant="secondary" onClick={() => setCreatingCustomer(true)}>
+              + New Customer
+            </Button>
+          </div>
           <Select
             id="customer"
             value={customerId}
@@ -438,7 +446,7 @@ function NewInvoiceDrawer({
             required
           >
             <option value="">Select customer</option>
-            {(customers.data ?? []).map((customer) => (
+            {[...(customers.data ?? []), ...(newCustomer && !(customers.data ?? []).some((customer) => customer.id === newCustomer.id) ? [newCustomer] : [])].map((customer) => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
               </option>
@@ -521,6 +529,16 @@ function NewInvoiceDrawer({
           </Button>
         </div>
       </form>
+      {creatingCustomer ? (
+        <CustomerCreateModal
+          onClose={() => setCreatingCustomer(false)}
+          onCreated={(customer) => {
+            setNewCustomer(customer);
+            setCustomerId(customer.id);
+            setCreatingCustomer(false);
+          }}
+        />
+      ) : null}
     </Drawer>
   );
 }

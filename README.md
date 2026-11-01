@@ -19,6 +19,15 @@ npm run dev
 
 The app expects `plutus-hr-system` running locally (default `http://localhost:8000/api/v1`) with at least one seeded `Account` + `Membership` to sign in with. To preview the UI without a backend at all, set `NEXT_PUBLIC_MOCK_MODE=1` in `.env.local` — every screen renders from `src/lib/api/mock-fixtures.ts` and skips login entirely.
 
+## End-to-end tests
+
+```bash
+npx playwright install chromium   # once per machine
+npm run test:e2e
+```
+
+`playwright.config.ts` starts `next dev` on port 3100 (`E2E_PORT` to change it) and the specs in `e2e/` drive the real app in Chromium. Every `/api/v1` call is answered in the browser by `e2e/support/mock-api.ts`, so no backend, database or sign-in is needed, and each test asserts the exact request body the app sends. They cover creating a customer, vendor or item from inside another form (invoice, bill, purchase order, stock adjustment), the shared modal's behaviour on top of a drawer, the Customer and Vendor List pages, and which roles are offered those buttons.
+
 ## Structure
 
 ```

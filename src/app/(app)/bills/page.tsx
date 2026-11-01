@@ -360,7 +360,7 @@ function NewBillDrawer({
         <div>
           <div className="mb-1 flex items-center justify-between gap-3">
             <Label htmlFor="vendor">Vendor</Label>
-            <Button type="button" size="sm" variant="secondary" onClick={() => setCreatingVendor(true)}>+ New Vendor</Button>
+            <Button type="button" size="md" variant="secondary" onClick={() => setCreatingVendor(true)}>+ New Vendor</Button>
           </div>
           <Select
             id="vendor"

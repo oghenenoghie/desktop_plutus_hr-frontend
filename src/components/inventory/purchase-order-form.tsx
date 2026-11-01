@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { errorText } from "@/components/inventory/document-ui";
+import { VendorCreateModal } from "@/components/accounting/vendor-create-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
@@ -13,7 +14,7 @@ import { inventoryApi, purchaseOrdersApi, vendorsApi } from "@/lib/api/endpoints
 import { currencyLabel, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { formatQuantity, isValidQuantityInput, todayInLagos } from "@/lib/inventory";
-import type { InventoryItem, PurchaseOrder, PurchaseOrderBody } from "@/lib/types";
+import type { InventoryItem, PurchaseOrder, PurchaseOrderBody, Vendor } from "@/lib/types";
 
 interface LineDraft {
   key: number;
@@ -71,6 +72,8 @@ export function PurchaseOrderForm({
   const warehouses = useApiResource(() => inventoryApi.warehouses());
   const items = useApiResource(() => inventoryApi.items());
   const [vendorId, setVendorId] = useState(order?.vendor_id ?? "");
+  const [creatingVendor, setCreatingVendor] = useState(false);
+  const [newVendor, setNewVendor] = useState<Vendor | null>(null);
   const [warehouseId, setWarehouseId] = useState(order?.warehouse_id ?? "");
   const [orderDate, setOrderDate] = useState(order?.order_date ?? todayInLagos());
   const [expectedDate, setExpectedDate] = useState(order?.expected_date ?? "");
@@ -145,13 +148,14 @@ export function PurchaseOrderForm({
         <CardHeader title="Order" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <Label htmlFor="po-vendor">Vendor</Label>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <Label htmlFor="po-vendor">Vendor</Label>
+              <Button type="button" size="md" variant="secondary" onClick={() => setCreatingVendor(true)}>+ New Vendor</Button>
+            </div>
             <Select id="po-vendor" value={effectiveVendor} onChange={(e) => setVendorId(e.target.value)} required>
-              {(vendors.data ?? []).length === 0 ? <option value="">No vendors yet</option> : null}
-              {(vendors.data ?? []).map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </option>
+              {[...(vendors.data ?? []), ...(newVendor && !(vendors.data ?? []).some((vendor) => vendor.id === newVendor.id) ? [newVendor] : [])].length === 0 ? <option value="">No vendors yet</option> : null}
+              {[...(vendors.data ?? []), ...(newVendor && !(vendors.data ?? []).some((vendor) => vendor.id === newVendor.id) ? [newVendor] : [])].map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
               ))}
             </Select>
           </div>
@@ -263,6 +267,16 @@ export function PurchaseOrderForm({
           {submitting ? "Saving…" : order ? "Save changes" : "Save draft"}
         </Button>
       </div>
+      {creatingVendor ? (
+        <VendorCreateModal
+          onClose={() => setCreatingVendor(false)}
+          onCreated={(vendor) => {
+            setNewVendor(vendor);
+            setVendorId(vendor.id);
+            setCreatingVendor(false);
+          }}
+        />
+      ) : null}
     </form>
   );
 }

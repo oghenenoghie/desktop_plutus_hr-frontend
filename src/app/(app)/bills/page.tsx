@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useState } from "react";
 
 import { ApprovalHistoryPanel } from "@/components/approval-history-panel";
+import { VendorCreateModal } from "@/components/accounting/vendor-create-modal";
 import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ import {
 } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { ApprovalInstance, Bill, GoodsReceipt } from "@/lib/types";
+import type { ApprovalInstance, Bill, GoodsReceipt, Vendor } from "@/lib/types";
 
 export default function BillsPage() {
   const bills = useApiResource(() => billsApi.list());
@@ -297,6 +298,8 @@ function NewBillDrawer({
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
   const [vendorId, setVendorId] = useState("");
+  const [creatingVendor, setCreatingVendor] = useState(false);
+  const [newVendor, setNewVendor] = useState<Vendor | null>(null);
   const [billNumber, setBillNumber] = useState("");
   const [billDate, setBillDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -355,7 +358,10 @@ function NewBillDrawer({
     <Drawer title="New Vendor Bill" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
-          <Label htmlFor="vendor">Vendor</Label>
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <Label htmlFor="vendor">Vendor</Label>
+            <Button type="button" size="md" variant="secondary" onClick={() => setCreatingVendor(true)}>+ New Vendor</Button>
+          </div>
           <Select
             id="vendor"
             value={vendorId}
@@ -366,10 +372,8 @@ function NewBillDrawer({
             required
           >
             <option value="">Select vendor</option>
-            {(vendors.data ?? []).map((vendor) => (
-              <option key={vendor.id} value={vendor.id}>
-                {vendor.name}
-              </option>
+            {[...(vendors.data ?? []), ...(newVendor && !(vendors.data ?? []).some((vendor) => vendor.id === newVendor.id) ? [newVendor] : [])].map((vendor) => (
+              <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
             ))}
           </Select>
         </div>
@@ -501,6 +505,17 @@ function NewBillDrawer({
           </Button>
         </div>
       </form>
+      {creatingVendor ? (
+        <VendorCreateModal
+          onClose={() => setCreatingVendor(false)}
+          onCreated={(vendor) => {
+            setNewVendor(vendor);
+            setVendorId(vendor.id);
+            setGoodsReceiptId("");
+            setCreatingVendor(false);
+          }}
+        />
+      ) : null}
     </Drawer>
   );
 }

@@ -36,7 +36,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {mounted &&
         createPortal(
-          <div className="pointer-events-none fixed inset-x-0 bottom-5 z-50 flex flex-col items-center gap-2 px-4">
+          // Above every overlay (Drawer z-50, Modal z-60): an error from a
+          // form inside one must not appear dimmed underneath its backdrop.
+          <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[70] flex flex-col items-center gap-2 px-4">
             {toasts.map((toast) => (
               <div
                 key={toast.id}

@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
+import { useOverlayLayer } from "@/components/ui/overlay-stack";
+
 // Shared confirmation modal for anything destructive or decision-committing
 // (reject, remit, cancel, discard, etc.) — rendered via a portal to
 // document.body so it always sits above the app shell. Only ever mounted
@@ -25,13 +27,16 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  // Opened from a drawer or modal, Escape cancels this confirmation only.
+  const isTop = useOverlayLayer();
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onCancel();
+      if (event.key === "Escape" && isTop()) onCancel();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
+  }, [onCancel, isTop]);
 
   return createPortal(
     <div

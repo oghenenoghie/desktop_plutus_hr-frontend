@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ItemFormModal } from "@/components/inventory/item-form-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
@@ -10,16 +11,19 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { inventoryApi } from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/auth-context";
 import { currencyLabel, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import {
   REASON_DIRECTION,
   REASON_LABELS,
   TRACKED_ITEM_TYPES,
+  canManageInventory,
   formatQuantity,
   isValidQuantityInput,
   todayInLagos,
 } from "@/lib/inventory";
+import { withCreated } from "@/lib/records";
 import type {
   InventoryAdjustment,
   InventoryAdjustmentBody,
@@ -41,12 +45,12 @@ interface LineDraft {
   expiry: string;
 }
 
+function blankLine(key: number): LineDraft {
+  return { key, itemId: "", unitId: "", direction: "add", quantity: "", cost: "", notes: "", lot: "", expiry: "" };
+}
+
 function linesFrom(adjustment: InventoryAdjustment | undefined): LineDraft[] {
-  if (!adjustment?.lines?.length) {
-    return [
-      { key: 0, itemId: "", unitId: "", direction: "add", quantity: "", cost: "", notes: "", lot: "", expiry: "" },
-    ];
-  }
+  if (!adjustment?.lines?.length) return [blankLine(0)];
   return adjustment.lines.map((line, index) => {
     const quantity = Number(line.quantity);
     return {
@@ -76,8 +80,13 @@ export function AdjustmentForm({
   onCancel: () => void;
 }) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const warehouses = useApiResource(() => inventoryApi.warehouses());
   const items = useApiResource(() => inventoryApi.items());
+  const [creatingItem, setCreatingItem] = useState(false);
+  // Items added from this form (e.g. while entering opening balances), kept
+  // as options alongside the list loaded when it opened.
+  const [createdItems, setCreatedItems] = useState<InventoryItem[]>([]);
   const [warehouseId, setWarehouseId] = useState(adjustment?.warehouse_id ?? "");
   const [reason, setReason] = useState<InventoryAdjustmentReason>(adjustment?.reason ?? "opening_balance");
   const [date, setDate] = useState(adjustment?.adjustment_date ?? todayInLagos());
@@ -86,7 +95,9 @@ export function AdjustmentForm({
   const [nextKey, setNextKey] = useState(lines.length);
   const [submitting, setSubmitting] = useState(false);
 
-  const trackedItems = (items.data ?? []).filter((item) => TRACKED_ITEM_TYPES.includes(item.item_type));
+  const trackedItems = withCreated(items.data, createdItems).filter((item) =>
+    TRACKED_ITEM_TYPES.includes(item.item_type),
+  );
   const itemsById = new Map(trackedItems.map((item) => [item.id, item]));
   const fixedDirection = REASON_DIRECTION[reason];
   const effectiveWarehouse = warehouseId || warehouses.data?.[0]?.id || "";
@@ -97,6 +108,19 @@ export function AdjustmentForm({
 
   function update(key: number, patch: Partial<LineDraft>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  }
+
+  // A new item goes on the first line still waiting for one (keeping any
+  // quantity or cost already typed there), else on a new line.
+  function placeNewItem(item: InventoryItem) {
+    setCreatedItems((current) => [...current, item]);
+    const open = lines.find((line) => !line.itemId);
+    if (open) {
+      update(open.key, { itemId: item.id, unitId: "" });
+      return;
+    }
+    setLines((current) => [...current, { ...blankLine(nextKey), itemId: item.id }]);
+    setNextKey((key) => key + 1);
   }
 
   function unitOptions(item: InventoryItem | undefined) {
@@ -173,257 +197,262 @@ export function AdjustmentForm({
   if (items.error) return <ErrorState message={items.error} />;
 
   return (
-    <form
-      className="flex flex-col gap-6"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit(false);
-      }}
-    >
-      <Card>
-        <CardHeader title="Details" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <Label htmlFor="adj-warehouse">Warehouse</Label>
-            <Select
-              id="adj-warehouse"
-              value={effectiveWarehouse}
-              onChange={(event) => setWarehouseId(event.target.value)}
-              required
-            >
-              {(warehouses.data ?? []).length === 0 ? <option value="">No active warehouse</option> : null}
-              {(warehouses.data ?? []).map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.code} — {warehouse.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="adj-reason">Reason</Label>
-            <Select
-              id="adj-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value as InventoryAdjustmentReason)}
-            >
-              {REASONS.map((option) => (
-                <option key={option} value={option}>
-                  {REASON_LABELS[option]}
-                  {REASON_DIRECTION[option] === "add" ? " (adds stock)" : ""}
-                  {REASON_DIRECTION[option] === "remove" ? " (removes stock)" : ""}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="adj-date">Date</Label>
-            <Input
-              id="adj-date"
-              type="date"
-              value={date}
-              max={todayInLagos()}
-              onChange={(event) => setDate(event.target.value)}
-              required
-            />
-          </div>
-          <div className="sm:col-span-3">
-            <Label htmlFor="adj-notes">Notes</Label>
-            <Textarea
-              id="adj-notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              maxLength={1000}
-              rows={2}
-              placeholder="Optional — e.g. reference to the count sheet or incident report"
-            />
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader
-          title="Lines"
-          subtitle={
-            fixedDirection === "remove"
-              ? "Stock removed leaves at each item's average cost."
-              : fixedDirection === "add"
-                ? "Enter the cost per unit; leave it blank to use the item's default cost."
-                : "Choose for each line whether stock comes in or goes out."
-          }
-        />
-        {trackedItems.length === 0 ? (
-          <ErrorState message="No stock or consumable items yet. Add items first." />
-        ) : null}
-        <div className="flex flex-col gap-4">
-          {lines.map((line, index) => {
-            const item = itemsById.get(line.itemId);
-            const adding = directionOf(line) === "add";
-            const value = lineValue(line);
-            return (
-              <div
-                key={line.key}
-                className="grid grid-cols-1 items-end gap-3 rounded-panel border border-border p-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
+    <>
+      <form
+        className="flex flex-col gap-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit(false);
+        }}
+      >
+        <Card>
+          <CardHeader title="Details" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="adj-warehouse">Warehouse</Label>
+              <Select
+                id="adj-warehouse"
+                value={effectiveWarehouse}
+                onChange={(event) => setWarehouseId(event.target.value)}
+                required
               >
-                <div>
-                  <Label htmlFor={`line-item-${line.key}`}>Item {index + 1}</Label>
-                  <Select
-                    id={`line-item-${line.key}`}
-                    value={line.itemId}
-                    onChange={(event) => update(line.key, { itemId: event.target.value, unitId: "" })}
-                  >
-                    <option value="">Choose an item…</option>
-                    {trackedItems.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.sku} — {option.name} ({formatQuantity(option.quantity_on_hand)}{" "}
-                        {option.base_unit_code} on hand)
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                {fixedDirection === "either" ? (
+                {(warehouses.data ?? []).length === 0 ? <option value="">No active warehouse</option> : null}
+                {(warehouses.data ?? []).map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.code} — {warehouse.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="adj-reason">Reason</Label>
+              <Select
+                id="adj-reason"
+                value={reason}
+                onChange={(event) => setReason(event.target.value as InventoryAdjustmentReason)}
+              >
+                {REASONS.map((option) => (
+                  <option key={option} value={option}>
+                    {REASON_LABELS[option]}
+                    {REASON_DIRECTION[option] === "add" ? " (adds stock)" : ""}
+                    {REASON_DIRECTION[option] === "remove" ? " (removes stock)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="adj-date">Date</Label>
+              <Input
+                id="adj-date"
+                type="date"
+                value={date}
+                max={todayInLagos()}
+                onChange={(event) => setDate(event.target.value)}
+                required
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <Label htmlFor="adj-notes">Notes</Label>
+              <Textarea
+                id="adj-notes"
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                maxLength={1000}
+                rows={2}
+                placeholder="Optional — e.g. reference to the count sheet or incident report"
+              />
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Lines"
+            subtitle={
+              fixedDirection === "remove"
+                ? "Stock removed leaves at each item's average cost."
+                : fixedDirection === "add"
+                  ? "Enter the cost per unit; leave it blank to use the item's default cost."
+                  : "Choose for each line whether stock comes in or goes out."
+            }
+          />
+          {trackedItems.length === 0 ? (
+            <ErrorState message="No stock or consumable items yet. Add items first." />
+          ) : null}
+          <div className="flex flex-col gap-4">
+            {lines.map((line, index) => {
+              const item = itemsById.get(line.itemId);
+              const adding = directionOf(line) === "add";
+              const value = lineValue(line);
+              return (
+                <div
+                  key={line.key}
+                  className="grid grid-cols-1 items-end gap-3 rounded-panel border border-border p-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
+                >
                   <div>
-                    <Label htmlFor={`line-dir-${line.key}`}>Direction</Label>
+                    <Label htmlFor={`line-item-${line.key}`}>Item {index + 1}</Label>
                     <Select
-                      id={`line-dir-${line.key}`}
-                      value={line.direction}
-                      onChange={(event) => update(line.key, { direction: event.target.value as "add" | "remove" })}
+                      id={`line-item-${line.key}`}
+                      value={line.itemId}
+                      onChange={(event) => update(line.key, { itemId: event.target.value, unitId: "" })}
                     >
-                      <option value="add">Add stock</option>
-                      <option value="remove">Remove stock</option>
+                      <option value="">Choose an item…</option>
+                      {trackedItems.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.sku} — {option.name} ({formatQuantity(option.quantity_on_hand)}{" "}
+                          {option.base_unit_code} on hand)
+                        </option>
+                      ))}
                     </Select>
                   </div>
-                ) : (
-                  <div className="text-[12px] font-bold text-ink-soft sm:pb-3">
-                    {adding ? "Adds stock" : "Removes stock"}
-                  </div>
-                )}
-                <div>
-                  <Label htmlFor={`line-qty-${line.key}`}>Quantity</Label>
-                  <Input
-                    id={`line-qty-${line.key}`}
-                    inputMode="decimal"
-                    value={line.quantity}
-                    onChange={(event) => update(line.key, { quantity: event.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor={`line-unit-${line.key}`}>Unit</Label>
-                  <Select
-                    id={`line-unit-${line.key}`}
-                    value={line.unitId || item?.base_unit_id || ""}
-                    onChange={(event) => update(line.key, { unitId: event.target.value })}
-                    disabled={!item}
-                  >
-                    {unitOptions(item).map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor={`line-cost-${line.key}`}>Unit cost ({currencyLabel()})</Label>
-                  <Input
-                    id={`line-cost-${line.key}`}
-                    inputMode="decimal"
-                    value={adding ? line.cost : ""}
-                    onChange={(event) => update(line.key, { cost: event.target.value })}
-                    placeholder={
-                      !adding
-                        ? "Average cost"
-                        : item?.default_cost_minor != null
-                          ? `Default ${formatMoney(item.default_cost_minor)}`
-                          : "Required"
-                    }
-                    disabled={!adding}
-                  />
-                  {value !== null ? (
-                    <div className="mt-1 text-[11px] text-ink-soft">Line value {formatMoney(value)}</div>
-                  ) : null}
-                </div>
-                {item?.track_lots ? (
-                  <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-6">
+                  {fixedDirection === "either" ? (
                     <div>
-                      <Label htmlFor={`line-lot-${line.key}`}>Lot number</Label>
-                      <Input
-                        id={`line-lot-${line.key}`}
-                        value={line.lot}
-                        onChange={(event) => update(line.key, { lot: event.target.value })}
-                        maxLength={64}
-                        placeholder={adding ? "Required" : "Blank: earliest expiry first"}
-                      />
+                      <Label htmlFor={`line-dir-${line.key}`}>Direction</Label>
+                      <Select
+                        id={`line-dir-${line.key}`}
+                        value={line.direction}
+                        onChange={(event) => update(line.key, { direction: event.target.value as "add" | "remove" })}
+                      >
+                        <option value="add">Add stock</option>
+                        <option value="remove">Remove stock</option>
+                      </Select>
                     </div>
-                    {item.track_expiry && adding ? (
-                      <div>
-                        <Label htmlFor={`line-expiry-${line.key}`}>Expiry date</Label>
-                        <Input
-                          id={`line-expiry-${line.key}`}
-                          type="date"
-                          value={line.expiry}
-                          onChange={(event) => update(line.key, { expiry: event.target.value })}
-                        />
-                        <div className="mt-1 text-[11px] text-ink-soft">Needed for a new lot.</div>
-                      </div>
+                  ) : (
+                    <div className="text-[12px] font-bold text-ink-soft sm:pb-3">
+                      {adding ? "Adds stock" : "Removes stock"}
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor={`line-qty-${line.key}`}>Quantity</Label>
+                    <Input
+                      id={`line-qty-${line.key}`}
+                      inputMode="decimal"
+                      value={line.quantity}
+                      onChange={(event) => update(line.key, { quantity: event.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`line-unit-${line.key}`}>Unit</Label>
+                    <Select
+                      id={`line-unit-${line.key}`}
+                      value={line.unitId || item?.base_unit_id || ""}
+                      onChange={(event) => update(line.key, { unitId: event.target.value })}
+                      disabled={!item}
+                    >
+                      {unitOptions(item).map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor={`line-cost-${line.key}`}>Unit cost ({currencyLabel()})</Label>
+                    <Input
+                      id={`line-cost-${line.key}`}
+                      inputMode="decimal"
+                      value={adding ? line.cost : ""}
+                      onChange={(event) => update(line.key, { cost: event.target.value })}
+                      placeholder={
+                        !adding
+                          ? "Average cost"
+                          : item?.default_cost_minor != null
+                            ? `Default ${formatMoney(item.default_cost_minor)}`
+                            : "Required"
+                      }
+                      disabled={!adding}
+                    />
+                    {value !== null ? (
+                      <div className="mt-1 text-[11px] text-ink-soft">Line value {formatMoney(value)}</div>
                     ) : null}
                   </div>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  aria-label={`Remove line ${index + 1}`}
-                  disabled={lines.length === 1}
-                  onClick={() => setLines((current) => current.filter((other) => other.key !== line.key))}
-                >
-                  ✕
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setLines((current) => [
-                ...current,
-                {
-                  key: nextKey,
-                  itemId: "",
-                  unitId: "",
-                  direction: "add",
-                  quantity: "",
-                  cost: "",
-                  notes: "",
-                  lot: "",
-                  expiry: "",
-                },
-              ]);
-              setNextKey((key) => key + 1);
-            }}
-          >
-            Add line
+                  {item?.track_lots ? (
+                    <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-6">
+                      <div>
+                        <Label htmlFor={`line-lot-${line.key}`}>Lot number</Label>
+                        <Input
+                          id={`line-lot-${line.key}`}
+                          value={line.lot}
+                          onChange={(event) => update(line.key, { lot: event.target.value })}
+                          maxLength={64}
+                          placeholder={adding ? "Required" : "Blank: earliest expiry first"}
+                        />
+                      </div>
+                      {item.track_expiry && adding ? (
+                        <div>
+                          <Label htmlFor={`line-expiry-${line.key}`}>Expiry date</Label>
+                          <Input
+                            id={`line-expiry-${line.key}`}
+                            type="date"
+                            value={line.expiry}
+                            onChange={(event) => update(line.key, { expiry: event.target.value })}
+                          />
+                          <div className="mt-1 text-[11px] text-ink-soft">Needed for a new lot.</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    aria-label={`Remove line ${index + 1}`}
+                    disabled={lines.length === 1}
+                    onClick={() => setLines((current) => current.filter((other) => other.key !== line.key))}
+                  >
+                    ✕
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setLines((current) => [...current, blankLine(nextKey)]);
+                setNextKey((key) => key + 1);
+              }}
+            >
+              Add line
+            </Button>
+            {canManageInventory(user?.role) ? (
+              <Button type="button" variant="secondary" onClick={() => setCreatingItem(true)}>
+                + New Item
+              </Button>
+            ) : null}
+          </div>
+        </Card>
+
+        <p className="text-right text-[12px] text-ink-soft">
+          Write-offs, and gains at or above the approval limit in Inventory Settings, go for approval
+          instead of posting straight away.
+        </p>
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="secondary" disabled={submitting}>
+            {submitting ? "Saving…" : "Save draft"}
+          </Button>
+          <Button type="button" disabled={submitting} onClick={() => void submit(true)}>
+            {submitting ? "Saving…" : "Save and post"}
           </Button>
         </div>
-      </Card>
-
-      <p className="text-right text-[12px] text-ink-soft">
-        Write-offs, and gains at or above the approval limit in Inventory Settings, go for approval
-        instead of posting straight away.
-      </p>
-      <div className="flex flex-wrap justify-end gap-3">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button type="submit" variant="secondary" disabled={submitting}>
-          {submitting ? "Saving…" : "Save draft"}
-        </Button>
-        <Button type="button" disabled={submitting} onClick={() => void submit(true)}>
-          {submitting ? "Saving…" : "Save and post"}
-        </Button>
-      </div>
-    </form>
+      </form>
+      {/* Outside the <form>, so the item form's submit can't save this one. */}
+      {creatingItem ? (
+        <ItemFormModal
+          itemTypes={TRACKED_ITEM_TYPES}
+          onClose={() => setCreatingItem(false)}
+          onSaved={(item) => {
+            placeNewItem(item);
+            setCreatingItem(false);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

@@ -20,6 +20,7 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { canCreateCounterparties } from "@/lib/accounting";
 import { ApiError } from "@/lib/api/client";
 import {
   chartAccountsApi,
@@ -27,8 +28,10 @@ import {
   customersApi,
   invoicesApi,
 } from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/auth-context";
 import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { withCreated } from "@/lib/records";
 import type { Customer, Invoice } from "@/lib/types";
 
 export default function InvoicesPage() {
@@ -389,9 +392,12 @@ function NewInvoiceDrawer({
   const customers = useApiResource(() => customersApi.list());
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [customerId, setCustomerId] = useState("");
   const [creatingCustomer, setCreatingCustomer] = useState(false);
-  const [newCustomer, setNewCustomer] = useState<Customer | null>(null);
+  // Customers added from this form, kept as options alongside the list.
+  const [createdCustomers, setCreatedCustomers] = useState<Customer[]>([]);
+  const customerOptions = withCreated(customers.data, createdCustomers);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [issueDate, setIssueDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -435,9 +441,11 @@ function NewInvoiceDrawer({
         <div>
           <div className="mb-1 flex items-center justify-between gap-3">
             <Label htmlFor="customer">Customer</Label>
-            <Button type="button" size="md" variant="secondary" onClick={() => setCreatingCustomer(true)}>
-              + New Customer
-            </Button>
+            {canCreateCounterparties(user?.role) ? (
+              <Button type="button" size="md" variant="secondary" onClick={() => setCreatingCustomer(true)}>
+                + New Customer
+              </Button>
+            ) : null}
           </div>
           <Select
             id="customer"
@@ -446,7 +454,7 @@ function NewInvoiceDrawer({
             required
           >
             <option value="">Select customer</option>
-            {[...(customers.data ?? []), ...(newCustomer && !(customers.data ?? []).some((customer) => customer.id === newCustomer.id) ? [newCustomer] : [])].map((customer) => (
+            {customerOptions.map((customer) => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
               </option>
@@ -533,7 +541,7 @@ function NewInvoiceDrawer({
         <CustomerCreateModal
           onClose={() => setCreatingCustomer(false)}
           onCreated={(customer) => {
-            setNewCustomer(customer);
+            setCreatedCustomers((current) => [...current, customer]);
             setCustomerId(customer.id);
             setCreatingCustomer(false);
           }}

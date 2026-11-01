@@ -21,6 +21,7 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/badge";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { canCreateCounterparties } from "@/lib/accounting";
 import { ApiError } from "@/lib/api/client";
 import {
   approvalInstancesApi,
@@ -29,8 +30,10 @@ import {
   goodsReceiptsApi,
   vendorsApi,
 } from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/auth-context";
 import { currencyLabel, formatDate, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { withCreated } from "@/lib/records";
 import type { ApprovalInstance, Bill, GoodsReceipt, Vendor } from "@/lib/types";
 
 export default function BillsPage() {
@@ -297,9 +300,12 @@ function NewBillDrawer({
   const vendors = useApiResource(() => vendorsApi.list());
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [vendorId, setVendorId] = useState("");
   const [creatingVendor, setCreatingVendor] = useState(false);
-  const [newVendor, setNewVendor] = useState<Vendor | null>(null);
+  // Vendors added from this form, kept as options alongside the list.
+  const [createdVendors, setCreatedVendors] = useState<Vendor[]>([]);
+  const vendorOptions = withCreated(vendors.data, createdVendors);
   const [billNumber, setBillNumber] = useState("");
   const [billDate, setBillDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -360,7 +366,11 @@ function NewBillDrawer({
         <div>
           <div className="mb-1 flex items-center justify-between gap-3">
             <Label htmlFor="vendor">Vendor</Label>
-            <Button type="button" size="md" variant="secondary" onClick={() => setCreatingVendor(true)}>+ New Vendor</Button>
+            {canCreateCounterparties(user?.role) ? (
+              <Button type="button" size="md" variant="secondary" onClick={() => setCreatingVendor(true)}>
+                + New Vendor
+              </Button>
+            ) : null}
           </div>
           <Select
             id="vendor"
@@ -372,8 +382,10 @@ function NewBillDrawer({
             required
           >
             <option value="">Select vendor</option>
-            {[...(vendors.data ?? []), ...(newVendor && !(vendors.data ?? []).some((vendor) => vendor.id === newVendor.id) ? [newVendor] : [])].map((vendor) => (
-              <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+            {vendorOptions.map((vendor) => (
+              <option key={vendor.id} value={vendor.id}>
+                {vendor.name}
+              </option>
             ))}
           </Select>
         </div>
@@ -509,7 +521,9 @@ function NewBillDrawer({
         <VendorCreateModal
           onClose={() => setCreatingVendor(false)}
           onCreated={(vendor) => {
-            setNewVendor(vendor);
+            setCreatedVendors((current) => [...current, vendor]);
+            // Same as picking a vendor from the list: a receipt belongs to
+            // one vendor, and a vendor created just now has none to link.
             setVendorId(vendor.id);
             setGoodsReceiptId("");
             setCreatingVendor(false);

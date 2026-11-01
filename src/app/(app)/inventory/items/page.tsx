@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, LoadingState } from "@/components/ui/data-state";
 import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -328,7 +329,7 @@ function ItemDrawer({
   const unitOptions = units.filter((unit) => unit.is_active || unit.id === item?.base_unit_id);
 
   return (
-    <Drawer title={item ? `Edit ${item.sku}` : "New Item"} onClose={onClose}>
+    <Modal title={item ? `Edit ${item.sku}` : "New Item"} onClose={onClose} size="lg">
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -498,7 +499,7 @@ function ItemDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 

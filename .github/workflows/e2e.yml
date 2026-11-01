@@ -1,0 +1,58 @@
+name: End-to-end tests
+
+# Runs the Playwright suite in e2e/ (npm run test:e2e) on every pull request
+# and every push to main. It needs no backend: the app runs under `next dev`
+# and each /api/v1 call is answered in the browser by e2e/support/mock-api.ts.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same PR or branch supersedes a run still in progress.
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The desktop app's Electron binary isn't needed to test the web app.
+      - name: Install dependencies
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      # CI=true (set by GitHub) makes playwright.config.ts use one worker,
+      # always start its own server, refuse test.only, and write an HTML report.
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+
+      - name: Keep the report and traces of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

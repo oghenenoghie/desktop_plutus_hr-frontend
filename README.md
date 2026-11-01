@@ -28,6 +28,8 @@ npm run test:e2e
 
 `playwright.config.ts` starts `next dev` on port 3100 (`E2E_PORT` to change it) and the specs in `e2e/` drive the real app in Chromium. Every `/api/v1` call is answered in the browser by `e2e/support/mock-api.ts`, so no backend, database or sign-in is needed, and each test asserts the exact request body the app sends. They cover creating a customer, vendor or item from inside another form (invoice, bill, purchase order, stock adjustment), the shared modal's behaviour on top of a drawer, the Customer and Vendor List pages, and which roles are offered those buttons.
 
+`.github/workflows/e2e.yml` runs the suite on every pull request and every push to `main`; a failed run keeps the HTML report and traces as the `playwright-report` artifact for 14 days.
+
 ## Structure
 
 ```

@@ -661,9 +661,297 @@ jobs:
           path: ${{ runner.temp }}/dumps
           if-no-files-found: ignore
 
+  # The installer runs without administrator rights, so it can't close a
+  # Plutus that was started with them ("Run as administrator"). It used to
+  # give up with electron-builder's "Plutus Technologies cannot be closed";
+  # electron/installer.nsh now explains and asks Windows for permission.
+  # This runner always has administrator rights and no permission prompt,
+  # so the job reproduces the problem the other way round: Plutus runs with
+  # the runner's full rights while the installer runs with a normal user's
+  # (the restricted token "runas /trustlevel:0x20000" gives). With UAC off,
+  # a process started with full rights still lets that token stop it, so
+  # the job also gives Plutus's processes the access rules of one started
+  # with "Run as administrator": only SYSTEM and Administrators may touch
+  # them. The installer
+  # has to show its own explanation, not electron-builder's message, and
+  # Cancel has to leave the install as it was; run with full rights, it
+  # then has to replace it. Windows' permission prompt itself can't appear
+  # here, so clicking Yes on it has to be checked on a real PC.
+  admin-app-test-windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      - name: Exclude test locations from Windows Defender
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE"
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs"
+          Add-MpPreference -ExclusionPath "$env:APPDATA"
+          Add-MpPreference -ExclusionPath "$env:RUNNER_TEMP"
+
+      - name: Download this build's Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: plutus-desktop-windows-latest
+          path: new-installer
+
+      # Windows PowerShell, as the installer uses.
+      - name: Stop script reports what's still running
+        shell: powershell
+        run: |
+          $script = (Resolve-Path 'electron\stop-plutus.ps1').Path
+          $dir = Join-Path $env:RUNNER_TEMP 'stand-in-install'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          # Any long-running program, run from a stand-in install folder.
+          $helper = Join-Path $dir 'helper.exe'
+          Copy-Item "$env:SystemRoot\System32\ping.exe" $helper
+          $proc = Start-Process -FilePath $helper -ArgumentList '-n', '600', '127.0.0.1' -WindowStyle Hidden -PassThru
+
+          function Invoke-StopScript([string[]]$extra) {
+            & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -InstallDir $dir @extra | Out-Host
+            return $LASTEXITCODE
+          }
+
+          $code = Invoke-StopScript @('-CheckOnly')
+          if ($code -ne 2 -or $proc.HasExited) { throw "-CheckOnly while something runs from the install folder: exit code $code (expected 2), stopped: $($proc.HasExited) (expected False)." }
+          $code = Invoke-StopScript @()
+          $proc.WaitForExit(5000) | Out-Null
+          if ($code -ne 0 -or -not $proc.HasExited) { throw "Stopping it: exit code $code (expected 0), stopped: $($proc.HasExited) (expected True)." }
+          $code = Invoke-StopScript @('-CheckOnly')
+          if ($code -ne 0) { throw "-CheckOnly with nothing running: exit code $code (expected 0)." }
+          Write-Host "stop-plutus.ps1 stops what runs from the install folder and reports what's left with the right exit codes."
+
+      - name: Installer asks for permission to close a Plutus it can't
+        shell: powershell
+        run: |
+          $productName = 'Plutus Technologies'
+          $installer = (Resolve-Path 'new-installer\Plutus-Technologies-Setup.exe').Path
+          $userDataDir = Join-Path $env:APPDATA 'plutus-hr-system-frontend'
+
+          function Find-PlutusExe {
+            Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter "$productName.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+
+          function Wait-PlutusUp([int]$seconds) {
+            $deadline = (Get-Date).AddSeconds($seconds)
+            while ((Get-Date) -lt $deadline) {
+              try {
+                $backend = (Invoke-WebRequest -Uri 'http://127.0.0.1:47821/api/v1/health' -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200
+                $frontend = (Invoke-WebRequest -Uri 'http://127.0.0.1:47822' -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200
+                if ($backend -and $frontend) { return $true }
+              } catch {}
+              Start-Sleep -Seconds 3
+            }
+            return $false
+          }
+
+          function Show-Diagnostics {
+            Write-Host "----- Plutus processes -----"
+            Get-Process -Name $productName, 'plutus-backend', 'postgres' -ErrorAction SilentlyContinue |
+              Format-Table Name, Id, StartTime, Path -AutoSize | Out-String -Width 400 | Write-Host
+            $log = Join-Path $userDataDir 'startup.log'
+            Write-Host "----- startup.log (last 40 lines) -----"
+            if (Test-Path $log) { Get-Content $log -Tail 40 } else { Write-Host "(does not exist)" }
+          }
+
+          # Starts a program with a normal user's rights: the restricted
+          # token "runas /trustlevel:0x20000" uses, with the Administrators
+          # group switched off and no privileges.
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.ComponentModel;
+          using System.Runtime.InteropServices;
+
+          public static class NormalUser {
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+            struct STARTUPINFO {
+              public int cb; public string lpReserved; public string lpDesktop; public string lpTitle;
+              public int dwX; public int dwY; public int dwXSize; public int dwYSize;
+              public int dwXCountChars; public int dwYCountChars; public int dwFillAttribute; public int dwFlags;
+              public short wShowWindow; public short cbReserved2; public IntPtr lpReserved2;
+              public IntPtr hStdInput; public IntPtr hStdOutput; public IntPtr hStdError;
+            }
+            [StructLayout(LayoutKind.Sequential)]
+            struct PROCESS_INFORMATION { public IntPtr hProcess; public IntPtr hThread; public int dwProcessId; public int dwThreadId; }
+
+            [DllImport("advapi32.dll", SetLastError = true)]
+            static extern bool SaferCreateLevel(uint scopeId, uint levelId, uint openFlags, out IntPtr level, IntPtr reserved);
+            [DllImport("advapi32.dll", SetLastError = true)]
+            static extern bool SaferComputeTokenFromLevel(IntPtr level, IntPtr inToken, out IntPtr outToken, uint flags, IntPtr reserved);
+            [DllImport("advapi32.dll", SetLastError = true)]
+            static extern bool SaferCloseLevel(IntPtr level);
+            [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            static extern bool CreateProcessAsUser(IntPtr token, string app, string cmdLine, IntPtr pa, IntPtr ta, bool inherit, uint flags, IntPtr env, string cwd, ref STARTUPINFO si, out PROCESS_INFORMATION pi);
+            [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            static extern bool CreateProcessWithTokenW(IntPtr token, uint logonFlags, string app, string cmdLine, uint flags, IntPtr env, string cwd, ref STARTUPINFO si, out PROCESS_INFORMATION pi);
+            [DllImport("kernel32.dll", SetLastError = true)]
+            static extern bool GetExitCodeProcess(IntPtr process, out uint code);
+            [DllImport("kernel32.dll", SetLastError = true)]
+            static extern bool CloseHandle(IntPtr handle);
+            [DllImport("kernel32.dll", SetLastError = true)]
+            static extern IntPtr OpenProcess(uint access, bool inherit, int processId);
+            [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            static extern bool ConvertStringSecurityDescriptorToSecurityDescriptor(string sddl, uint revision, out IntPtr descriptor, out uint size);
+            [DllImport("advapi32.dll", SetLastError = true)]
+            static extern bool SetKernelObjectSecurity(IntPtr handle, uint securityInformation, IntPtr descriptor);
+            [DllImport("kernel32.dll")]
+            static extern IntPtr LocalFree(IntPtr memory);
+
+            // Lets only SYSTEM and Administrators open the process, so a
+            // normal user's rights can't stop it.
+            public static void AdminOnly(int processId) {
+              IntPtr process = OpenProcess(0x00040000 /* WRITE_DAC */, false, processId);
+              if (process == IntPtr.Zero) throw new Win32Exception();
+              try {
+                IntPtr descriptor;
+                uint size;
+                if (!ConvertStringSecurityDescriptorToSecurityDescriptor("D:P(A;;0x1fffff;;;SY)(A;;0x1fffff;;;BA)", 1, out descriptor, out size)) throw new Win32Exception();
+                try {
+                  if (!SetKernelObjectSecurity(process, 4 /* DACL_SECURITY_INFORMATION */, descriptor)) throw new Win32Exception();
+                } finally { LocalFree(descriptor); }
+              } finally { CloseHandle(process); }
+            }
+
+            // Returns the process handle; its ID goes in processId.
+            public static IntPtr Start(string commandLine, out int processId) {
+              IntPtr level, token;
+              if (!SaferCreateLevel(2, 0x20000, 1, out level, IntPtr.Zero)) throw new Win32Exception();
+              try {
+                if (!SaferComputeTokenFromLevel(level, IntPtr.Zero, out token, 0, IntPtr.Zero)) throw new Win32Exception();
+              } finally { SaferCloseLevel(level); }
+              try {
+                STARTUPINFO si = new STARTUPINFO();
+                si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
+                si.lpDesktop = "winsta0\\default";
+                PROCESS_INFORMATION pi;
+                if (!CreateProcessAsUser(token, null, commandLine, IntPtr.Zero, IntPtr.Zero, false, 0, IntPtr.Zero, null, ref si, out pi) &&
+                    !CreateProcessWithTokenW(token, 0, null, commandLine, 0, IntPtr.Zero, null, ref si, out pi)) {
+                  throw new Win32Exception();
+                }
+                CloseHandle(pi.hThread);
+                processId = pi.dwProcessId;
+                return pi.hProcess;
+              } finally { CloseHandle(token); }
+            }
+
+            // -1 while it's still running.
+            public static long ExitCode(IntPtr process) {
+              uint code;
+              if (!GetExitCodeProcess(process, out code)) throw new Win32Exception();
+              return code == 259 ? -1L : (long)code;
+            }
+          }
+          '@
+          Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+          $ae = [System.Windows.Automation.AutomationElement]
+
+          # Each of the process's windows with all the text in it.
+          function Get-Windows([int]$processId) {
+            $own = New-Object System.Windows.Automation.PropertyCondition($ae::ProcessIdProperty, $processId)
+            foreach ($window in $ae::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $own)) {
+              $names = @($window.Current.Name) + @($window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name })
+              [pscustomobject]@{ Element = $window; Text = ($names -join "`n") }
+            }
+          }
+
+          function Wait-Exit([IntPtr]$process, [int]$seconds) {
+            $deadline = (Get-Date).AddSeconds($seconds)
+            while ((Get-Date) -lt $deadline) {
+              $code = [NormalUser]::ExitCode($process)
+              if ($code -ge 0) { return $code }
+              Start-Sleep -Milliseconds 500
+            }
+            return -1
+          }
+
+          $processId = 0
+
+          # 1. Install this build and start it with the runner's rights.
+          $run = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+          $exe = Find-PlutusExe
+          if ($run.ExitCode -ne 0 -or -not $exe) { throw "Installing with full rights failed: exit code $($run.ExitCode), installed: $([bool]$exe)." }
+          Start-Process -FilePath $exe.FullName | Out-Null
+          if (-not (Wait-PlutusUp 300)) { Show-Diagnostics; throw "Plutus didn't start, so there's nothing for the installer to close." }
+          $appIds = @(Get-Process -Name $productName).Id
+          Write-Host "Plutus is running with full rights (processes $($appIds -join ', '))."
+
+          # The restricted token has to be a normal user's: Administrators
+          # switched off ("Group used for deny only").
+          $groupsFile = Join-Path $env:TEMP 'normal-user-groups.txt'
+          $handle = [NormalUser]::Start("`"$env:SystemRoot\System32\cmd.exe`" /c whoami /groups /priv > `"$groupsFile`"", [ref]$processId)
+          Wait-Exit $handle 60 | Out-Null
+          $groups = Get-Content $groupsFile -Raw
+          Write-Host $groups
+          if (-not ($groups -match 'BUILTIN\\Administrators.*Group used for deny only')) { throw "The restricted token still has the Administrators group, so it isn't a normal user's." }
+
+          # Like a Plutus started with "Run as administrator": only SYSTEM
+          # and Administrators may stop anything running from its folder.
+          $installDir = $exe.DirectoryName
+          $protected = @(Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith("$installDir\", [StringComparison]::OrdinalIgnoreCase) })
+          foreach ($process in $protected) {
+            # One that has just exited (a Postgres connection, say) can't be.
+            try { [NormalUser]::AdminOnly($process.Id) } catch { Write-Host "Not changed: $($process.Name) $($process.Id): $($_.Exception.Message)" }
+          }
+          Write-Host "Only administrators may stop: $(($protected | ForEach-Object { "$($_.Name) $($_.Id)" }) -join ', ')."
+
+          # 2. A silent install with a normal user's rights can't ask, so it
+          #    has to stop with exit code 2 and leave Plutus alone.
+          $handle = [NormalUser]::Start("`"$installer`" /S", [ref]$processId)
+          $code = Wait-Exit $handle 180
+          $stillRunning = @(Get-Process -Id $appIds -ErrorAction SilentlyContinue).Count -gt 0
+          if ($code -ne 2 -or -not $stillRunning -or -not (Find-PlutusExe)) {
+            Show-Diagnostics
+            throw "Silent install with a normal user's rights: exit code $code (expected 2), Plutus still running: $stillRunning, still installed: $([bool](Find-PlutusExe))."
+          }
+          Write-Host "Silent install with a normal user's rights stopped with exit code 2 and left Plutus running."
+
+          # 3. Interactively it has to explain and offer to ask for
+          #    permission. Cancel there has to leave everything as it was.
+          $handle = [NormalUser]::Start("`"$installer`"", [ref]$processId)
+          $prompt = $null
+          $deadline = (Get-Date).AddSeconds(180)
+          while (-not $prompt -and (Get-Date) -lt $deadline -and [NormalUser]::ExitCode($handle) -lt 0) {
+            Start-Sleep -Seconds 1
+            $windows = @(Get-Windows $processId)
+            if ($windows | Where-Object { $_.Text -like '*cannot be closed*' }) {
+              $windows | ForEach-Object { Write-Host "--- window ---`n$($_.Text)" }
+              throw "The installer showed electron-builder's 'cannot be closed' message instead of asking for permission."
+            }
+            $prompt = $windows | Where-Object { $_.Text -like '*needs administrator permission*' } | Select-Object -First 1
+          }
+          if (-not $prompt) {
+            Show-Diagnostics
+            @(Get-Windows $processId) | ForEach-Object { Write-Host "--- window ---`n$($_.Text)" }
+            throw "The installer didn't ask for permission to close Plutus (installer exit code $([NormalUser]::ExitCode($handle)))."
+          }
+          Write-Host "The installer asked:`n$($prompt.Text)"
+          $cancel = $prompt.Element.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            (New-Object System.Windows.Automation.PropertyCondition($ae::NameProperty, 'Cancel')))
+          $cancel.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+          $code = Wait-Exit $handle 60
+          $stillRunning = @(Get-Process -Id $appIds -ErrorAction SilentlyContinue).Count -gt 0
+          if ($code -ne 2 -or -not $stillRunning -or -not (Find-PlutusExe)) {
+            Show-Diagnostics
+            throw "After Cancel: installer exit code $code (expected 2), Plutus still running: $stillRunning, still installed: $([bool](Find-PlutusExe))."
+          }
+          Write-Host "Cancel left Plutus running and installed."
+
+          # 4. With the rights the permission prompt gives, the same
+          #    installer closes Plutus and installs.
+          $run = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+          $stillRunning = @(Get-Process -Id $appIds -ErrorAction SilentlyContinue).Count -gt 0
+          if ($run.ExitCode -ne 0 -or $stillRunning -or -not (Find-PlutusExe)) {
+            Show-Diagnostics
+            throw "With full rights: exit code $($run.ExitCode) (expected 0), old Plutus still running: $stillRunning, installed: $([bool](Find-PlutusExe))."
+          }
+          Write-Host "With full rights the installer closed Plutus and installed this build."
+
   # Publishes the installers as a public GitHub release once every OS has
   # built and Windows has passed the clean-install, repeated first-time
-  # install and upgrade tests. Only builds of main (or a desktop-v* tag) publish: a manual run
+  # install, upgrade and administrator-Plutus tests. Only builds of main (or a desktop-v* tag) publish: a manual run
   # on any other branch is a test build, and publishing it would make it
   # "latest" for everyone. Release assets on a
   # public repo download without a GitHub sign-in and never expire, unlike
@@ -672,7 +960,7 @@ jobs:
   # marketing site links there, which is why electron-builder.yml pins
   # version-free artifactName values.
   release:
-    needs: [build, upgrade-test-windows, fresh-install-windows]
+    needs: [build, upgrade-test-windows, fresh-install-windows, admin-app-test-windows]
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/desktop-v')
     runs-on: ubuntu-latest
     permissions:

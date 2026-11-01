@@ -38,7 +38,8 @@ export function Modal({
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/55 p-4"
       role="presentation"
-      onMouseDown={(event) => {
+      onClick={(event) => {
+        event.stopPropagation();
         if (event.target === event.currentTarget) onClose();
       }}
     >

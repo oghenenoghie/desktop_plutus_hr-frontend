@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:e2e": "playwright test",
     "postinstall": "patch-package",
     "electron:build-frontend": "node electron/build-frontend.js",
     "electron:prepare-resources": "node electron/prepare-resources.js",
@@ -21,6 +22,7 @@
     "embedded-postgres": "^18.4.0-beta.17"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

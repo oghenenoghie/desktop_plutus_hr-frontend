@@ -764,6 +764,7 @@ jobs:
           using System;
           using System.ComponentModel;
           using System.Runtime.InteropServices;
+          using System.Text;
 
           public static class NormalUser {
             [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -835,6 +836,42 @@ jobs:
                 processId = pi.dwProcessId;
                 return pi.hProcess;
               } finally { CloseHandle(token); }
+            }
+
+            delegate bool EnumWindowsProc(IntPtr window, IntPtr data);
+            [DllImport("user32.dll")]
+            static extern bool EnumWindows(EnumWindowsProc callback, IntPtr data);
+            [DllImport("user32.dll")]
+            static extern uint GetWindowThreadProcessId(IntPtr window, out int processId);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+            static extern int GetClassName(IntPtr window, StringBuilder name, int size);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+            static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string className, string title);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+            static extern int GetWindowText(IntPtr window, StringBuilder text, int size);
+            [DllImport("user32.dll")]
+            static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+            // Answers the process's message box whose text contains `text`
+            // as if `button` (2 = Cancel) were clicked. False if there's none.
+            public static bool AnswerMessageBox(int processId, string text, int button) {
+              IntPtr box = IntPtr.Zero;
+              EnumWindows(delegate (IntPtr window, IntPtr data) {
+                int owner;
+                GetWindowThreadProcessId(window, out owner);
+                if (owner != processId) return true;
+                StringBuilder className = new StringBuilder(64);
+                GetClassName(window, className, className.Capacity);
+                if (className.ToString() != "#32770") return true;
+                for (IntPtr label = FindWindowEx(window, IntPtr.Zero, "Static", null); label != IntPtr.Zero; label = FindWindowEx(window, label, "Static", null)) {
+                  StringBuilder labelText = new StringBuilder(4096);
+                  GetWindowText(label, labelText, labelText.Capacity);
+                  if (labelText.ToString().Contains(text)) { box = window; return false; }
+                }
+                return true;
+              }, IntPtr.Zero);
+              if (box == IntPtr.Zero) return false;
+              return PostMessage(box, 0x0111 /* WM_COMMAND */, new IntPtr(button), IntPtr.Zero);
             }
 
             // -1 while it's still running.
@@ -928,9 +965,9 @@ jobs:
             throw "The installer didn't ask for permission to close Plutus (installer exit code $([NormalUser]::ExitCode($handle)))."
           }
           Write-Host "The installer asked:`n$($prompt.Text)"
-          $cancel = $prompt.Element.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-            (New-Object System.Windows.Automation.PropertyCondition($ae::NameProperty, 'Cancel')))
-          $cancel.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+          if (-not [NormalUser]::AnswerMessageBox($processId, 'needs administrator permission', 2)) {
+            throw "Couldn't find the installer's message box to click Cancel."
+          }
           $code = Wait-Exit $handle 60
           $stillRunning = @(Get-Process -Id $appIds -ErrorAction SilentlyContinue).Count -gt 0
           if ($code -ne 2 -or -not $stillRunning -or -not (Find-PlutusExe)) {

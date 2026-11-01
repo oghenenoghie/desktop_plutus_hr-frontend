@@ -2,18 +2,22 @@
 
 import { useState } from "react";
 
-import { errorText } from "@/components/inventory/document-ui";
 import { VendorCreateModal } from "@/components/accounting/vendor-create-modal";
+import { errorText } from "@/components/inventory/document-ui";
+import { ItemFormModal } from "@/components/inventory/item-form-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { canCreateCounterparties } from "@/lib/accounting";
 import { inventoryApi, purchaseOrdersApi, vendorsApi } from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/auth-context";
 import { currencyLabel, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { formatQuantity, isValidQuantityInput, todayInLagos } from "@/lib/inventory";
+import { canManageInventory, formatQuantity, isValidQuantityInput, todayInLagos } from "@/lib/inventory";
+import { withCreated } from "@/lib/records";
 import type { InventoryItem, PurchaseOrder, PurchaseOrderBody, Vendor } from "@/lib/types";
 
 interface LineDraft {
@@ -68,12 +72,17 @@ export function PurchaseOrderForm({
   onCancel: () => void;
 }) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const vendors = useApiResource(() => vendorsApi.list());
   const warehouses = useApiResource(() => inventoryApi.warehouses());
   const items = useApiResource(() => inventoryApi.items());
   const [vendorId, setVendorId] = useState(order?.vendor_id ?? "");
   const [creatingVendor, setCreatingVendor] = useState(false);
-  const [newVendor, setNewVendor] = useState<Vendor | null>(null);
+  const [creatingItem, setCreatingItem] = useState(false);
+  // Vendors and items added from this form, kept as options alongside the
+  // lists loaded when it opened.
+  const [createdVendors, setCreatedVendors] = useState<Vendor[]>([]);
+  const [createdItems, setCreatedItems] = useState<InventoryItem[]>([]);
   const [warehouseId, setWarehouseId] = useState(order?.warehouse_id ?? "");
   const [orderDate, setOrderDate] = useState(order?.order_date ?? todayInLagos());
   const [expectedDate, setExpectedDate] = useState(order?.expected_date ?? "");
@@ -82,14 +91,28 @@ export function PurchaseOrderForm({
   const [lines, setLines] = useState<LineDraft[]>(() => linesFrom(order));
   const [submitting, setSubmitting] = useState(false);
 
-  const itemsById = new Map((items.data ?? []).map((item) => [item.id, item]));
-  const effectiveVendor = vendorId || vendors.data?.[0]?.id || "";
+  const vendorOptions = withCreated(vendors.data, createdVendors);
+  const itemOptions = withCreated(items.data, createdItems);
+  const itemsById = new Map(itemOptions.map((item) => [item.id, item]));
+  const effectiveVendor = vendorId || vendorOptions[0]?.id || "";
   const nextKey = lines.reduce((max, line) => Math.max(max, line.key), -1) + 1;
   const subtotal = lines.reduce((sum, line) => sum + lineNet(line), 0);
   const tax = lines.reduce((sum, line) => sum + toMinorUnits(line.tax || "0"), 0);
 
   function update(key: number, patch: Partial<LineDraft>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  }
+
+  // A new item goes on the first line still waiting for one (keeping any
+  // quantity or price already typed there), else on a new line.
+  function placeNewItem(item: InventoryItem) {
+    setCreatedItems((current) => [...current, item]);
+    setLines((current) => {
+      const open = current.find((line) => !line.itemId);
+      if (open) return current.map((line) => (line.key === open.key ? { ...line, itemId: item.id, unitId: "" } : line));
+      const key = current.reduce((max, line) => Math.max(max, line.key), -1) + 1;
+      return [...current, { ...blank(key), itemId: item.id }];
+    });
   }
 
   function unitOptions(item: InventoryItem | undefined) {
@@ -143,140 +166,166 @@ export function PurchaseOrderForm({
   if (items.error) return <ErrorState message={items.error} />;
 
   return (
-    <form className="flex flex-col gap-6" onSubmit={onSubmit}>
-      <Card>
-        <CardHeader title="Order" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <Label htmlFor="po-vendor">Vendor</Label>
-              <Button type="button" size="md" variant="secondary" onClick={() => setCreatingVendor(true)}>+ New Vendor</Button>
+    <>
+      <form className="flex flex-col gap-6" onSubmit={onSubmit}>
+        <Card>
+          <CardHeader title="Order" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <Label htmlFor="po-vendor">Vendor</Label>
+                {canCreateCounterparties(user?.role) ? (
+                  <Button type="button" size="md" variant="secondary" onClick={() => setCreatingVendor(true)}>
+                    + New Vendor
+                  </Button>
+                ) : null}
+              </div>
+              <Select id="po-vendor" value={effectiveVendor} onChange={(e) => setVendorId(e.target.value)} required>
+                {vendorOptions.length === 0 ? <option value="">No vendors yet</option> : null}
+                {vendorOptions.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.name}
+                  </option>
+                ))}
+              </Select>
             </div>
-            <Select id="po-vendor" value={effectiveVendor} onChange={(e) => setVendorId(e.target.value)} required>
-              {[...(vendors.data ?? []), ...(newVendor && !(vendors.data ?? []).some((vendor) => vendor.id === newVendor.id) ? [newVendor] : [])].length === 0 ? <option value="">No vendors yet</option> : null}
-              {[...(vendors.data ?? []), ...(newVendor && !(vendors.data ?? []).some((vendor) => vendor.id === newVendor.id) ? [newVendor] : [])].map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
-              ))}
-            </Select>
+            <div>
+              <Label htmlFor="po-order-date">Order date</Label>
+              <Input id="po-order-date" type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} required />
+            </div>
+            <div>
+              <Label htmlFor="po-expected">Expected delivery</Label>
+              <Input id="po-expected" type="date" value={expectedDate} min={orderDate} onChange={(e) => setExpectedDate(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="po-warehouse">Deliver to</Label>
+              <Select id="po-warehouse" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                <option value="">Decide on receipt</option>
+                {(warehouses.data ?? []).map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.code} — {warehouse.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="po-reference">Vendor reference</Label>
+              <Input id="po-reference" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={64} placeholder="Quote or proforma no." />
+            </div>
+            <div className="sm:col-span-3">
+              <Label htmlFor="po-notes">Notes</Label>
+              <Textarea id="po-notes" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} rows={2} />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="po-order-date">Order date</Label>
-            <Input id="po-order-date" type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} required />
-          </div>
-          <div>
-            <Label htmlFor="po-expected">Expected delivery</Label>
-            <Input id="po-expected" type="date" value={expectedDate} min={orderDate} onChange={(e) => setExpectedDate(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="po-warehouse">Deliver to</Label>
-            <Select id="po-warehouse" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-              <option value="">Decide on receipt</option>
-              {(warehouses.data ?? []).map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.code} — {warehouse.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="po-reference">Vendor reference</Label>
-            <Input id="po-reference" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={64} placeholder="Quote or proforma no." />
-          </div>
-          <div className="sm:col-span-3">
-            <Label htmlFor="po-notes">Notes</Label>
-            <Textarea id="po-notes" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} rows={2} />
-          </div>
-        </div>
-      </Card>
+        </Card>
 
-      <Card>
-        <CardHeader
-          title="Lines"
-          subtitle="Prices are per unit; discount and tax are amounts for the whole line. Stock is valued at the price after discount — tax is settled on the vendor's bill."
-        />
-        <div className="flex flex-col gap-3">
-          {lines.map((line, index) => {
-            const item = itemsById.get(line.itemId);
-            return (
-              <div
-                key={line.key}
-                className="grid grid-cols-1 items-end gap-3 rounded-panel border border-border p-3 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto]"
-              >
-                <div>
-                  <Label htmlFor={`po-item-${line.key}`}>Item {index + 1}</Label>
-                  <Select id={`po-item-${line.key}`} value={line.itemId} onChange={(e) => update(line.key, { itemId: e.target.value, unitId: "" })}>
-                    <option value="">Choose an item…</option>
-                    {(items.data ?? []).map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.sku} — {option.name}
-                      </option>
-                    ))}
-                  </Select>
+        <Card>
+          <CardHeader
+            title="Lines"
+            subtitle="Prices are per unit; discount and tax are amounts for the whole line. Stock is valued at the price after discount — tax is settled on the vendor's bill."
+          />
+          <div className="flex flex-col gap-3">
+            {lines.map((line, index) => {
+              const item = itemsById.get(line.itemId);
+              return (
+                <div
+                  key={line.key}
+                  className="grid grid-cols-1 items-end gap-3 rounded-panel border border-border p-3 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto]"
+                >
+                  <div>
+                    <Label htmlFor={`po-item-${line.key}`}>Item {index + 1}</Label>
+                    <Select id={`po-item-${line.key}`} value={line.itemId} onChange={(e) => update(line.key, { itemId: e.target.value, unitId: "" })}>
+                      <option value="">Choose an item…</option>
+                      {itemOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.sku} — {option.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor={`po-qty-${line.key}`}>Quantity</Label>
+                    <Input id={`po-qty-${line.key}`} inputMode="decimal" value={line.quantity} onChange={(e) => update(line.key, { quantity: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor={`po-unit-${line.key}`}>Unit</Label>
+                    <Select id={`po-unit-${line.key}`} value={line.unitId || item?.base_unit_id || ""} onChange={(e) => update(line.key, { unitId: e.target.value })} disabled={!item}>
+                      {unitOptions(item).map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor={`po-price-${line.key}`}>Unit price ({currencyLabel()})</Label>
+                    <Input id={`po-price-${line.key}`} inputMode="decimal" value={line.price} onChange={(e) => update(line.key, { price: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor={`po-discount-${line.key}`}>Discount ({currencyLabel()})</Label>
+                    <Input id={`po-discount-${line.key}`} inputMode="decimal" value={line.discount} onChange={(e) => update(line.key, { discount: e.target.value })} placeholder="0" />
+                  </div>
+                  <div>
+                    <Label htmlFor={`po-tax-${line.key}`}>Tax ({currencyLabel()})</Label>
+                    <Input id={`po-tax-${line.key}`} inputMode="decimal" value={line.tax} onChange={(e) => update(line.key, { tax: e.target.value })} placeholder="0" />
+                  </div>
+                  <Button type="button" variant="secondary" aria-label={`Remove line ${index + 1}`} disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((other) => other.key !== line.key))}>
+                    ✕
+                  </Button>
                 </div>
-                <div>
-                  <Label htmlFor={`po-qty-${line.key}`}>Quantity</Label>
-                  <Input id={`po-qty-${line.key}`} inputMode="decimal" value={line.quantity} onChange={(e) => update(line.key, { quantity: e.target.value })} />
-                </div>
-                <div>
-                  <Label htmlFor={`po-unit-${line.key}`}>Unit</Label>
-                  <Select id={`po-unit-${line.key}`} value={line.unitId || item?.base_unit_id || ""} onChange={(e) => update(line.key, { unitId: e.target.value })} disabled={!item}>
-                    {unitOptions(item).map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor={`po-price-${line.key}`}>Unit price ({currencyLabel()})</Label>
-                  <Input id={`po-price-${line.key}`} inputMode="decimal" value={line.price} onChange={(e) => update(line.key, { price: e.target.value })} />
-                </div>
-                <div>
-                  <Label htmlFor={`po-discount-${line.key}`}>Discount ({currencyLabel()})</Label>
-                  <Input id={`po-discount-${line.key}`} inputMode="decimal" value={line.discount} onChange={(e) => update(line.key, { discount: e.target.value })} placeholder="0" />
-                </div>
-                <div>
-                  <Label htmlFor={`po-tax-${line.key}`}>Tax ({currencyLabel()})</Label>
-                  <Input id={`po-tax-${line.key}`} inputMode="decimal" value={line.tax} onChange={(e) => update(line.key, { tax: e.target.value })} placeholder="0" />
-                </div>
-                <Button type="button" variant="secondary" aria-label={`Remove line ${index + 1}`} disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((other) => other.key !== line.key))}>
-                  ✕
+              );
+            })}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-3">
+                <Button type="button" variant="secondary" onClick={() => setLines((current) => [...current, blank(nextKey)])}>
+                  Add line
                 </Button>
+                {canManageInventory(user?.role) ? (
+                  <Button type="button" variant="secondary" onClick={() => setCreatingItem(true)}>
+                    + New Item
+                  </Button>
+                ) : null}
               </div>
-            );
-          })}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button type="button" variant="secondary" onClick={() => setLines((current) => [...current, blank(nextKey)])}>
-              Add line
-            </Button>
-            <div className="text-right text-[13px]">
-              <div className="text-ink-soft">
-                Net {formatMoney(subtotal)} · Tax {formatMoney(tax)}
+              <div className="text-right text-[13px]">
+                <div className="text-ink-soft">
+                  Net {formatMoney(subtotal)} · Tax {formatMoney(tax)}
+                </div>
+                <div className="font-extrabold text-ink">Total {formatMoney(subtotal + tax)}</div>
               </div>
-              <div className="font-extrabold text-ink">Total {formatMoney(subtotal + tax)}</div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
 
-      <div className="flex justify-end gap-3">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : order ? "Save changes" : "Save draft"}
-        </Button>
-      </div>
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Saving…" : order ? "Save changes" : "Save draft"}
+          </Button>
+        </div>
+      </form>
+      {/* Outside the <form>: a portal still bubbles React events to its
+          parents, and these modals' own submits must not save the order. */}
       {creatingVendor ? (
         <VendorCreateModal
           onClose={() => setCreatingVendor(false)}
           onCreated={(vendor) => {
-            setNewVendor(vendor);
+            setCreatedVendors((current) => [...current, vendor]);
             setVendorId(vendor.id);
             setCreatingVendor(false);
           }}
         />
       ) : null}
-    </form>
+      {creatingItem ? (
+        <ItemFormModal
+          onClose={() => setCreatingItem(false)}
+          onSaved={(item) => {
+            placeNewItem(item);
+            setCreatingItem(false);
+          }}
+        />
+      ) : null}
+    </>
   );
 }

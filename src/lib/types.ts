@@ -1320,6 +1320,34 @@ export interface FixedAssetCreateBody {
   useful_life_months: number;
   category?: FixedAssetCategory | null;
   assigned_employee_id?: string | null;
+  // An asset the organisation owned before it started using Plutus. It comes
+  // onto the books as an opening balance (no cash moves) carrying the
+  // depreciation it had already built up, the book value against Opening
+  // Balance Equity. Without it, the cost is posted as paid from cash.
+  opening_balance?: boolean;
+  opening_accumulated_depreciation_minor?: number;
+}
+
+// One change to an asset's accumulated depreciation, from
+// GET /fixed-assets/{id}/depreciation-history: what it had built up before
+// Plutus (opening), a period posted from Plutus (depreciation), or a
+// revaluation resetting it to zero (amount_minor is then negative).
+export interface FixedAssetDepreciationEvent {
+  kind: "opening" | "depreciation" | "revaluation";
+  date: string;
+  amount_minor: number;
+  accumulated_minor: number;
+  journal_entry_id: string | null;
+  description: string;
+}
+
+export interface FixedAssetDepreciationHistory {
+  fixed_asset_id: string;
+  accumulated_depreciation_minor: number;
+  events: FixedAssetDepreciationEvent[];
+  // What the asset carries that no event explains, e.g. an asset migrated in
+  // without journals. Zero normally.
+  unexplained_minor: number;
 }
 
 export interface FixedAssetDisposeBody {

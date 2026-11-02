@@ -14,6 +14,56 @@ import { ApiError } from "@/lib/api/client";
 import { financialStatementsApi } from "@/lib/api/endpoints";
 import { formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import type { StatementLine } from "@/lib/types";
+
+interface AssetRow {
+  key: string;
+  label: string;
+  balance: string;
+  style: "plain" | "less" | "subtotal";
+}
+
+// Fixed assets at cost, less their accumulated depreciation (a contra-asset
+// carried with a credit, i.e. negative, balance), then net book value, in
+// the place the fixed-assets line would have taken — the same grouping as
+// the PDF. Without both accounts the lines stand as they are.
+function assetRows(lines: StatementLine[]): AssetRow[] {
+  const plain = (line: StatementLine): AssetRow => ({
+    key: line.account,
+    label: line.account_name,
+    balance: formatMoney(line.balance_minor),
+    style: "plain",
+  });
+  const cost = lines.find((line) => line.account === "fixed_assets");
+  const depreciation = lines.find((line) => line.account === "accumulated_depreciation");
+  if (!cost || !depreciation) return lines.map(plain);
+  return lines.flatMap((line): AssetRow[] => {
+    if (line === depreciation) return [];
+    if (line !== cost) return [plain(line)];
+    const less = depreciation.balance_minor;
+    return [
+      {
+        key: "fixed_assets",
+        label: `${cost.account_name} at cost`,
+        balance: formatMoney(cost.balance_minor),
+        style: "plain",
+      },
+      {
+        key: "accumulated_depreciation",
+        label: `Less: ${depreciation.account_name}`,
+        // A deduction, shown in brackets the way it's read.
+        balance: less <= 0 ? `(${formatMoney(-less)})` : formatMoney(less),
+        style: "less",
+      },
+      {
+        key: "fixed_assets_net",
+        label: "Net book value of fixed assets",
+        balance: formatMoney(cost.balance_minor + less),
+        style: "subtotal",
+      },
+    ];
+  });
+}
 
 export default function BalanceSheetPage() {
   const { showToast } = useToast();
@@ -55,7 +105,7 @@ export default function BalanceSheetPage() {
       <Card>
         <CardHeader
           title="Balance Sheet"
-          subtitle="A snapshot as of a point in time. No equity account or period-end closing exists yet, so assets will not equal liabilities + equity."
+          subtitle="A snapshot as of a point in time. There's no period-end closing yet, so assets will not equal liabilities + equity."
           action={
             <div className="flex items-end gap-3">
               <div className="w-44">
@@ -92,10 +142,14 @@ export default function BalanceSheetPage() {
                   </tr>
                 </Thead>
                 <tbody>
-                  {balanceSheet.data.assets.map((line) => (
-                    <tr key={line.account}>
-                      <Td>{line.account_name}</Td>
-                      <Td align="right">{formatMoney(line.balance_minor)}</Td>
+                  {assetRows(balanceSheet.data.assets).map((row) => (
+                    <tr key={row.key}>
+                      <Td className={row.style === "subtotal" ? "font-bold" : ""}>
+                        {row.style === "less" ? <span className="inline-block pl-5">{row.label}</span> : row.label}
+                      </Td>
+                      <Td align="right" className={row.style === "subtotal" ? "font-bold" : ""}>
+                        {row.balance}
+                      </Td>
                     </tr>
                   ))}
                   <tr>

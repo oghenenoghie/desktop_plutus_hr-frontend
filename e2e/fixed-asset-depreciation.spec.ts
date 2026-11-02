@@ -1,0 +1,227 @@
+import { expect, test, type Page } from "@playwright/test";
+
+import { trackPageErrors } from "./support/dialogs";
+import { fixedAssetRecord, freshStore, installMockApi, writesTo, type MockStore } from "./support/mock-api";
+
+// Accumulated depreciation: an asset already owned comes onto the books with
+// the depreciation it had built up, the register totals what's on the books,
+// each asset lists its depreciation history, and the balance sheet shows
+// fixed assets at cost less accumulated depreciation.
+
+let store: MockStore;
+let errors: ReturnType<typeof trackPageErrors>;
+
+test.beforeEach(async ({ context, page }) => {
+  store = freshStore();
+  store.fixedAssets = [
+    fixedAssetRecord({
+      id: "fa1",
+      name: "Delivery Van",
+      asset_tag: "FA-001",
+      cost_minor: 1_200_000_00,
+      accumulated_depreciation_minor: 300_000_00,
+    }),
+    fixedAssetRecord({
+      id: "fa2",
+      name: "Generator",
+      asset_tag: "FA-002",
+      cost_minor: 500_000_00,
+      accumulated_depreciation_minor: 100_000_00,
+    }),
+    fixedAssetRecord({
+      id: "fa3",
+      name: "Old Printer",
+      asset_tag: "FA-003",
+      cost_minor: 999_000_00,
+      status: "disposed",
+      disposed_at: "2026-06-01T12:00:00Z",
+    }),
+  ];
+  await installMockApi(context, store);
+  errors = trackPageErrors(page);
+});
+
+test.afterEach(() => errors.expectNone());
+
+const tiles = (page: Page) => page.getByRole("region", { name: "Fixed asset totals" }).locator(":scope > *");
+const newAssetDrawer = (page: Page) => page.getByRole("dialog", { name: "New Fixed Asset" });
+
+async function startNewAsset(page: Page, tag: string) {
+  await page.goto("/fixed-assets");
+  await page.getByRole("button", { name: "New Fixed Asset" }).click();
+  await expect(newAssetDrawer(page)).toBeVisible();
+  await page.fill("#name", "Forklift");
+  await page.fill("#assetTag", tag);
+  await page.fill("#acquisitionDate", "2023-03-01");
+  await page.fill("#cost", "800000");
+  await page.fill("#salvageValue", "50000");
+  await page.fill("#usefulLifeMonths", "60");
+}
+
+test("the totals add up cost, accumulated depreciation and book value of active assets", async ({ page }) => {
+  await page.goto("/fixed-assets");
+  await expect(tiles(page)).toContainText([
+    "Total cost₦1,700,000",
+    "Accumulated depreciation₦400,000",
+    "Net book value₦1,300,000",
+  ]);
+  await expect(tiles(page).first()).toContainText("2 active assets · 1 disposed not counted");
+});
+
+test("an asset already owned comes on with the depreciation it had built up", async ({ page }) => {
+  await startNewAsset(page, "FA-010");
+  await expect(page.locator("#acquisitionSourceHint")).toHaveText("Posts the cost against Cash.");
+  await expect(page.locator("#openingDepreciation")).toHaveCount(0);
+
+  await page.selectOption("#acquisitionSource", "opening");
+  await expect(page.locator("#acquisitionSourceHint")).toContainText("against Opening Balance Equity");
+
+  // More than cost less salvage value is refused before anything is sent.
+  const create = newAssetDrawer(page).getByRole("button", { name: "Create Asset" });
+  await page.fill("#openingDepreciation", "760000");
+  await expect(page.locator("#openingDepreciationHint")).toHaveText(
+    "Can't be more than cost less salvage value (₦750,000).",
+  );
+  await expect(page.locator("#openingDepreciation")).toHaveAttribute("aria-invalid", "true");
+  await expect(create).toBeDisabled();
+
+  await page.fill("#openingDepreciation", "320000");
+  await expect(page.locator("#openingDepreciationHint")).toHaveText(
+    "Book value brought on: ₦480,000. Depreciation continues from here.",
+  );
+  await expect(create).toBeEnabled();
+  await create.click();
+  await expect(newAssetDrawer(page)).toBeHidden();
+
+  const writes = writesTo(store, "POST", "/fixed-assets");
+  expect(writes).toHaveLength(1);
+  expect(writes[0].body).toMatchObject({
+    asset_tag: "FA-010",
+    cost_minor: 800_000_00,
+    salvage_value_minor: 50_000_00,
+    opening_balance: true,
+    opening_accumulated_depreciation_minor: 320_000_00,
+  });
+  const row = page.getByRole("row", { name: /FA-010/ });
+  await expect(row).toContainText("₦320,000");
+  await expect(row).toContainText("₦480,000");
+  await expect(tiles(page)).toContainText([
+    "Total cost₦2,500,000",
+    "Accumulated depreciation₦720,000",
+    "Net book value₦1,780,000",
+  ]);
+});
+
+test("switching back to bought now drops the opening depreciation", async ({ page }) => {
+  await startNewAsset(page, "FA-011");
+  await page.selectOption("#acquisitionSource", "opening");
+  await page.fill("#openingDepreciation", "100000");
+  await page.selectOption("#acquisitionSource", "purchase");
+  await expect(page.locator("#openingDepreciation")).toHaveCount(0);
+
+  await newAssetDrawer(page).getByRole("button", { name: "Create Asset" }).click();
+  await expect(newAssetDrawer(page)).toBeHidden();
+  expect(writesTo(store, "POST", "/fixed-assets")[0].body).toMatchObject({
+    asset_tag: "FA-011",
+    opening_balance: false,
+    opening_accumulated_depreciation_minor: 0,
+  });
+  await expect(page.getByRole("row", { name: /FA-011/ })).toContainText("₦800,000");
+});
+
+test("an asset's history lists each change with the running total", async ({ page }) => {
+  store.depreciationHistories.fa1 = {
+    fixed_asset_id: "fa1",
+    accumulated_depreciation_minor: 300_000_00,
+    events: [
+      {
+        kind: "opening",
+        date: "2026-01-05",
+        amount_minor: 200_000_00,
+        accumulated_minor: 200_000_00,
+        journal_entry_id: "j1",
+        description: "Built up before Plutus (opening balance)",
+      },
+      {
+        kind: "depreciation",
+        date: "2026-02-15",
+        amount_minor: 150_000_00,
+        accumulated_minor: 350_000_00,
+        journal_entry_id: "j2",
+        description: "Depreciation for the period",
+      },
+      {
+        kind: "revaluation",
+        date: "2026-03-15",
+        amount_minor: -350_000_00,
+        accumulated_minor: 0,
+        journal_entry_id: null,
+        description: "Revalued: market appraisal",
+      },
+      {
+        kind: "depreciation",
+        date: "2026-04-15",
+        amount_minor: 250_000_00,
+        accumulated_minor: 250_000_00,
+        journal_entry_id: "j3",
+        description: "Depreciation for the period",
+      },
+    ],
+    unexplained_minor: 50_000_00,
+  };
+  await page.goto("/fixed-assets");
+  await page.getByRole("button", { name: "History of FA-001" }).click();
+  const drawer = page.getByRole("dialog", { name: "Depreciation History — FA-001" });
+  await expect(drawer).toBeVisible();
+
+  const rows = drawer.locator("tbody tr");
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(0)).toContainText(/Opening balance\s*Built up before Plutus.*\+₦200,000\s*₦200,000$/);
+  await expect(rows.nth(1)).toContainText(/Depreciation\s*\+₦150,000\s*₦350,000$/);
+  await expect(rows.nth(2)).toContainText(/Revaluation\s*Revalued: market appraisal\s*−₦350,000\s*₦0$/);
+  await expect(rows.nth(3)).toContainText(/Depreciation\s*\+₦250,000\s*₦250,000$/);
+  await expect(drawer.getByRole("note")).toContainText(
+    "₦50,000 of this asset's accumulated depreciation was recorded without a posting this history can trace",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+});
+
+test("a disposed asset's history is still available", async ({ page }) => {
+  await page.goto("/fixed-assets");
+  const row = page.getByRole("row", { name: /FA-003/ });
+  await expect(row.getByRole("button", { name: "Depreciate" })).toHaveCount(0);
+  await row.getByRole("button", { name: "History of FA-003" }).click();
+  const drawer = page.getByRole("dialog", { name: "Depreciation History — FA-003" });
+  await expect(drawer).toContainText("No depreciation recorded for this asset yet.");
+  await expect(drawer).toContainText("its cost and accumulated depreciation were taken off the books");
+  await expect(drawer.getByRole("note")).toHaveCount(0);
+});
+
+test("the balance sheet shows fixed assets at cost less accumulated depreciation", async ({ page }) => {
+  store.balanceSheet = {
+    as_of: null,
+    // Sorted by account code, as the API returns them.
+    assets: [
+      { account: "accumulated_depreciation", account_name: "Accumulated Depreciation", balance_minor: -400_000_00 },
+      { account: "cash", account_name: "Cash", balance_minor: 250_000_00 },
+      { account: "fixed_assets", account_name: "Fixed Assets", balance_minor: 1_700_000_00 },
+    ],
+    total_assets_minor: 1_550_000_00,
+    liabilities: [],
+    total_liabilities_minor: 0,
+    equity: [{ account: "opening_balance_equity", account_name: "Opening Balance Equity", balance_minor: 1_300_000_00 }],
+    total_equity_minor: 1_300_000_00,
+  };
+  await page.goto("/balance-sheet");
+  const assetRows = page.getByRole("table").first().locator("tbody tr");
+  await expect(assetRows).toHaveText([
+    "Cash₦250,000",
+    "Fixed Assets at cost₦1,700,000",
+    "Less: Accumulated Depreciation(₦400,000)",
+    "Net book value of fixed assets₦1,300,000",
+    "Total Assets₦1,550,000",
+  ]);
+  await expect(page.getByRole("table").nth(1)).toContainText("Opening Balance Equity₦1,300,000");
+});

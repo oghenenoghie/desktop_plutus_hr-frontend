@@ -82,6 +82,7 @@ import type {
   FixedAssetAssignmentCreateBody,
   FixedAssetAssignmentReturnBody,
   FixedAssetCreateBody,
+  FixedAssetDepreciationHistory,
   FixedAssetDisposeBody,
   FixedAssetRevalueBody,
   FixedAssetTransferBody,
@@ -759,6 +760,8 @@ export const fixedAssetsApi = {
   mine: () => apiFetch<MyFixedAsset[]>("/fixed-assets/me"),
   create: (body: FixedAssetCreateBody) =>
     apiFetch<FixedAsset>("/fixed-assets", { method: "POST", body }),
+  depreciationHistory: (id: string) =>
+    apiFetch<FixedAssetDepreciationHistory>(`/fixed-assets/${id}/depreciation-history`),
   depreciate: (id: string) =>
     apiFetch<FixedAsset>(`/fixed-assets/${id}/depreciate`, {
       method: "POST",

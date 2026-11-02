@@ -1,0 +1,60 @@
+name: Defender scan of the published installer
+
+# Does Microsoft Defender flag the published Windows installer, or the app
+# inside it, on an ordinary Windows machine? The build's Windows tests
+# exclude the workspace and install locations from Defender (PyInstaller
+# executables are a common false-positive target), so they can't show what
+# Defender does to a customer's download. This scans with no exclusions,
+# with up-to-date signatures, and only reports: nothing is quarantined.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/plutus-hr-accounting-audit-ws85zr]
+    paths: [.github/workflows/defender-scan.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Defender status, after a signature update
+        shell: pwsh
+        run: |
+          Update-MpSignature -ErrorAction Continue
+          Get-MpComputerStatus | Format-List AMServiceEnabled, AntivirusEnabled, RealTimeProtectionEnabled, AntivirusSignatureVersion, AntivirusSignatureLastUpdated, AMEngineVersion
+          (Get-MpPreference).ExclusionPath
+
+      - name: Download the published installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force scan | Out-Null
+          gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName
+          gh release download --repo $env:GITHUB_REPOSITORY --pattern Plutus-Technologies-Setup.exe --dir scan
+          Get-FileHash scan\Plutus-Technologies-Setup.exe -Algorithm SHA256 | Format-List Hash
+
+      - name: Unpack the app inside it
+        shell: pwsh
+        run: |
+          7z x scan\Plutus-Technologies-Setup.exe -oscan\unpacked -y | Out-Null
+          Get-ChildItem scan\unpacked -Recurse -Filter *.7z | ForEach-Object { 7z x $_.FullName -oscan\app -y | Out-Null }
+          Get-ChildItem scan\app -Recurse -Include *.exe | Select-Object FullName, Length | Format-Table -AutoSize
+
+      - name: Scan with Defender
+        shell: pwsh
+        run: |
+          $mp = "$env:ProgramFiles\Windows Defender\MpCmdRun.exe"
+          foreach ($target in @("scan\Plutus-Technologies-Setup.exe", "scan\app")) {
+            $path = (Resolve-Path $target).Path
+            Write-Host "== Scanning $path"
+            & $mp -Scan -ScanType 3 -File $path -DisableRemediation
+            Write-Host "MpCmdRun exit code $LASTEXITCODE (0: nothing found, 2: threats found)"
+          }
+          Write-Host "== Detections"
+          Get-MpThreatDetection | Format-List ThreatID, Resources, InitialDetectionTime
+          Get-MpThreat | Format-List ThreatName, SeverityID

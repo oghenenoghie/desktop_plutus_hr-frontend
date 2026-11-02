@@ -10,6 +10,7 @@ import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label } from "@/components/ui/input";
+import { KpiTile } from "@/components/ui/kpi-tile";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -17,7 +18,7 @@ import { ApiError } from "@/lib/api/client";
 import { departmentsApi, employeesApi, fixedAssetOpsApi, fixedAssetsApi } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { FixedAsset, FixedAssetCategory } from "@/lib/types";
+import type { FixedAsset, FixedAssetCategory, FixedAssetDepreciationEvent } from "@/lib/types";
 
 const CATEGORIES: FixedAssetCategory[] = ["laptop", "phone", "vehicle", "furniture", "other"];
 // A laptop/phone/vehicle doesn't just exist — it's issued to someone from
@@ -37,6 +38,24 @@ export default function FixedAssetsPage() {
   const [revaluing, setRevaluing] = useState<FixedAsset | null>(null);
   const [assigning, setAssigning] = useState<FixedAsset | null>(null);
   const [returning, setReturning] = useState<FixedAsset | null>(null);
+  const [viewingHistory, setViewingHistory] = useState<FixedAsset | null>(null);
+
+  // Active assets only: a disposed asset is off the books (disposal cleared
+  // its cost and accumulated depreciation from the ledger), though the
+  // register keeps the figures it had.
+  const active = (assets.data ?? []).filter((asset) => asset.status === "active");
+  const totals = active.reduce(
+    (sum, asset) => ({
+      cost: sum.cost + asset.cost_minor,
+      depreciation: sum.depreciation + asset.accumulated_depreciation_minor,
+      bookValue: sum.bookValue + asset.book_value_minor,
+    }),
+    { cost: 0, depreciation: 0, bookValue: 0 },
+  );
+  const disposedCount = (assets.data?.length ?? 0) - active.length;
+  const countedCaption =
+    `${active.length} active asset${active.length === 1 ? "" : "s"}` +
+    (disposedCount > 0 ? ` · ${disposedCount} disposed not counted` : "");
 
   async function depreciate(asset: FixedAsset) {
     try {
@@ -77,6 +96,22 @@ export default function FixedAssetsPage() {
         }
       />
 
+      {assets.data && assets.data.length > 0 ? (
+        <section aria-label="Fixed asset totals" className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <KpiTile label="Total cost" value={formatMoney(totals.cost)} caption={countedCaption} />
+          <KpiTile
+            label="Accumulated depreciation"
+            value={formatMoney(totals.depreciation)}
+            caption="Built up before Plutus and posted since"
+          />
+          <KpiTile
+            label="Net book value"
+            value={formatMoney(totals.bookValue)}
+            caption="Cost less accumulated depreciation"
+          />
+        </section>
+      ) : null}
+
       <Card>
         {assets.loading ? <LoadingState /> : null}
         {assets.error ? <ErrorState message={assets.error} /> : null}
@@ -116,7 +151,18 @@ export default function FixedAssetsPage() {
                   </Td>
                   <Td>{formatDate(asset.acquisition_date)}</Td>
                   <Td align="right">{formatMoney(asset.cost_minor)}</Td>
-                  <Td align="right">{formatMoney(asset.accumulated_depreciation_minor)}</Td>
+                  <Td align="right">
+                    <div>{formatMoney(asset.accumulated_depreciation_minor)}</div>
+                    {/* The history of this figure, for every asset — disposed ones included. */}
+                    <button
+                      type="button"
+                      onClick={() => setViewingHistory(asset)}
+                      aria-label={`History of ${asset.asset_tag}`}
+                      className="mt-1 cursor-pointer text-[11px] font-bold text-primary underline-offset-2 hover:underline"
+                    >
+                      History
+                    </button>
+                  </Td>
                   <Td align="right" className="font-bold">
                     {formatMoney(asset.book_value_minor)}
                   </Td>
@@ -219,6 +265,10 @@ export default function FixedAssetsPage() {
         />
       ) : null}
 
+      {viewingHistory ? (
+        <DepreciationHistoryDrawer asset={viewingHistory} onClose={() => setViewingHistory(null)} />
+      ) : null}
+
       {returning ? (
         <ReturnFixedAssetDrawer
           asset={returning}
@@ -230,6 +280,91 @@ export default function FixedAssetsPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+const EVENT_LABELS: Record<FixedAssetDepreciationEvent["kind"], string> = {
+  opening: "Opening balance",
+  depreciation: "Depreciation",
+  revaluation: "Revaluation",
+};
+
+function signedMoney(minor: number): string {
+  return minor < 0 ? `−${formatMoney(-minor)}` : `+${formatMoney(minor)}`;
+}
+
+// Every change to one asset's accumulated depreciation, oldest first, with
+// the running total after each: what it had built up before Plutus, each
+// period posted since, and revaluations, which reset it to zero.
+function DepreciationHistoryDrawer({ asset, onClose }: { asset: FixedAsset; onClose: () => void }) {
+  const history = useApiResource(() => fixedAssetsApi.depreciationHistory(asset.id));
+  const unexplained = history.data?.unexplained_minor ?? 0;
+
+  return (
+    <Drawer title={`Depreciation History — ${asset.asset_tag}`} onClose={onClose}>
+      <p className="mb-3 text-[13px] font-bold text-ink">{asset.name}</p>
+      <dl className="mb-5 grid grid-cols-3 gap-3">
+        {[
+          ["Cost", asset.cost_minor],
+          ["Accumulated", asset.accumulated_depreciation_minor],
+          ["Book value", asset.book_value_minor],
+        ].map(([label, minor]) => (
+          <div key={label}>
+            <dt className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">{label}</dt>
+            <dd className="mt-1 text-[14px] font-extrabold text-ink">{formatMoney(Number(minor))}</dd>
+          </div>
+        ))}
+      </dl>
+      {asset.status === "disposed" ? (
+        <p className="mb-4 text-[12px] text-ink-soft">
+          Disposed {formatDate(asset.disposed_at)}: its cost and accumulated depreciation were taken off the books
+          then.
+        </p>
+      ) : null}
+      {history.loading ? <LoadingState /> : null}
+      {history.error ? <ErrorState message={history.error} /> : null}
+      {history.data && history.data.events.length === 0 ? (
+        <EmptyState label="No depreciation recorded for this asset yet." />
+      ) : null}
+      {history.data && history.data.events.length > 0 ? (
+        <Table>
+          <Thead>
+            <tr>
+              <Th>Date</Th>
+              <Th>Event</Th>
+              <Th align="right">Change</Th>
+              <Th align="right">Accumulated</Th>
+            </tr>
+          </Thead>
+          <tbody>
+            {history.data.events.map((event, index) => (
+              <tr key={`${event.kind}-${event.date}-${index}`}>
+                <Td className="whitespace-nowrap">{formatDate(event.date)}</Td>
+                <Td>
+                  <div className="font-bold">{EVENT_LABELS[event.kind]}</div>
+                  {event.kind !== "depreciation" ? (
+                    <div className="text-[11px] text-ink-soft">{event.description}</div>
+                  ) : null}
+                </Td>
+                <Td align="right" className="whitespace-nowrap">
+                  {signedMoney(event.amount_minor)}
+                </Td>
+                <Td align="right" className="whitespace-nowrap font-bold">
+                  {formatMoney(event.accumulated_minor)}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      ) : null}
+      {history.data && unexplained !== 0 ? (
+        <p role="note" className="mt-4 rounded-panel bg-warn-tint px-3 py-2.5 text-[12px] text-warn-ink">
+          {unexplained > 0
+            ? `${formatMoney(unexplained)} of this asset's accumulated depreciation was recorded without a posting this history can trace, for example when the asset was brought in from another system.`
+            : `The postings above come to ${formatMoney(-unexplained)} more than this asset's accumulated depreciation.`}
+        </p>
+      ) : null}
+    </Drawer>
   );
 }
 
@@ -541,9 +676,24 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
   const [usefulLifeMonths, setUsefulLifeMonths] = useState("");
   const [category, setCategory] = useState<FixedAssetCategory | "">("");
   const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
+  // Bought now (paid from cash) or already owned before Plutus, brought on
+  // as an opening balance with the depreciation it had built up.
+  const [alreadyOwned, setAlreadyOwned] = useState(false);
+  const [openingDepreciation, setOpeningDepreciation] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const assigneeRequired = category !== "" && REQUIRES_ASSIGNEE.has(category);
+  const costMinor = toMinorUnits(cost);
+  const depreciableMinor = Math.max(costMinor - (salvageValue ? toMinorUnits(salvageValue) : 0), 0);
+  const openingDepreciationMinor = alreadyOwned && openingDepreciation ? toMinorUnits(openingDepreciation) : 0;
+  // The same limits register_fixed_asset enforces.
+  const openingDepreciationError = !alreadyOwned
+    ? null
+    : openingDepreciationMinor < 0
+      ? "Can't be negative."
+      : cost !== "" && openingDepreciationMinor > depreciableMinor
+        ? `Can't be more than cost less salvage value (${formatMoney(depreciableMinor)}).`
+        : null;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -558,6 +708,8 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
         useful_life_months: Number(usefulLifeMonths),
         category: category || null,
         assigned_employee_id: assignedEmployeeId || null,
+        opening_balance: alreadyOwned,
+        opening_accumulated_depreciation_minor: openingDepreciationMinor,
       });
       onCreated();
     } catch (err) {
@@ -593,6 +745,27 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
             required
           />
         </div>
+        <div>
+          <Label htmlFor="acquisitionSource">How It Comes onto the Books</Label>
+          <Select
+            id="acquisitionSource"
+            value={alreadyOwned ? "opening" : "purchase"}
+            onChange={(event) => {
+              const opening = event.target.value === "opening";
+              setAlreadyOwned(opening);
+              if (!opening) setOpeningDepreciation("");
+            }}
+            aria-describedby="acquisitionSourceHint"
+          >
+            <option value="purchase">Bought now — paid from cash</option>
+            <option value="opening">Already owned before Plutus — opening balance</option>
+          </Select>
+          <p id="acquisitionSourceHint" className="mt-1 text-[11px] text-ink-soft">
+            {alreadyOwned
+              ? "No cash is posted: the asset comes on at cost, less the depreciation it has already built up, against Opening Balance Equity."
+              : "Posts the cost against Cash."}
+          </p>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="cost">Cost ({currencyLabel()})</Label>
@@ -619,6 +792,29 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
             required
           />
         </div>
+        {alreadyOwned ? (
+          <div>
+            <Label htmlFor="openingDepreciation">Accumulated Depreciation to Date ({currencyLabel()})</Label>
+            <Input
+              id="openingDepreciation"
+              value={openingDepreciation}
+              onChange={(event) => setOpeningDepreciation(event.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+              aria-invalid={openingDepreciationError ? true : undefined}
+              aria-describedby="openingDepreciationHint"
+            />
+            <p
+              id="openingDepreciationHint"
+              className={`mt-1 text-[11px] ${openingDepreciationError ? "font-bold text-bad" : "text-ink-soft"}`}
+            >
+              {openingDepreciationError ??
+                (cost !== ""
+                  ? `Book value brought on: ${formatMoney(costMinor - openingDepreciationMinor)}. Depreciation continues from here.`
+                  : "What it had built up before Plutus.")}
+            </p>
+          </div>
+        ) : null}
         <div>
           <Label htmlFor="category">Category</Label>
           <Select
@@ -660,7 +856,10 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting || (assigneeRequired && !assignedEmployeeId)}>
+          <Button
+            type="submit"
+            disabled={submitting || (assigneeRequired && !assignedEmployeeId) || openingDepreciationError !== null}
+          >
             {submitting ? "Creating…" : "Create Asset"}
           </Button>
         </div>

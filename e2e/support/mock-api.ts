@@ -1,13 +1,23 @@
 import type { BrowserContext } from "@playwright/test";
 
-import type { Customer, InventoryItem, Role, Vendor } from "@/lib/types";
+import type {
+  BalanceSheet,
+  Customer,
+  FixedAsset,
+  FixedAssetDepreciationHistory,
+  InventoryItem,
+  Role,
+  Vendor,
+} from "@/lib/types";
 
 // Every backend call the app makes is answered here, in the browser, from an
 // in-memory store — so these tests need no backend and no database, and can
 // assert on exactly what the app tried to write. Behaviour mirrors the API
 // where the tests depend on it: duplicate names are refused with the API's
-// 400 message, and creating customers, vendors and items is refused with 403
-// for the roles the API refuses (require_roles / inventory.manage).
+// 400 message, creating customers, vendors and items is refused with 403
+// for the roles the API refuses (require_roles / inventory.manage), and a
+// fixed asset's opening accumulated depreciation is checked the way
+// register_fixed_asset checks it.
 
 export interface Write {
   method: string;
@@ -24,6 +34,9 @@ export interface MockStore {
   items: InventoryItem[];
   invoices: Record<string, unknown>[];
   receiptsByVendor: Record<string, Record<string, unknown>[]>;
+  fixedAssets: FixedAsset[];
+  depreciationHistories: Record<string, FixedAssetDepreciationHistory>;
+  balanceSheet: BalanceSheet;
 }
 
 const NOW = "2026-11-01T00:00:00Z";
@@ -73,6 +86,31 @@ export function itemRecord(overrides: Partial<InventoryItem>): InventoryItem {
   };
 }
 
+export function fixedAssetRecord(overrides: Partial<FixedAsset>): FixedAsset {
+  const asset: FixedAsset = {
+    id: "fa?",
+    org_id: "o1",
+    department_id: null,
+    name: "",
+    asset_tag: "",
+    acquisition_date: "2026-01-01",
+    cost_minor: 0,
+    salvage_value_minor: 0,
+    useful_life_months: 12,
+    accumulated_depreciation_minor: 0,
+    book_value_minor: 0,
+    status: "active",
+    disposed_at: null,
+    disposal_proceeds_minor: null,
+    category: null,
+    assignment_status: null,
+    assigned_employee_id: null,
+    created_at: NOW,
+    ...overrides,
+  };
+  return { ...asset, book_value_minor: asset.cost_minor - asset.accumulated_depreciation_minor };
+}
+
 export function freshStore(role: Role = "admin"): MockStore {
   return {
     role,
@@ -88,6 +126,17 @@ export function freshStore(role: Role = "admin"): MockStore {
     invoices: [],
     receiptsByVendor: {
       v1: [{ id: "g1", grn_number: "GRN-0001", po_number: "PO-0001", accrued_minor: 50000, vendor_id: "v1", status: "posted" }],
+    },
+    fixedAssets: [],
+    depreciationHistories: {},
+    balanceSheet: {
+      as_of: null,
+      assets: [],
+      total_assets_minor: 0,
+      liabilities: [],
+      total_liabilities_minor: 0,
+      equity: [],
+      total_equity_minor: 0,
     },
   };
 }
@@ -217,6 +266,54 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
     }
     if (method === "POST" && path === "/inventory/adjustments") {
       return json(201, { id: "adj1", status: "draft", ...body, lines: [] });
+    }
+
+    if (path === "/fixed-assets") {
+      if (method === "GET") return json(200, store.fixedAssets);
+      if (method === "POST" && body) {
+        if (!WRITERS.includes(store.role)) return json(403, { detail: "insufficient role" });
+        const cost = Number(body.cost_minor);
+        const salvage = Number(body.salvage_value_minor ?? 0);
+        const opening = Number(body.opening_accumulated_depreciation_minor ?? 0);
+        if (opening < 0) {
+          return json(400, { detail: "opening_accumulated_depreciation_minor cannot be negative" });
+        }
+        if (opening > 0 && !body.opening_balance) {
+          return json(400, { detail: "only an asset already owned (opening_balance) can have depreciation built up" });
+        }
+        if (opening > cost - salvage) {
+          return json(400, { detail: "opening_accumulated_depreciation_minor cannot exceed cost less salvage value" });
+        }
+        const asset = fixedAssetRecord({
+          id: `fa${++store.seq}`,
+          name: String(body.name),
+          asset_tag: String(body.asset_tag),
+          acquisition_date: String(body.acquisition_date),
+          cost_minor: cost,
+          salvage_value_minor: salvage,
+          useful_life_months: Number(body.useful_life_months),
+          accumulated_depreciation_minor: opening,
+        });
+        store.fixedAssets.push(asset);
+        return json(201, asset);
+      }
+    }
+    const historyPath = path.match(/^\/fixed-assets\/([^/]+)\/depreciation-history$/);
+    if (historyPath && method === "GET") {
+      const asset = store.fixedAssets.find((candidate) => candidate.id === historyPath[1]);
+      if (!asset) return json(404, { detail: "fixed asset not found" });
+      return json(
+        200,
+        store.depreciationHistories[asset.id] ?? {
+          fixed_asset_id: asset.id,
+          accumulated_depreciation_minor: asset.accumulated_depreciation_minor,
+          events: [],
+          unexplained_minor: asset.accumulated_depreciation_minor,
+        },
+      );
+    }
+    if (method === "GET" && path === "/financial-statements/balance-sheet") {
+      return json(200, store.balanceSheet);
     }
 
     // Anything else the shell asks for (notifications, badges…) is empty.

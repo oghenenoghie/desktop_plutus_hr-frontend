@@ -21,12 +21,21 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - name: Defender status, after a signature update
+      # Defender's service may not be running yet on a fresh runner; start
+      # it and wait until it answers before updating and scanning.
+      - name: Start Defender, update its signatures
         shell: pwsh
         run: |
-          Update-MpSignature -ErrorAction Continue
+          Get-Service WinDefend | Format-List Name, Status, StartType
+          Start-Service WinDefend -ErrorAction Continue
+          $status = $null
+          for ($i = 0; $i -lt 30 -and -not $status; $i++) {
+            try { $status = Get-MpComputerStatus -ErrorAction Stop } catch { Start-Sleep -Seconds 5 }
+          }
+          if (-not $status) { throw "Defender never answered: $(Get-Service WinDefend | Select-Object -ExpandProperty Status)" }
+          & "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -SignatureUpdate
           Get-MpComputerStatus | Format-List AMServiceEnabled, AntivirusEnabled, RealTimeProtectionEnabled, AntivirusSignatureVersion, AntivirusSignatureLastUpdated, AMEngineVersion
-          (Get-MpPreference).ExclusionPath
+          "Exclusions: $((Get-MpPreference).ExclusionPath -join ', ')"
 
       - name: Download the published installer
         shell: pwsh

@@ -70,7 +70,7 @@ test("the totals add up cost, accumulated depreciation and book value of active 
 
 test("an asset already owned comes on with the depreciation it had built up", async ({ page }) => {
   await startNewAsset(page, "FA-010");
-  await expect(page.locator("#acquisitionSourceHint")).toHaveText("Posts the cost against Cash.");
+  await expect(page.locator("#acquisitionSourceHint")).toHaveText("Posts the cost against Cash and Bank.");
   await expect(page.locator("#openingDepreciation")).toHaveCount(0);
 
   await page.selectOption("#acquisitionSource", "opening");
@@ -232,4 +232,74 @@ test("the balance sheet is vertical: fixed assets at cost less depreciation, the
     "Profit and Loss Reserve₦250,000",
     "Total capital and reserves₦1,550,000",
   ]);
+});
+
+test("a leased asset takes its category's method and goes on the leased register", async ({ page }) => {
+  await startNewAsset(page, "LEASE-1");
+  await page.selectOption("#acquisitionSource", "leased");
+  await expect(page.locator("#acquisitionSourceHint")).toContainText("right-of-use asset against Lease Liability");
+  await page.fill("#leaseTerm", "36");
+
+  // A category made from the form fills in its usual depreciation.
+  await newAssetDrawer(page).getByRole("button", { name: "+ New Category" }).click();
+  const modal = page.getByRole("dialog", { name: "New Asset Category" });
+  await modal.locator("#new-category-name").fill("Leased Vehicles");
+  await modal.locator("#new-category-method").selectOption("reducing_balance");
+  await modal.locator("#new-category-rate").fill("25");
+  await modal.getByRole("button", { name: "Create Category" }).click();
+  await expect(modal).toBeHidden();
+  await expect(page.locator("#depreciationMethod")).toHaveValue("reducing_balance");
+  await expect(page.locator("#depreciationRate")).toHaveValue("25");
+
+  await newAssetDrawer(page).getByRole("button", { name: "Create Asset" }).click();
+  await expect(newAssetDrawer(page)).toBeHidden();
+  expect(writesTo(store, "POST", "/fixed-assets")[0].body).toMatchObject({
+    asset_tag: "LEASE-1",
+    acquisition_type: "leased",
+    lease_term_months: 36,
+    depreciation_method: "reducing_balance",
+    depreciation_rate_ppm: 250_000,
+    asset_category_id: store.assetCategories[0]!.id,
+    opening_balance: false,
+  });
+
+  await expect(page.getByRole("row", { name: /LEASE-1/ })).toHaveCount(0);
+  await page.getByRole("tab", { name: /Leased assets/ }).click();
+  const row = page.getByRole("row", { name: /LEASE-1/ });
+  await expect(row).toContainText("Leased Vehicles");
+  await expect(row).toContainText("Reducing balance · 25% a year");
+  await expect(row).toContainText("Lease term 36 months");
+  await expect(row.getByRole("button", { name: "Lease Payment" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Amortise" })).toBeVisible();
+});
+
+test("the year-end run reports each asset's charge and the ones already done", async ({ page }) => {
+  store.yearEndResult = {
+    year: 2026,
+    charged: [
+      {
+        fixed_asset_id: "fa1",
+        asset_tag: "FA-001",
+        name: "Generator",
+        acquisition_type: "acquired",
+        depreciation_method: "reducing_balance",
+        charge_minor: 187_500_00,
+        accumulated_depreciation_minor: 437_500_00,
+        book_value_minor: 562_500_00,
+      },
+    ],
+    total_minor: 187_500_00,
+    already_run: ["FA-002"],
+  };
+  await page.goto("/fixed-assets");
+  await page.getByRole("button", { name: "Year-End Depreciation" }).click();
+  const drawer = page.getByRole("dialog", { name: "Year-End Depreciation" });
+  await drawer.locator("#yearEndYear").fill("2026");
+  await drawer.getByRole("button", { name: "Run for 2026" }).click();
+  const result = drawer.getByLabel("Year-end depreciation result");
+  await expect(result).toContainText("₦187,500 charged for 2026 across 1 asset.");
+  await expect(result).toContainText("FA-001");
+  await expect(result).toContainText("Reducing balance");
+  await expect(result).toContainText("Already charged for 2026, not charged again: FA-002.");
+  expect(writesTo(store, "POST", "/fixed-assets/year-end-depreciation")[0].body).toEqual({ year: 2026 });
 });

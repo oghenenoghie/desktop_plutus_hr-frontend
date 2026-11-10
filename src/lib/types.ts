@@ -1394,7 +1394,54 @@ export interface FixedAsset {
   category: FixedAssetCategory | null;
   assignment_status: AssetAssignmentStatus | null;
   assigned_employee_id: string | null;
+  // Owned outright, or leased: a right-of-use asset amortised over the lease.
+  acquisition_type: AcquisitionType;
+  depreciation_method: DepreciationMethod;
+  // A yearly rate, in parts per million (250000 = 25%).
+  depreciation_rate_ppm: number | null;
+  // The lease's payment period, for a leased asset.
+  lease_term_months: number | null;
+  asset_category_id: string | null;
   created_at: string;
+}
+
+export type AcquisitionType = "acquired" | "leased";
+export type DepreciationMethod = "straight_line" | "reducing_balance" | "write_off";
+
+// A class of asset the organisation defines, with the depreciation it
+// usually takes.
+export interface AssetCategory {
+  id: string;
+  name: string;
+  depreciation_method: DepreciationMethod;
+  depreciation_rate_ppm: number | null;
+  useful_life_months: number | null;
+  created_at: string;
+}
+
+export interface AssetCategoryCreateBody {
+  name: string;
+  depreciation_method: DepreciationMethod;
+  depreciation_rate_ppm?: number | null;
+  useful_life_months?: number | null;
+}
+
+export interface YearEndDepreciationLine {
+  fixed_asset_id: string;
+  asset_tag: string;
+  name: string;
+  acquisition_type: AcquisitionType;
+  depreciation_method: DepreciationMethod;
+  charge_minor: number;
+  accumulated_depreciation_minor: number;
+  book_value_minor: number;
+}
+
+export interface YearEndDepreciationResult {
+  year: number;
+  charged: YearEndDepreciationLine[];
+  total_minor: number;
+  already_run: string[];
 }
 
 export interface FixedAssetCreateBody {
@@ -1412,6 +1459,11 @@ export interface FixedAssetCreateBody {
   // Balance Equity. Without it, the cost is posted as paid from cash.
   opening_balance?: boolean;
   opening_accumulated_depreciation_minor?: number;
+  acquisition_type?: AcquisitionType;
+  depreciation_method?: DepreciationMethod;
+  depreciation_rate_ppm?: number | null;
+  lease_term_months?: number | null;
+  asset_category_id?: string | null;
 }
 
 // One change to an asset's accumulated depreciation, from

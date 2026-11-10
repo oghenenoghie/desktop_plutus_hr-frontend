@@ -1,6 +1,7 @@
 import type { BrowserContext } from "@playwright/test";
 
 import type {
+  AssetCategory,
   BalanceSheet,
   Customer,
   FixedAsset,
@@ -10,6 +11,7 @@ import type {
   StatementLine,
   StatementSection,
   Vendor,
+  YearEndDepreciationResult,
 } from "@/lib/types";
 
 // Every backend call the app makes is answered here, in the browser, from an
@@ -37,6 +39,8 @@ export interface MockStore {
   invoices: Record<string, unknown>[];
   receiptsByVendor: Record<string, Record<string, unknown>[]>;
   fixedAssets: FixedAsset[];
+  assetCategories: AssetCategory[];
+  yearEndResult?: YearEndDepreciationResult;
   depreciationHistories: Record<string, FixedAssetDepreciationHistory>;
   balanceSheet: BalanceSheet;
 }
@@ -107,6 +111,11 @@ export function fixedAssetRecord(overrides: Partial<FixedAsset>): FixedAsset {
     category: null,
     assignment_status: null,
     assigned_employee_id: null,
+    acquisition_type: "acquired",
+    depreciation_method: "straight_line",
+    depreciation_rate_ppm: null,
+    lease_term_months: null,
+    asset_category_id: null,
     created_at: NOW,
     ...overrides,
   };
@@ -179,6 +188,7 @@ export function freshStore(role: Role = "admin"): MockStore {
       v1: [{ id: "g1", grn_number: "GRN-0001", po_number: "PO-0001", accrued_minor: 50000, vendor_id: "v1", status: "posted" }],
     },
     fixedAssets: [],
+    assetCategories: [],
     depreciationHistories: {},
     balanceSheet: balanceSheetOf({}),
   };
@@ -317,6 +327,24 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
       return json(201, { id: "adj1", status: "draft", ...body, lines: [] });
     }
 
+    if (path === "/fixed-assets/categories") {
+      if (method === "GET") return json(200, store.assetCategories);
+      if (method === "POST" && body) {
+        const category: AssetCategory = {
+          id: `cat${++store.seq}`,
+          name: String(body.name),
+          depreciation_method: body.depreciation_method as AssetCategory["depreciation_method"],
+          depreciation_rate_ppm: (body.depreciation_rate_ppm as number | null) ?? null,
+          useful_life_months: (body.useful_life_months as number | null) ?? null,
+          created_at: NOW,
+        };
+        store.assetCategories.push(category);
+        return json(201, category);
+      }
+    }
+    if (method === "POST" && path === "/fixed-assets/year-end-depreciation") {
+      return json(200, store.yearEndResult ?? { year: body?.year, charged: [], total_minor: 0, already_run: [] });
+    }
     if (path === "/fixed-assets") {
       if (method === "GET") return json(200, store.fixedAssets);
       if (method === "POST" && body) {
@@ -342,6 +370,11 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
           salvage_value_minor: salvage,
           useful_life_months: Number(body.useful_life_months),
           accumulated_depreciation_minor: opening,
+          acquisition_type: body.acquisition_type === "leased" ? "leased" : "acquired",
+          depreciation_method: (body.depreciation_method as FixedAsset["depreciation_method"]) ?? "straight_line",
+          depreciation_rate_ppm: (body.depreciation_rate_ppm as number | null) ?? null,
+          lease_term_months: (body.lease_term_months as number | null) ?? null,
+          asset_category_id: (body.asset_category_id as string | null) ?? null,
         });
         store.fixedAssets.push(asset);
         return json(201, asset);

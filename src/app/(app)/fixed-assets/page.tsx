@@ -2,6 +2,16 @@
 
 import { useState } from "react";
 
+import {
+  AssetCategoriesDrawer,
+  AssetCategoryModal,
+  LeasePaymentDrawer,
+  METHOD_LABELS,
+  YearEndDepreciationDrawer,
+  methodSummary,
+  percentToPpm,
+  ratePercent,
+} from "@/components/fixed-assets/fixed-asset-tools";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +28,14 @@ import { ApiError } from "@/lib/api/client";
 import { departmentsApi, employeesApi, fixedAssetOpsApi, fixedAssetsApi } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { FixedAsset, FixedAssetCategory, FixedAssetDepreciationEvent } from "@/lib/types";
+import { withCreated } from "@/lib/records";
+import type {
+  AssetCategory,
+  DepreciationMethod,
+  FixedAsset,
+  FixedAssetCategory,
+  FixedAssetDepreciationEvent,
+} from "@/lib/types";
 
 const CATEGORIES: FixedAssetCategory[] = ["laptop", "phone", "vehicle", "furniture", "other"];
 // A laptop/phone/vehicle doesn't just exist — it's issued to someone from
@@ -39,11 +56,21 @@ export default function FixedAssetsPage() {
   const [assigning, setAssigning] = useState<FixedAsset | null>(null);
   const [returning, setReturning] = useState<FixedAsset | null>(null);
   const [viewingHistory, setViewingHistory] = useState<FixedAsset | null>(null);
+  const [payingLease, setPayingLease] = useState<FixedAsset | null>(null);
+  const [runningYearEnd, setRunningYearEnd] = useState(false);
+  const [managingCategories, setManagingCategories] = useState(false);
+  // Owned assets and leased (right-of-use) assets are two registers.
+  const [register, setRegister] = useState<"acquired" | "leased">("acquired");
+  const categories = useApiResource(() => fixedAssetsApi.categories());
+  const categoriesById = new Map((categories.data ?? []).map((category) => [category.id, category]));
+  const leasedCount = (assets.data ?? []).filter((asset) => asset.acquisition_type === "leased").length;
+  const shown = (assets.data ?? []).filter((asset) => (asset.acquisition_type ?? "acquired") === register);
+  const leased = register === "leased";
 
   // Active assets only: a disposed asset is off the books (disposal cleared
   // its cost and accumulated depreciation from the ledger), though the
   // register keeps the figures it had.
-  const active = (assets.data ?? []).filter((asset) => asset.status === "active");
+  const active = shown.filter((asset) => asset.status === "active");
   const totals = active.reduce(
     (sum, asset) => ({
       cost: sum.cost + asset.cost_minor,
@@ -52,7 +79,7 @@ export default function FixedAssetsPage() {
     }),
     { cost: 0, depreciation: 0, bookValue: 0 },
   );
-  const disposedCount = (assets.data?.length ?? 0) - active.length;
+  const disposedCount = shown.length - active.length;
   const countedCaption =
     `${active.length} active asset${active.length === 1 ? "" : "s"}` +
     (disposedCount > 0 ? ` · ${disposedCount} disposed not counted` : "");
@@ -69,7 +96,7 @@ export default function FixedAssetsPage() {
   async function batchDepreciate() {
     try {
       const updated = await fixedAssetOpsApi.batchDepreciate();
-      showToast(`Depreciated ${updated.length} asset(s)`, "good");
+      showToast(`Depreciated ${updated.length} asset(s) for the month`, "good");
       assets.reload();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
@@ -80,34 +107,60 @@ export default function FixedAssetsPage() {
     <div>
       <PageHeader
         title="Fixed Assets"
-        subtitle="Depreciable company property — cost, accumulated depreciation, and book value"
+        subtitle="Owned and leased assets — cost, accumulated depreciation or amortisation, and net book value"
         action={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <Button variant="secondary" onClick={() => setManagingCategories(true)}>
+              Asset Categories
+            </Button>
             <ConfirmActionButton
               action={batchDepreciate}
-              label="Run Batch Depreciation"
+              label="Run Monthly Depreciation"
               tone="primary"
-              confirmTitle="Run batch depreciation for all active assets?"
-              confirmMessage="Posts one period of straight-line depreciation for every active fixed asset in this org."
+              confirmTitle="Run one month's depreciation for all active assets?"
+              confirmMessage="Posts one month of depreciation (amortisation for leased assets) for every active asset, by each asset's own method and rate."
               confirmLabel="Run"
             />
+            <Button variant="secondary" onClick={() => setRunningYearEnd(true)}>
+              Year-End Depreciation
+            </Button>
             <Button onClick={() => setCreating(true)}>New Fixed Asset</Button>
           </div>
         }
       />
 
+      <div role="tablist" aria-label="Asset register" className="mb-4 flex gap-2">
+        {(
+          [
+            ["acquired", "Owned assets"],
+            ["leased", `Leased assets${leasedCount ? ` (${leasedCount})` : ""}`],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={register === value}
+            onClick={() => setRegister(value)}
+            className={`rounded-md px-3 py-1.5 text-[13px] font-bold ${register === value ? "bg-ink text-white" : "bg-surface text-ink-soft hover:text-ink"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {assets.data && assets.data.length > 0 ? (
         <section aria-label="Fixed asset totals" className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <KpiTile label="Total cost" value={formatMoney(totals.cost)} caption={countedCaption} />
           <KpiTile
-            label="Accumulated depreciation"
+            label={leased ? "Amortised" : "Accumulated depreciation"}
             value={formatMoney(totals.depreciation)}
-            caption="Built up before Plutus and posted since"
+            caption={leased ? "Amortised over the lease terms so far" : "Built up before Plutus and posted since"}
           />
           <KpiTile
             label="Net book value"
             value={formatMoney(totals.bookValue)}
-            caption="Cost less accumulated depreciation"
+            caption={leased ? "Cost less amortisation" : "Cost less accumulated depreciation"}
           />
         </section>
       ) : null}
@@ -115,32 +168,39 @@ export default function FixedAssetsPage() {
       <Card>
         {assets.loading ? <LoadingState /> : null}
         {assets.error ? <ErrorState message={assets.error} /> : null}
-        {assets.data && assets.data.length === 0 ? (
-          <EmptyState label="No fixed assets yet." />
+        {assets.data && shown.length === 0 ? (
+          <EmptyState label={leased ? "No leased assets yet." : "No fixed assets yet."} />
         ) : null}
-        {assets.data && assets.data.length > 0 ? (
+        {assets.data && shown.length > 0 ? (
           <Table>
             <Thead>
               <tr>
                 <Th>Tag</Th>
                 <Th>Name</Th>
                 <Th>Category</Th>
+                <Th>{leased ? "Amortisation" : "Depreciation"}</Th>
                 <Th>Department</Th>
                 <Th>Assigned To</Th>
-                <Th>Acquired</Th>
+                <Th>{leased ? "Lease Start" : "Acquired"}</Th>
                 <Th align="right">Cost</Th>
-                <Th align="right">Accum. Depreciation</Th>
+                <Th align="right">{leased ? "Amortised" : "Accum. Depreciation"}</Th>
                 <Th align="right">Book Value</Th>
                 <Th>Status</Th>
                 <Th align="right">Actions</Th>
               </tr>
             </Thead>
             <tbody>
-              {assets.data.map((asset) => (
+              {shown.map((asset) => (
                 <tr key={asset.id}>
                   <Td className="font-mono text-[12px]">{asset.asset_tag}</Td>
                   <Td className="font-bold">{asset.name}</Td>
-                  <Td>{asset.category ? titleCase(asset.category) : "—"}</Td>
+                  <Td>
+                    {asset.asset_category_id ? (categoriesById.get(asset.asset_category_id)?.name ?? "—") : asset.category ? titleCase(asset.category) : "—"}
+                  </Td>
+                  <Td className="text-[12px]">
+                    {asset.depreciation_method ? methodSummary(asset) : "—"}
+                    {asset.lease_term_months ? <div className="text-ink-soft">Lease term {asset.lease_term_months} months</div> : null}
+                  </Td>
                   <Td>
                     {asset.department_id ? (departmentsById.get(asset.department_id)?.name ?? "—") : "—"}
                   </Td>
@@ -185,15 +245,21 @@ export default function FixedAssetsPage() {
                         <Button size="md" variant="secondary" onClick={() => setTransferring(asset)}>
                           Transfer
                         </Button>
-                        <Button size="md" variant="secondary" onClick={() => setRevaluing(asset)}>
-                          Revalue
-                        </Button>
+                        {asset.acquisition_type === "leased" ? (
+                          <Button size="md" variant="secondary" onClick={() => setPayingLease(asset)}>
+                            Lease Payment
+                          </Button>
+                        ) : (
+                          <Button size="md" variant="secondary" onClick={() => setRevaluing(asset)}>
+                            Revalue
+                          </Button>
+                        )}
                         <ConfirmActionButton
                           action={() => depreciate(asset)}
-                          label="Depreciate"
+                          label={asset.acquisition_type === "leased" ? "Amortise" : "Depreciate"}
                           tone="primary"
-                          confirmTitle="Record depreciation for this period?"
-                          confirmMessage={`Posts one period of straight-line depreciation for "${asset.name}" against accumulated depreciation.`}
+                          confirmTitle={asset.acquisition_type === "leased" ? "Record a month's amortisation?" : "Record a month's depreciation?"}
+                          confirmMessage={`Posts one month of ${asset.depreciation_method ? METHOD_LABELS[asset.depreciation_method].toLowerCase() : "straight line"} ${asset.acquisition_type === "leased" ? "amortisation" : "depreciation"} for "${asset.name}".`}
                           confirmLabel="Record"
                         />
                         <Button variant="secondary" onClick={() => setDisposing(asset)}>
@@ -217,6 +283,8 @@ export default function FixedAssetsPage() {
           onCreated={() => {
             setCreating(false);
             assets.reload();
+            // A category may have been added from the form.
+            categories.reload();
           }}
         />
       ) : null}
@@ -267,6 +335,27 @@ export default function FixedAssetsPage() {
 
       {viewingHistory ? (
         <DepreciationHistoryDrawer asset={viewingHistory} onClose={() => setViewingHistory(null)} />
+      ) : null}
+
+      {payingLease ? (
+        <LeasePaymentDrawer
+          asset={payingLease}
+          onClose={() => setPayingLease(null)}
+          onPaid={() => setPayingLease(null)}
+        />
+      ) : null}
+
+      {runningYearEnd ? (
+        <YearEndDepreciationDrawer onClose={() => setRunningYearEnd(false)} onRun={() => assets.reload()} />
+      ) : null}
+
+      {managingCategories ? (
+        <AssetCategoriesDrawer
+          onClose={() => {
+            setManagingCategories(false);
+            categories.reload();
+          }}
+        />
       ) : null}
 
       {returning ? (
@@ -676,11 +765,31 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
   const [usefulLifeMonths, setUsefulLifeMonths] = useState("");
   const [category, setCategory] = useState<FixedAssetCategory | "">("");
   const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
-  // Bought now (paid from cash) or already owned before Plutus, brought on
-  // as an opening balance with the depreciation it had built up.
-  const [alreadyOwned, setAlreadyOwned] = useState(false);
+  // Bought now (paid from cash), already owned before Plutus (brought on
+  // as an opening balance with the depreciation it had built up), or
+  // leased (a right-of-use asset against a lease liability).
+  const [source, setSource] = useState<"purchase" | "opening" | "leased">("purchase");
+  const alreadyOwned = source === "opening";
+  const isLeased = source === "leased";
   const [openingDepreciation, setOpeningDepreciation] = useState("");
+  const assetCategories = useApiResource(() => fixedAssetsApi.categories());
+  const [createdCategories, setCreatedCategories] = useState<AssetCategory[]>([]);
+  const categoryOptions = withCreated(assetCategories.data, createdCategories);
+  const [assetCategoryId, setAssetCategoryId] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [method, setMethod] = useState<DepreciationMethod>("straight_line");
+  const [rate, setRate] = useState("");
+  const [leaseTerm, setLeaseTerm] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // A category's usual depreciation fills the form; any of it can change.
+  function applyCategory(category: AssetCategory | undefined) {
+    setAssetCategoryId(category?.id ?? "");
+    if (!category) return;
+    setMethod(category.depreciation_method);
+    setRate(category.depreciation_rate_ppm === null ? "" : ratePercent(category.depreciation_rate_ppm).replace("%", ""));
+    if (category.useful_life_months) setUsefulLifeMonths(String(category.useful_life_months));
+  }
 
   const assigneeRequired = category !== "" && REQUIRES_ASSIGNEE.has(category);
   const costMinor = toMinorUnits(cost);
@@ -705,11 +814,17 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
         acquisition_date: acquisitionDate,
         cost_minor: toMinorUnits(cost),
         salvage_value_minor: salvageValue ? toMinorUnits(salvageValue) : 0,
-        useful_life_months: Number(usefulLifeMonths),
+        // A lease is amortised over its term unless a useful life is given.
+        useful_life_months: Number(usefulLifeMonths || (isLeased ? leaseTerm : "")),
         category: category || null,
         assigned_employee_id: assignedEmployeeId || null,
         opening_balance: alreadyOwned,
         opening_accumulated_depreciation_minor: openingDepreciationMinor,
+        acquisition_type: isLeased ? "leased" : "acquired",
+        depreciation_method: method,
+        depreciation_rate_ppm: method === "write_off" ? null : percentToPpm(rate),
+        lease_term_months: isLeased ? Number(leaseTerm) : null,
+        asset_category_id: assetCategoryId || null,
       });
       onCreated();
     } catch (err) {
@@ -749,21 +864,25 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           <Label htmlFor="acquisitionSource">How It Comes onto the Books</Label>
           <Select
             id="acquisitionSource"
-            value={alreadyOwned ? "opening" : "purchase"}
+            value={source}
             onChange={(event) => {
-              const opening = event.target.value === "opening";
-              setAlreadyOwned(opening);
-              if (!opening) setOpeningDepreciation("");
+              const next = event.target.value as "purchase" | "opening" | "leased";
+              setSource(next);
+              if (next !== "opening") setOpeningDepreciation("");
+              if (next !== "leased") setLeaseTerm("");
             }}
             aria-describedby="acquisitionSourceHint"
           >
             <option value="purchase">Bought now — paid from cash</option>
             <option value="opening">Already owned before Plutus — opening balance</option>
+            <option value="leased">Leased — right of use, against a lease liability</option>
           </Select>
           <p id="acquisitionSourceHint" className="mt-1 text-[11px] text-ink-soft">
             {alreadyOwned
               ? "No cash is posted: the asset comes on at cost, less the depreciation it has already built up, against Opening Balance Equity."
-              : "Posts the cost against Cash."}
+              : isLeased
+                ? "Posts the cost as a right-of-use asset against Lease Liability. It's amortised over the lease, and lease payments reduce the liability."
+                : "Posts the cost against Cash and Bank."}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -783,13 +902,83 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           </div>
         </div>
         <div>
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <Label htmlFor="assetCategory">Asset Category</Label>
+            <Button type="button" size="md" variant="secondary" onClick={() => setCreatingCategory(true)}>
+              + New Category
+            </Button>
+          </div>
+          <Select
+            id="assetCategory"
+            value={assetCategoryId}
+            onChange={(event) => applyCategory(categoryOptions.find((entry) => entry.id === event.target.value))}
+          >
+            <option value="">No category</option>
+            {categoryOptions.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {isLeased ? (
+          <div>
+            <Label htmlFor="leaseTerm">Lease Term — Payment Period (months)</Label>
+            <Input
+              id="leaseTerm"
+              value={leaseTerm}
+              onChange={(event) => setLeaseTerm(event.target.value)}
+              inputMode="numeric"
+              required
+            />
+          </div>
+        ) : null}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="depreciationMethod">{isLeased ? "Amortisation Method" : "Depreciation Method"}</Label>
+            <Select
+              id="depreciationMethod"
+              value={method}
+              onChange={(event) => setMethod(event.target.value as DepreciationMethod)}
+            >
+              {Object.entries(METHOD_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {method !== "write_off" ? (
+            <div>
+              <Label htmlFor="depreciationRate">{isLeased ? "Amortisation Rate (% a year)" : "Rate (% a year)"}</Label>
+              <Input
+                id="depreciationRate"
+                value={rate}
+                onChange={(event) => setRate(event.target.value)}
+                inputMode="decimal"
+                placeholder={method === "reducing_balance" ? "e.g. 25" : "optional"}
+                required={method === "reducing_balance"}
+                aria-describedby="depreciationRateHint"
+              />
+            </div>
+          ) : null}
+        </div>
+        <p id="depreciationRateHint" className="-mt-2 text-[11px] text-ink-soft">
+          {method === "reducing_balance"
+            ? "The rate is applied each year to the net book value at the start of the year."
+            : method === "write_off"
+              ? "The whole cost, less salvage value, is charged at the next depreciation run."
+              : "A rate charges that share of cost each year; leave it blank to spread the cost evenly over the useful life."}
+        </p>
+        <div>
           <Label htmlFor="usefulLifeMonths">Useful Life (months)</Label>
           <Input
             id="usefulLifeMonths"
             value={usefulLifeMonths}
             onChange={(event) => setUsefulLifeMonths(event.target.value)}
             inputMode="numeric"
-            required
+            placeholder={isLeased ? "the lease term" : undefined}
+            required={!isLeased}
           />
         </div>
         {alreadyOwned ? (
@@ -816,7 +1005,7 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           </div>
         ) : null}
         <div>
-          <Label htmlFor="category">Category</Label>
+          <Label htmlFor="category">Device Type</Label>
           <Select
             id="category"
             value={category}
@@ -864,6 +1053,16 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           </Button>
         </div>
       </form>
+      {creatingCategory ? (
+        <AssetCategoryModal
+          onClose={() => setCreatingCategory(false)}
+          onCreated={(created) => {
+            setCreatedCategories((current) => [...current, created]);
+            applyCategory(created);
+            setCreatingCategory(false);
+          }}
+        />
+      ) : null}
     </Drawer>
   );
 }

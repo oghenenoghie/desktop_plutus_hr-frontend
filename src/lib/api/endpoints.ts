@@ -34,9 +34,12 @@ import type {
   CandidateUpdateBody,
   ChangePlanBody,
   AccountCategory,
+  AssetCategory,
+  AssetCategoryCreateBody,
   ChartAccount,
   ChartAccountCreateBody,
   NextAccountNumber,
+  YearEndDepreciationResult,
   ChartAccountUpdateBody,
   ChecklistItem,
   ChecklistItemCreateBody,
@@ -765,6 +768,16 @@ export const financialStatementsApi = {
 
 export const fixedAssetsApi = {
   list: () => apiFetch<FixedAsset[]>("/fixed-assets"),
+  categories: () => apiFetch<AssetCategory[]>("/fixed-assets/categories"),
+  createCategory: (body: AssetCategoryCreateBody) =>
+    apiFetch<AssetCategory>("/fixed-assets/categories", { method: "POST", body }),
+  yearEndDepreciation: (year: number) =>
+    apiFetch<YearEndDepreciationResult>("/fixed-assets/year-end-depreciation", {
+      method: "POST",
+      body: { year },
+    }),
+  leasePayment: (id: string, body: { amount_minor: number; payment_date: string }) =>
+    apiFetch<void>(`/fixed-assets/${id}/lease-payment`, { method: "POST", body }),
   mine: () => apiFetch<MyFixedAsset[]>("/fixed-assets/me"),
   create: (body: FixedAssetCreateBody) =>
     apiFetch<FixedAsset>("/fixed-assets", { method: "POST", body }),

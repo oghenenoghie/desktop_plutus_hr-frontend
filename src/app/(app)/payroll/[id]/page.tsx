@@ -17,6 +17,7 @@ import { ApiError } from "@/lib/api/client";
 import { employeesApi, payRunsApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { payRunStatusLabel } from "@/lib/pay-runs";
 import { isEnginePayslip } from "@/lib/payslip-lines";
 import type { PayRunVarianceFlag, Payslip, PayslipDelivery } from "@/lib/types";
 
@@ -306,7 +307,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
 
           <Card className="mb-6">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <SummaryStat label="Status" value={<StatusBadge status={run.status} />} />
+              <SummaryStat label="Status" value={<StatusBadge status={run.status} label={payRunStatusLabel(run)} />} />
               <SummaryStat label={posted ? "Gross" : "Gross (preview)"} value={formatMoney(posted ? run.gross_minor : totals.gross)} />
               <SummaryStat label={posted ? "Net" : "Net (preview)"} value={formatMoney(posted ? run.net_minor : totals.net)} />
               <SummaryStat
@@ -376,7 +377,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                           <Td align="right">
                             <div className="flex items-center justify-end gap-2">
                               <Button size="md" variant="secondary" onClick={() => toggleExpand(slip)}>
-                                {expandedId === slip.id ? "Hide" : "· how?"}
+                                {expandedId === slip.id ? "Hide working" : "Show working"}
                               </Button>
                               {posted ? (
                                 <Button

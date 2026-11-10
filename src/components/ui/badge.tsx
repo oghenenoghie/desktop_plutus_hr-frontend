@@ -88,7 +88,9 @@ const STATUS_TONE: Record<string, Tone> = {
   counting: "warn",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+// `label` replaces the status's own name where a screen calls it something
+// else (a locked pay run is "posted"); the tone still follows the status.
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const tone = STATUS_TONE[status] ?? "neutral";
-  return <Badge tone={tone}>{status.replace(/_/g, " ")}</Badge>;
+  return <Badge tone={tone}>{(label ?? status).replace(/_/g, " ")}</Badge>;
 }

@@ -15,31 +15,29 @@ import { financialStatementsApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
 import type { BalanceSheet, StatementLine } from "@/lib/types";
 
-// Fixed assets at cost, less their accumulated depreciation (a contra-asset
-// carried with a credit, i.e. negative, balance), then net book value — the
-// same grouping as the PDF. Without both accounts the lines stand as they are.
+// Each kind of fixed asset at cost, less what's been written off it (a
+// contra-asset carried with a credit, i.e. negative, balance), then its net
+// book value — owned assets against accumulated depreciation, leased ones
+// against accumulated amortisation — the same grouping as the PDF. Without
+// both accounts of a pair, the lines stand as they are.
+const PAIRS: [cost: string, contra: string, net: string][] = [
+  ["fixed_assets", "accumulated_depreciation", "Net book value"],
+  ["right_of_use_assets", "accumulated_amortisation", "Net book value of leased assets"],
+];
+
 function fixedAssetRows(lines: StatementLine[]): StatementRow[] {
-  const cost = lines.find((line) => line.account === "fixed_assets");
-  const depreciation = lines.find((line) => line.account === "accumulated_depreciation");
+  const byAccount = new Map(lines.map((line) => [line.account, line]));
+  const grouped = PAIRS.filter(([cost, contra]) => byAccount.has(cost) && byAccount.has(contra));
+  const contras = new Set(grouped.map(([, contra]) => contra));
   return lines.flatMap((line): StatementRow[] => {
-    if (cost && depreciation && line === depreciation) return [];
-    if (!cost || !depreciation || line !== cost) {
-      return [{ key: line.account, label: numbered(line), figure: line.balance_minor, kind: "line" }];
-    }
+    if (contras.has(line.account)) return [];
+    const pair = grouped.find(([cost]) => cost === line.account);
+    if (!pair) return [{ key: line.account, label: numbered(line), figure: line.balance_minor, kind: "line" }];
+    const contra = byAccount.get(pair[1])!;
     return [
-      { key: "fixed_assets", label: `${numbered(cost)} at cost`, figure: cost.balance_minor, kind: "line" },
-      {
-        key: "accumulated_depreciation",
-        label: `Less: ${numbered(depreciation)}`,
-        figure: depreciation.balance_minor,
-        kind: "less",
-      },
-      {
-        key: "fixed_assets_net",
-        label: "Net book value",
-        figure: cost.balance_minor + depreciation.balance_minor,
-        kind: "total",
-      },
+      { key: line.account, label: `${numbered(line)} at cost`, figure: line.balance_minor, kind: "line" },
+      { key: contra.account, label: `Less: ${numbered(contra)}`, figure: contra.balance_minor, kind: "less" },
+      { key: `${line.account}-net`, label: pair[2], figure: line.balance_minor + contra.balance_minor, kind: "total" },
     ];
   });
 }

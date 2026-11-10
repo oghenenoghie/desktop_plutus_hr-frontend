@@ -18,6 +18,7 @@ import { ApiError } from "@/lib/api/client";
 import { dashboardApi, employeesApi, notificationsApi, payRunsApi, remindersApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { payRunStatusLabel } from "@/lib/pay-runs";
 import { liabilityLabel } from "@/lib/liabilities";
 import type { PayRun } from "@/lib/types";
 
@@ -187,7 +188,7 @@ export default function DashboardPage() {
                       {formatDate(run.period_start)} – {formatDate(run.period_end)}
                     </Td>
                     <Td>
-                      <StatusBadge status={run.status} />
+                      <StatusBadge status={run.status} label={payRunStatusLabel(run)} />
                     </Td>
                     <Td align="right" className="font-bold">
                       {formatMoney(run.net_minor)}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
+import { AccountCreateModal } from "@/components/accounting/account-create-modal";
 import { CustomerCreateModal } from "@/components/accounting/customer-create-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
@@ -20,7 +21,7 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { canCreateCounterparties } from "@/lib/accounting";
+import { accountLabel, byNumber, canCreateCounterparties } from "@/lib/accounting";
 import { ApiError } from "@/lib/api/client";
 import {
   chartAccountsApi,
@@ -32,7 +33,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { withCreated } from "@/lib/records";
-import type { Customer, Invoice } from "@/lib/types";
+import type { ChartAccount, Customer, Invoice } from "@/lib/types";
 
 export default function InvoicesPage() {
   const invoices = useApiResource(() => invoicesApi.list());
@@ -162,7 +163,7 @@ export default function InvoicesPage() {
                           label="Mark Paid"
                           tone="primary"
                           confirmTitle="Mark this customer invoice as paid?"
-                          confirmMessage={`This clears ${formatMoney(invoice.amount_minor)} from accounts receivable against cash.`}
+                          confirmMessage={`This clears ${formatMoney(invoice.amount_minor)} from accounts receivable against Cash and Bank.`}
                           confirmLabel="Mark Paid"
                         />
                       ) : null}
@@ -179,6 +180,11 @@ export default function InvoicesPage() {
                       {invoice.status === "void" ? (
                         <span className="text-ink-soft">—</span>
                       ) : null}
+                      <Link href={`/print/invoices/${invoice.id}`}>
+                        <Button size="md" variant="secondary">
+                          View &amp; Print
+                        </Button>
+                      </Link>
                       <Button
                         size="md"
                         variant="secondary"
@@ -398,31 +404,48 @@ function NewInvoiceDrawer({
   // Customers added from this form, kept as options alongside the list.
   const [createdCustomers, setCreatedCustomers] = useState<Customer[]>([]);
   const customerOptions = withCreated(customers.data, createdCustomers);
+  const nextNumber = useApiResource(() => invoicesApi.nextNumber());
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [createdAccounts, setCreatedAccounts] = useState<ChartAccount[]>([]);
   const [issueDate, setIssueDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [revenueAccountCode, setRevenueAccountCode] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [postNow, setPostNow] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const revenueAccounts = (accounts.data ?? []).filter(
-    (account) => account.type === "revenue" && account.is_active,
-  );
+  const revenueAccounts = withCreated(accounts.data, createdAccounts)
+    .filter((account) => account.type === "revenue" && account.is_active)
+    .sort(byNumber);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitting(true);
     try {
-      await invoicesApi.create({
+      const invoice = await invoicesApi.create({
         customer_id: customerId,
-        invoice_number: invoiceNumber,
+        invoice_number: invoiceNumber.trim() || null,
         issue_date: issueDate,
         due_date: dueDate,
         revenue_account_code: revenueAccountCode,
         amount_minor: toMinorUnits(amount),
         description: description || null,
       });
+      if (postNow) {
+        try {
+          await invoicesApi.send(invoice.id);
+          showToast(`Invoice ${invoice.invoice_number} posted: revenue and accounts receivable`, "good");
+        } catch (err) {
+          showToast(
+            `Invoice ${invoice.invoice_number} saved as a draft, not posted: ${err instanceof ApiError ? String(err.detail ?? err.message) : "posting failed"}`,
+            "bad",
+          );
+        }
+      } else {
+        showToast(`Invoice ${invoice.invoice_number} saved as a draft`, "good");
+      }
       onCreated();
     } catch (err) {
       showToast(
@@ -462,14 +485,16 @@ function NewInvoiceDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="invoiceNumber">Customer Invoice Number</Label>
+          <Label htmlFor="invoiceNumber">Invoice Number</Label>
           <Input
             id="invoiceNumber"
             value={invoiceNumber}
             onChange={(event) => setInvoiceNumber(event.target.value)}
-            placeholder="e.g. INV-3004"
-            required
+            placeholder={nextNumber.data?.invoice_number ?? "INV-0001"}
           />
+          <p className="mt-1 text-[11px] text-ink-soft">
+            Left blank, the invoice is numbered {nextNumber.data?.invoice_number ?? "automatically"}.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -494,7 +519,14 @@ function NewInvoiceDrawer({
           </div>
         </div>
         <div>
-          <Label htmlFor="revenueAccount">Revenue Account</Label>
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <Label htmlFor="revenueAccount">Revenue Account</Label>
+            {canCreateCounterparties(user?.role) ? (
+              <Button type="button" size="md" variant="secondary" onClick={() => setCreatingAccount(true)}>
+                + New Account
+              </Button>
+            ) : null}
+          </div>
           <Select
             id="revenueAccount"
             value={revenueAccountCode}
@@ -504,7 +536,7 @@ function NewInvoiceDrawer({
             <option value="">Select revenue account</option>
             {revenueAccounts.map((account) => (
               <option key={account.id} value={account.code}>
-                {account.name}
+                {accountLabel(account)}
               </option>
             ))}
           </Select>
@@ -528,6 +560,20 @@ function NewInvoiceDrawer({
             rows={2}
           />
         </div>
+        <label className="flex items-start gap-2 text-[13px]">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={postNow}
+            onChange={(event) => setPostNow(event.target.checked)}
+          />
+          <span>
+            Post to the books now
+            <span className="block text-[11px] text-ink-soft">
+              Records the revenue in the profit and loss account and the amount in accounts receivable. Untick to keep it as a draft and post it later with Send.
+            </span>
+          </span>
+        </label>
         <div className="mt-auto flex justify-end gap-3 pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
@@ -544,6 +590,17 @@ function NewInvoiceDrawer({
             setCreatedCustomers((current) => [...current, customer]);
             setCustomerId(customer.id);
             setCreatingCustomer(false);
+          }}
+        />
+      ) : null}
+      {creatingAccount ? (
+        <AccountCreateModal
+          categories={["revenue", "other_income"]}
+          onClose={() => setCreatingAccount(false)}
+          onCreated={(account) => {
+            setCreatedAccounts((current) => [...current, account]);
+            setRevenueAccountCode(account.code);
+            setCreatingAccount(false);
           }}
         />
       ) : null}

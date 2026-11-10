@@ -2,18 +2,36 @@
 
 import { useState } from "react";
 
+import { type StatementRow, StatementTable, sectionRows } from "@/components/accounting/statement-table";
 import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Input, Label } from "@/components/ui/input";
-import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { financialStatementsApi } from "@/lib/api/endpoints";
-import { formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import type { IncomeStatement } from "@/lib/types";
+
+// Sales less cost of sales is gross profit; plus other income, less
+// overheads, is net profit — the same layout as the PDF.
+function profitRows(statement: IncomeStatement): StatementRow[] {
+  return [
+    ...sectionRows(statement.sales, "Total sales"),
+    ...sectionRows(statement.cost_of_sales, "Total cost of sales", { less: true }),
+    { key: "gross-profit", label: "Gross profit", figure: statement.gross_profit_minor, kind: "result" },
+    ...(statement.other_income.lines.length > 0 ? sectionRows(statement.other_income, "Total other income") : []),
+    ...sectionRows(statement.overheads, "Total overheads", { less: true }),
+    {
+      key: "net-profit",
+      label: statement.net_income_minor >= 0 ? "Net profit" : "Net loss",
+      figure: statement.net_income_minor,
+      kind: "grand",
+    },
+  ];
+}
 
 export default function FinancialStatementsPage() {
   const { showToast } = useToast();
@@ -60,7 +78,8 @@ export default function FinancialStatementsPage() {
 
       <Card>
         <CardHeader
-          title="Income Statement"
+          title="Profit and Loss Account"
+          subtitle="Sales, less cost of sales, is gross profit; less overheads, net profit. The account ranges set where each account appears."
           action={
             <div className="flex items-end gap-3">
               <div className="w-40">
@@ -102,58 +121,9 @@ export default function FinancialStatementsPage() {
           <ErrorState message={incomeStatement.error} />
         ) : null}
         {incomeStatement.data ? (
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Account</Th>
-                <Th align="right">Amount</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              <tr>
-                <Td className="font-extrabold uppercase tracking-[0.03em] text-ink-soft">
-                  Revenue
-                </Td>
-                <Td>{null}</Td>
-              </tr>
-              {incomeStatement.data.revenue.map((line) => (
-                <tr key={line.account}>
-                  <Td>{line.account_name}</Td>
-                  <Td align="right">{formatMoney(line.balance_minor)}</Td>
-                </tr>
-              ))}
-              <tr>
-                <Td className="font-bold">Total Revenue</Td>
-                <Td align="right" className="font-bold">
-                  {formatMoney(incomeStatement.data.total_revenue_minor)}
-                </Td>
-              </tr>
-              <tr>
-                <Td className="pt-5 font-extrabold uppercase tracking-[0.03em] text-ink-soft">
-                  Expenses
-                </Td>
-                <Td className="pt-5">{null}</Td>
-              </tr>
-              {incomeStatement.data.expenses.map((line) => (
-                <tr key={line.account}>
-                  <Td>{line.account_name}</Td>
-                  <Td align="right">{formatMoney(line.balance_minor)}</Td>
-                </tr>
-              ))}
-              <tr>
-                <Td className="font-bold">Total Expenses</Td>
-                <Td align="right" className="font-bold">
-                  {formatMoney(incomeStatement.data.total_expenses_minor)}
-                </Td>
-              </tr>
-              <tr>
-                <Td className="pt-5 text-[14px] font-extrabold">Net Income</Td>
-                <Td align="right" className="pt-5 text-[14px] font-extrabold">
-                  {formatMoney(incomeStatement.data.net_income_minor)}
-                </Td>
-              </tr>
-            </tbody>
-          </Table>
+          <div className="mx-auto max-w-[760px]">
+            <StatementTable rows={profitRows(incomeStatement.data)} />
+          </div>
         ) : null}
       </Card>
 

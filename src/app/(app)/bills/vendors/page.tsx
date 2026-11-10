@@ -43,7 +43,8 @@ export default function VendorsPage() {
               <tr>
                 <Th>Name</Th>
                 <Th>Contact</Th>
-                <Th>TIN</Th>
+                <Th>Tax ID</Th>
+                <Th>Address</Th>
               </tr>
             </Thead>
             <tbody>
@@ -56,6 +57,7 @@ export default function VendorsPage() {
                     )}
                   </Td>
                   <Td>{vendor.tin ?? <span className="text-ink-soft">—</span>}</Td>
+                  <Td className="max-w-[260px] whitespace-pre-line text-[12px]">{vendor.address ?? <span className="text-ink-soft">—</span>}</Td>
                 </tr>
               ))}
             </tbody>

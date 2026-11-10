@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { EmployeePicker } from "@/components/employee-picker";
@@ -13,7 +14,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { branchesApi, employeesApi } from "@/lib/api/endpoints";
+import { branchesApi, complianceApi, employeesApi } from "@/lib/api/endpoints";
 import { currencyLabel, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { RegionField, useIsNigeria, useRegionLabel } from "@/components/region-field";
@@ -21,6 +22,20 @@ import type { EmploymentType, PayFrequency } from "@/lib/types";
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ["permanent", "fixed_term", "part_time", "intern", "consultant"];
 const PAY_FREQUENCIES: PayFrequency[] = ["monthly", "biweekly", "weekly"];
+const MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed", "Separated"];
+
+// Pay is entered per pay period: what the employee earns each month (or
+// fortnight, or week), the same figures each payslip is worked out from.
+const PERIOD_WORD: Record<PayFrequency, string> = {
+  monthly: "Monthly",
+  biweekly: "Fortnightly",
+  weekly: "Weekly",
+};
+
+function percentToPpm(value: string): number | undefined {
+  if (value.trim() === "") return undefined;
+  return Math.round(Number(value) * 10_000);
+}
 
 interface FormState {
   employee_number: string;
@@ -38,6 +53,8 @@ interface FormState {
   transport: string;
   other_earnings: string;
   annual_rent_paid: string;
+  pension_employee_rate: string;
+  pension_employer_rate: string;
   tax_half_shares: string;
   is_expatriate: "" | "yes" | "no";
   pay_frequency: PayFrequency;
@@ -73,6 +90,8 @@ const INITIAL_STATE: FormState = {
   transport: "",
   other_earnings: "",
   annual_rent_paid: "",
+  pension_employee_rate: "",
+  pension_employer_rate: "",
   tax_half_shares: "",
   is_expatriate: "",
   pay_frequency: "monthly",
@@ -106,6 +125,12 @@ export default function NewEmployeePage() {
     previewUrl: string;
   } | null>(null);
   const branches = useApiResource(() => branchesApi.list());
+  // The statutory pension minimums, from the rule set in force, to show
+  // against the optional richer-scheme rates.
+  const rules = useApiResource(() => (isNigeria ? complianceApi.currentRules() : Promise.resolve(null)), [isNigeria]);
+  const minEmployeePension = rules.data ? rules.data.pension.employee_rate_ppm / 10_000 : null;
+  const minEmployerPension = rules.data ? rules.data.pension.employer_rate_ppm / 10_000 : null;
+  const periodWord = PERIOD_WORD[form.pay_frequency];
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -129,6 +154,8 @@ export default function NewEmployeePage() {
         transport_minor: toMinorUnits(form.transport),
         other_earnings_minor: form.other_earnings ? toMinorUnits(form.other_earnings) : undefined,
         annual_rent_paid_minor: form.annual_rent_paid ? toMinorUnits(form.annual_rent_paid) : undefined,
+        pension_employee_rate_ppm: isNigeria ? percentToPpm(form.pension_employee_rate) : undefined,
+        pension_employer_rate_ppm: isNigeria ? percentToPpm(form.pension_employer_rate) : undefined,
         // Only some countries' rules need these, never Nigeria's; left unset
         // they stay unrecorded, and a rule that needs one refuses the run.
         tax_half_shares: !isNigeria && form.tax_half_shares !== "" ? Number(form.tax_half_shares) : undefined,
@@ -194,6 +221,22 @@ export default function NewEmployeePage() {
             <Field label="Full Name" required>
               <Input required value={form.full_name} onChange={(e) => set("full_name", e.target.value)} />
             </Field>
+            <Field label="Marital Status">
+              <Select value={form.marital_status} onChange={(e) => set("marital_status", e.target.value)}>
+                <option value="">Not recorded</option>
+                {MARITAL_STATUSES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Phone">
+              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+            </Field>
+            <Field label="Residential Address" full>
+              <Input value={form.residential_address} onChange={(e) => set("residential_address", e.target.value)} />
+            </Field>
             <Field label={`${regionLabel} of Residence`} required>
               <RegionField
                 required
@@ -239,36 +282,45 @@ export default function NewEmployeePage() {
                   </option>
                 ))}
               </Select>
+              {branches.data && branches.data.length === 0 ? (
+                <p className="mt-1 text-[11px] text-ink-soft">
+                  Work locations are your branches, and none have been added yet.{" "}
+                  <Link href="/branches" className="font-bold text-primary hover:underline">
+                    Add a branch
+                  </Link>
+                </p>
+              ) : null}
             </Field>
           </div>
         </Card>
 
         <Card>
-          <CardHeader title="Pay Components" subtitle={`Annual amounts in ${currencyLabel()} — production replaces the demo's basic/housing/transport split with real components`} />
+          <CardHeader
+            title="Pay Components"
+            subtitle={`What the employee is paid each pay period, in ${currencyLabel()}. Each payslip is worked out from these. Pension is on basic + housing + transport.`}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <Field label={`Annual Basic (${currencyLabel()})`} required>
-              <Input required inputMode="decimal" value={form.basic} onChange={(e) => set("basic", e.target.value)} placeholder="3600000" />
-            </Field>
-            <Field label={`Annual Housing (${currencyLabel()})`} required>
-              <Input required inputMode="decimal" value={form.housing} onChange={(e) => set("housing", e.target.value)} placeholder="2160000" />
-            </Field>
-            <Field label={`Annual Transport (${currencyLabel()})`} required>
-              <Input required inputMode="decimal" value={form.transport} onChange={(e) => set("transport", e.target.value)} placeholder="1440000" />
-            </Field>
-            <Field label={`Other Annual Earnings (${currencyLabel()})`}>
-              <Input inputMode="decimal" value={form.other_earnings} onChange={(e) => set("other_earnings", e.target.value)} placeholder="0" />
-            </Field>
-            <Field label={`Annual Rent Paid (${currencyLabel()})`}>
-              <Input inputMode="decimal" value={form.annual_rent_paid} onChange={(e) => set("annual_rent_paid", e.target.value)} placeholder="For rent relief" />
-            </Field>
             <Field label="Pay Frequency">
               <Select value={form.pay_frequency} onChange={(e) => set("pay_frequency", e.target.value as PayFrequency)}>
                 {PAY_FREQUENCIES.map((freq) => (
                   <option key={freq} value={freq}>
-                    {freq}
+                    {PERIOD_WORD[freq]}
                   </option>
                 ))}
               </Select>
+            </Field>
+            <div />
+            <Field label={`${periodWord} Basic (${currencyLabel()})`} required>
+              <Input required inputMode="decimal" value={form.basic} onChange={(e) => set("basic", e.target.value)} placeholder="300000" />
+            </Field>
+            <Field label={`${periodWord} Housing Allowance (${currencyLabel()})`} required>
+              <Input required inputMode="decimal" value={form.housing} onChange={(e) => set("housing", e.target.value)} placeholder="150000" />
+            </Field>
+            <Field label={`${periodWord} Transport Allowance (${currencyLabel()})`} required>
+              <Input required inputMode="decimal" value={form.transport} onChange={(e) => set("transport", e.target.value)} placeholder="50000" />
+            </Field>
+            <Field label={`Other ${periodWord} Earnings (${currencyLabel()})`}>
+              <Input inputMode="decimal" value={form.other_earnings} onChange={(e) => set("other_earnings", e.target.value)} placeholder="0" />
             </Field>
             <Field label="Annual Leave Entitlement (days)">
               <Input inputMode="numeric" value={form.annual_leave_entitlement_days} onChange={(e) => set("annual_leave_entitlement_days", e.target.value)} />
@@ -286,6 +338,17 @@ export default function NewEmployeePage() {
             }
           />
           <div className="grid grid-cols-2 gap-4">
+            <Field label={`Annual Rent the Employee Pays (${currencyLabel()})`}>
+              <Input
+                inputMode="decimal"
+                value={form.annual_rent_paid}
+                onChange={(e) => set("annual_rent_paid", e.target.value)}
+                placeholder="0"
+              />
+              <p className="mt-1 text-[11px] text-ink-soft">
+                Their own rent, for the rent relief on income tax. Not an allowance, and never paid to them.
+              </p>
+            </Field>
             <Field label={isNigeria ? "TIN" : "Tax ID number"}>
               <Input
                 value={form.tin}
@@ -295,6 +358,30 @@ export default function NewEmployeePage() {
             </Field>
             {isNigeria ? (
               <>
+                <Field label="Employee Pension Rate (%)">
+                  <Input
+                    inputMode="decimal"
+                    value={form.pension_employee_rate}
+                    onChange={(e) => set("pension_employee_rate", e.target.value)}
+                    placeholder={minEmployeePension !== null ? String(minEmployeePension) : ""}
+                  />
+                  <p className="mt-1 text-[11px] text-ink-soft">
+                    {minEmployeePension !== null ? `${minEmployeePension}% is the statutory minimum. ` : ""}Leave blank to
+                    use it.
+                  </p>
+                </Field>
+                <Field label="Employer Pension Rate (%)">
+                  <Input
+                    inputMode="decimal"
+                    value={form.pension_employer_rate}
+                    onChange={(e) => set("pension_employer_rate", e.target.value)}
+                    placeholder={minEmployerPension !== null ? String(minEmployerPension) : ""}
+                  />
+                  <p className="mt-1 text-[11px] text-ink-soft">
+                    {minEmployerPension !== null ? `${minEmployerPension}% is the statutory minimum. ` : ""}Leave blank to
+                    use it.
+                  </p>
+                </Field>
                 <Field label="Pension PFA">
                   <Input value={form.pfa_name} onChange={(e) => set("pfa_name", e.target.value)} />
                 </Field>
@@ -345,17 +432,8 @@ export default function NewEmployeePage() {
             <Field label="Nationality">
               <Input value={form.nationality} onChange={(e) => set("nationality", e.target.value)} />
             </Field>
-            <Field label="Marital Status">
-              <Input value={form.marital_status} onChange={(e) => set("marital_status", e.target.value)} />
-            </Field>
             <Field label="Email">
               <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
-            </Field>
-            <Field label="Phone">
-              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
-            </Field>
-            <Field label="Residential Address" full>
-              <Input value={form.residential_address} onChange={(e) => set("residential_address", e.target.value)} />
             </Field>
             <Field label="Photo" full>
               <EmployeePhotoField

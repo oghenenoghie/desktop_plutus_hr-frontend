@@ -19,11 +19,12 @@ export function Badge({ tone = "neutral", children }: { tone?: Tone; children: R
 
 const STATUS_TONE: Record<string, Tone> = {
   // pay runs
-  completed: "good",
-  processing: "warn",
+  locked: "good",
+  validated: "warn",
   draft: "neutral",
-  failed: "bad",
   reversed: "bad",
+  completed: "good",
+  failed: "bad",
   // leave / expenses
   approved: "good",
   pending: "warn",

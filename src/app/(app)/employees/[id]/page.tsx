@@ -469,6 +469,16 @@ function OverviewTab({ employeeId }: { employeeId: string }) {
             <dd className="font-bold">{formatMoney(e.other_earnings_minor!)}</dd>
             <dt className="text-ink-soft">Gross / Period</dt>
             <dd className="font-extrabold text-primary">{formatMoney(grossMinor)}</dd>
+            {isNigeria ? (
+              <>
+                <dt className="text-ink-soft">Pension Rates</dt>
+                <dd className="font-bold">
+                  {e.pension_employee_rate_ppm || e.pension_employer_rate_ppm
+                    ? `Employee ${e.pension_employee_rate_ppm ? `${e.pension_employee_rate_ppm / 10_000}%` : "statutory minimum"} · Employer ${e.pension_employer_rate_ppm ? `${e.pension_employer_rate_ppm / 10_000}%` : "statutory minimum"}`
+                    : "Statutory minimums"}
+                </dd>
+              </>
+            ) : null}
             {isNigeria ? null : (
               <>
                 <dt className="text-ink-soft">Family Shares</dt>

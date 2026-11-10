@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const { showToast } = useToast();
 
   const completedPayRuns = (payRuns.data ?? [])
-    .filter((run) => run.status === "completed")
+    .filter((run) => run.status === "locked")
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
   const recentPayRuns = [...completedPayRuns].reverse().slice(0, 5);
   const trendPayRuns = completedPayRuns.slice(-6);

@@ -92,12 +92,20 @@ test("a refused customer keeps the modal open, the error visible and the cursor 
 test("a new customer is selected and the invoice saves with it", async ({ page }) => {
   await openCustomerModal(page);
   await customerModal(page).locator("#new-customer-name").fill("Acme Ltd");
+  await expect(customerModal(page).getByText("Tax ID", { exact: true })).toBeVisible();
   await customerModal(page).locator("#new-customer-tin").fill("12345678-0001");
+  await customerModal(page).locator("#new-customer-address").fill("12 Marina\nLagos");
   await customerModal(page).getByRole("button", { name: "Create Customer" }).click();
   await expect(customerModal(page)).toBeHidden();
 
   const [created] = writesTo(store, "POST", "/customers");
-  expect(created.body).toEqual({ name: "Acme Ltd", contact_email: null, contact_phone: null, tin: "12345678-0001" });
+  expect(created.body).toEqual({
+    name: "Acme Ltd",
+    contact_email: null,
+    contact_phone: null,
+    tin: "12345678-0001",
+    address: "12 Marina\nLagos",
+  });
   const acme = store.customers.find((customer) => customer.name === "Acme Ltd")!;
 
   await expect(page.locator("#customer")).toHaveValue(acme.id);
@@ -123,6 +131,8 @@ test("a new customer is selected and the invoice saves with it", async ({ page }
   await expect(drawer(page)).toBeHidden();
   const invoices = writesTo(store, "POST", "/invoices");
   expect(invoices).toHaveLength(1);
+  // Posted to the books straight away, unless "Post to the books now" is unticked.
+  expect(writesTo(store, "POST", "/invoices/inv1/send")).toHaveLength(1);
   expect(invoices[0].body).toEqual({
     customer_id: acme.id,
     invoice_number: "INV-9001",

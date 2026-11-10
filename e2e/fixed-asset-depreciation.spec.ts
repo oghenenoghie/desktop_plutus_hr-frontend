@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { trackPageErrors } from "./support/dialogs";
-import { fixedAssetRecord, freshStore, installMockApi, writesTo, type MockStore } from "./support/mock-api";
+import { balanceSheetOf, fixedAssetRecord, freshStore, installMockApi, writesTo, type MockStore } from "./support/mock-api";
 
 // Accumulated depreciation: an asset already owned comes onto the books with
 // the depreciation it had built up, the register totals what's on the books,
@@ -199,29 +199,37 @@ test("a disposed asset's history is still available", async ({ page }) => {
   await expect(drawer.getByRole("note")).toHaveCount(0);
 });
 
-test("the balance sheet shows fixed assets at cost less accumulated depreciation", async ({ page }) => {
-  store.balanceSheet = {
-    as_of: null,
-    // Sorted by account code, as the API returns them.
-    assets: [
-      { account: "accumulated_depreciation", account_name: "Accumulated Depreciation", balance_minor: -400_000_00 },
-      { account: "cash", account_name: "Cash", balance_minor: 250_000_00 },
-      { account: "fixed_assets", account_name: "Fixed Assets", balance_minor: 1_700_000_00 },
-    ],
-    total_assets_minor: 1_550_000_00,
-    liabilities: [],
-    total_liabilities_minor: 0,
-    equity: [{ account: "opening_balance_equity", account_name: "Opening Balance Equity", balance_minor: 1_300_000_00 }],
-    total_equity_minor: 1_300_000_00,
-  };
+test("the balance sheet is vertical: fixed assets at cost less depreciation, then current assets, then capital", async ({ page }) => {
+  store.balanceSheet = balanceSheetOf(
+    {
+      non_current_asset: [
+        { account: "fixed_assets", account_name: "Fixed Assets", balance_minor: 1_700_000_00, account_number: "1500" },
+        { account: "accumulated_depreciation", account_name: "Accumulated Depreciation", balance_minor: -400_000_00, account_number: "1590" },
+      ],
+      current_asset: [{ account: "cash", account_name: "Cash and Bank", balance_minor: 250_000_00, account_number: "1000" }],
+      equity: [{ account: "opening_balance_equity", account_name: "Opening Balance Equity", balance_minor: 1_300_000_00, account_number: "3900" }],
+    },
+    250_000_00,
+  );
   await page.goto("/balance-sheet");
-  const assetRows = page.getByRole("table").first().locator("tbody tr");
-  await expect(assetRows).toHaveText([
-    "Cash₦250,000",
-    "Fixed Assets at cost₦1,700,000",
-    "Less: Accumulated Depreciation(₦400,000)",
-    "Net book value of fixed assets₦1,300,000",
-    "Total Assets₦1,550,000",
+  const rows = page.locator("main table tbody tr");
+  await expect(rows).toHaveText([
+    "Non-current assets",
+    "1500  Fixed Assets at cost₦1,700,000",
+    "Less: 1590  Accumulated Depreciation(₦400,000)",
+    "Net book value₦1,300,000",
+    "Total fixed assets₦1,300,000",
+    "Current assets",
+    "1000  Cash and Bank₦250,000",
+    "Total current assets₦250,000",
+    "Less: Current liabilities",
+    "Total current liabilities₦0",
+    "Net current assets₦250,000",
+    "Total assets less current liabilities₦1,550,000",
+    "Net assets₦1,550,000",
+    "Capital and reserves",
+    "3900  Opening Balance Equity₦1,300,000",
+    "Profit and Loss Reserve₦250,000",
+    "Total capital and reserves₦1,550,000",
   ]);
-  await expect(page.getByRole("table").nth(1)).toContainText("Opening Balance Equity₦1,300,000");
 });

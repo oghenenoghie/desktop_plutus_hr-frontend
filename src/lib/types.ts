@@ -24,12 +24,10 @@ export type LifecycleStage =
   | "active"
   | "suspended"
   | "terminated";
-export type PayRunStatus =
-  | "draft"
-  | "processing"
-  | "completed"
-  | "failed"
-  | "reversed";
+// draft -> validated -> locked (posted: payslips written, payroll in the
+// ledger, payslips emailed), or reversed afterwards. Paid is disbursed_at,
+// not a status.
+export type PayRunStatus = "draft" | "validated" | "locked" | "reversed";
 export type LeaveType =
   | "annual"
   | "sick"
@@ -111,6 +109,9 @@ export interface Employee {
   transport_minor: number | null;
   other_earnings_minor: number | null;
   annual_rent_paid_minor: number | null;
+  // Above the statutory minimum only; null means the rule set's rate.
+  pension_employee_rate_ppm?: number | null;
+  pension_employer_rate_ppm?: number | null;
   // Tax inputs some countries' rules need (not Nigeria's): family shares
   // counted in halves, and expatriate status. null when not recorded, and
   // when masked like the pay figures above. Optional for older servers.
@@ -135,6 +136,8 @@ export interface EmployeeCreateBody {
   transport_minor: number;
   other_earnings_minor?: number;
   annual_rent_paid_minor?: number;
+  pension_employee_rate_ppm?: number | null;
+  pension_employer_rate_ppm?: number | null;
   tax_half_shares?: number | null;
   is_expatriate?: boolean | null;
   pay_frequency?: PayFrequency;
@@ -195,6 +198,8 @@ export interface EmployeeUpdateBody {
   transport_minor?: number;
   other_earnings_minor?: number;
   annual_rent_paid_minor?: number;
+  pension_employee_rate_ppm?: number | null;
+  pension_employer_rate_ppm?: number | null;
   tax_half_shares?: number | null;
   is_expatriate?: boolean | null;
   pay_frequency?: PayFrequency;
@@ -693,9 +698,26 @@ export interface PayRun {
   employee_count: number;
   gross_minor: number;
   net_minor: number;
+  employee_ids: string[];
   created_at: string;
-  completed_at: string | null;
+  validated_at: string | null;
+  // When the run was posted to the books.
+  locked_at: string | null;
+  locked_by: string | null;
+  disbursed_at: string | null;
+  disbursed_by: string | null;
   reversed_at: string | null;
+}
+
+export interface PayRunVarianceFlag {
+  id: string;
+  pay_run_id: string;
+  employee_id: string;
+  flag_type: "gross_swing" | "employee_missing";
+  detail: Record<string, unknown>;
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+  created_at: string;
 }
 
 export interface Payslip {
@@ -1042,10 +1064,28 @@ export type AccountType =
   | "revenue"
   | "expense";
 
+// Where an account is reported, each with its own number range
+// (backend app/domain/accounting/numbering.py).
+export type AccountCategory =
+  | "current_asset"
+  | "non_current_asset"
+  | "current_liability"
+  | "non_current_liability"
+  | "equity"
+  | "revenue"
+  | "other_income"
+  | "cost_of_sales"
+  | "operating_expense";
+
 export interface ChartAccount {
   id: string;
   org_id: string;
+  // The key ledger lines post to; accountants see account_number instead.
   code: string;
+  account_number: string;
+  category: AccountCategory;
+  category_label: string;
+  statement: "balance_sheet" | "profit_and_loss";
   name: string;
   type: AccountType;
   is_system: boolean;
@@ -1054,9 +1094,19 @@ export interface ChartAccount {
 }
 
 export interface ChartAccountCreateBody {
-  code: string;
   name: string;
   type: AccountType;
+  category?: AccountCategory;
+  // The next free number in the category's range when left out.
+  account_number?: string;
+  code?: string;
+}
+
+export interface NextAccountNumber {
+  category: AccountCategory;
+  account_number: string;
+  range_from: number;
+  range_to: number;
 }
 
 export interface ChartAccountUpdateBody {
@@ -1143,6 +1193,7 @@ export interface Vendor {
   contact_email: string | null;
   contact_phone: string | null;
   tin: string | null;
+  address: string | null;
   created_at: string;
 }
 
@@ -1151,6 +1202,7 @@ export interface VendorCreateBody {
   contact_email?: string | null;
   contact_phone?: string | null;
   tin?: string | null;
+  address?: string | null;
   contractor_id?: string | null;
 }
 
@@ -1159,6 +1211,7 @@ export interface VendorUpdateBody {
   contact_email?: string | null;
   contact_phone?: string | null;
   tin?: string | null;
+  address?: string | null;
 }
 
 export type BillStatus = "draft" | "approved" | "paid" | "void";
@@ -1208,6 +1261,7 @@ export interface Customer {
   contact_email: string | null;
   contact_phone: string | null;
   tin: string | null;
+  address: string | null;
   created_at: string;
 }
 
@@ -1216,6 +1270,7 @@ export interface CustomerCreateBody {
   contact_email?: string | null;
   contact_phone?: string | null;
   tin?: string | null;
+  address?: string | null;
 }
 
 export interface CustomerUpdateBody {
@@ -1223,6 +1278,7 @@ export interface CustomerUpdateBody {
   contact_email?: string | null;
   contact_phone?: string | null;
   tin?: string | null;
+  address?: string | null;
 }
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
@@ -1244,7 +1300,8 @@ export interface Invoice {
 
 export interface InvoiceCreateBody {
   customer_id: string;
-  invoice_number: string;
+  // Left blank, the next number in the sequence (INV-0001, ...).
+  invoice_number?: string | null;
   issue_date: string;
   due_date: string;
   revenue_account_code: string;
@@ -1258,10 +1315,34 @@ export interface StatementLine {
   account: string;
   account_name: string;
   balance_minor: number;
+  // Null for a line the statement works out (the profit and loss reserve).
+  account_number?: string | null;
 }
 
+export interface StatementSection {
+  category: string;
+  label: string;
+  lines: StatementLine[];
+  total_minor: number;
+}
+
+// The vertical balance sheet: fixed assets, current assets, less current
+// liabilities, net current assets, less non-current liabilities, net
+// assets; then capital and reserves (with the profit and loss reserve),
+// which equal net assets.
 export interface BalanceSheet {
   as_of: string | null;
+  non_current_assets: StatementSection;
+  current_assets: StatementSection;
+  current_liabilities: StatementSection;
+  net_current_assets_minor: number;
+  total_assets_less_current_liabilities_minor: number;
+  non_current_liabilities: StatementSection;
+  net_assets_minor: number;
+  capital_and_reserves: StatementSection;
+  profit_and_loss_reserve_minor: number;
+  unclassified_accounts: string[];
+  balanced: boolean;
   assets: StatementLine[];
   total_assets_minor: number;
   liabilities: StatementLine[];
@@ -1273,6 +1354,11 @@ export interface BalanceSheet {
 export interface IncomeStatement {
   from_date: string | null;
   to_date: string | null;
+  sales: StatementSection;
+  cost_of_sales: StatementSection;
+  gross_profit_minor: number;
+  other_income: StatementSection;
+  overheads: StatementSection;
   revenue: StatementLine[];
   total_revenue_minor: number;
   expenses: StatementLine[];

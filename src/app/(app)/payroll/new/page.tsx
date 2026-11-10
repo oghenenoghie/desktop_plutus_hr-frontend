@@ -75,7 +75,8 @@ export default function NewPayRunPage() {
         extra_earnings_by_employee:
           Object.keys(extraEarningsByEmployee).length > 0 ? extraEarningsByEmployee : undefined,
       });
-      router.push(`/payroll?created=${payRun.id}`);
+      // Straight to the run, where it's reviewed and posted.
+      router.push(`/payroll/${payRun.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not create pay run.");
       setSubmitting(false);

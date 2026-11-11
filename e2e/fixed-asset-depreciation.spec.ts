@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { trackPageErrors } from "./support/dialogs";
-import { fixedAssetRecord, freshStore, installMockApi, writesTo, type MockStore } from "./support/mock-api";
+import { balanceSheetOf, fixedAssetRecord, freshStore, installMockApi, writesTo, type MockStore } from "./support/mock-api";
 
 // Accumulated depreciation: an asset already owned comes onto the books with
 // the depreciation it had built up, the register totals what's on the books,
@@ -70,7 +70,7 @@ test("the totals add up cost, accumulated depreciation and book value of active 
 
 test("an asset already owned comes on with the depreciation it had built up", async ({ page }) => {
   await startNewAsset(page, "FA-010");
-  await expect(page.locator("#acquisitionSourceHint")).toHaveText("Posts the cost against Cash.");
+  await expect(page.locator("#acquisitionSourceHint")).toHaveText("Posts the cost against Cash and Bank.");
   await expect(page.locator("#openingDepreciation")).toHaveCount(0);
 
   await page.selectOption("#acquisitionSource", "opening");
@@ -199,29 +199,107 @@ test("a disposed asset's history is still available", async ({ page }) => {
   await expect(drawer.getByRole("note")).toHaveCount(0);
 });
 
-test("the balance sheet shows fixed assets at cost less accumulated depreciation", async ({ page }) => {
-  store.balanceSheet = {
-    as_of: null,
-    // Sorted by account code, as the API returns them.
-    assets: [
-      { account: "accumulated_depreciation", account_name: "Accumulated Depreciation", balance_minor: -400_000_00 },
-      { account: "cash", account_name: "Cash", balance_minor: 250_000_00 },
-      { account: "fixed_assets", account_name: "Fixed Assets", balance_minor: 1_700_000_00 },
-    ],
-    total_assets_minor: 1_550_000_00,
-    liabilities: [],
-    total_liabilities_minor: 0,
-    equity: [{ account: "opening_balance_equity", account_name: "Opening Balance Equity", balance_minor: 1_300_000_00 }],
-    total_equity_minor: 1_300_000_00,
-  };
+test("the balance sheet is vertical: fixed assets at cost less depreciation, then current assets, then capital", async ({ page }) => {
+  store.balanceSheet = balanceSheetOf(
+    {
+      non_current_asset: [
+        { account: "fixed_assets", account_name: "Fixed Assets", balance_minor: 1_700_000_00, account_number: "1500" },
+        { account: "accumulated_depreciation", account_name: "Accumulated Depreciation", balance_minor: -400_000_00, account_number: "1590" },
+      ],
+      current_asset: [{ account: "cash", account_name: "Cash and Bank", balance_minor: 250_000_00, account_number: "1000" }],
+      equity: [{ account: "opening_balance_equity", account_name: "Opening Balance Equity", balance_minor: 1_300_000_00, account_number: "3900" }],
+    },
+    250_000_00,
+  );
   await page.goto("/balance-sheet");
-  const assetRows = page.getByRole("table").first().locator("tbody tr");
-  await expect(assetRows).toHaveText([
-    "Cash₦250,000",
-    "Fixed Assets at cost₦1,700,000",
-    "Less: Accumulated Depreciation(₦400,000)",
-    "Net book value of fixed assets₦1,300,000",
-    "Total Assets₦1,550,000",
+  const rows = page.locator("main table tbody tr");
+  await expect(rows).toHaveText([
+    "Non-current assets",
+    "1500  Fixed Assets at cost₦1,700,000",
+    "Less: 1590  Accumulated Depreciation(₦400,000)",
+    "Net book value₦1,300,000",
+    "Total fixed assets₦1,300,000",
+    "Current assets",
+    "1000  Cash and Bank₦250,000",
+    "Total current assets₦250,000",
+    "Less: Current liabilities",
+    "Total current liabilities₦0",
+    "Net current assets₦250,000",
+    "Total assets less current liabilities₦1,550,000",
+    "Net assets₦1,550,000",
+    "Capital and reserves",
+    "3900  Opening Balance Equity₦1,300,000",
+    "Profit and Loss Reserve₦250,000",
+    "Total capital and reserves₦1,550,000",
   ]);
-  await expect(page.getByRole("table").nth(1)).toContainText("Opening Balance Equity₦1,300,000");
+});
+
+test("a leased asset takes its category's method and goes on the leased register", async ({ page }) => {
+  await startNewAsset(page, "LEASE-1");
+  await page.selectOption("#acquisitionSource", "leased");
+  await expect(page.locator("#acquisitionSourceHint")).toContainText("right-of-use asset against Lease Liability");
+  await page.fill("#leaseTerm", "36");
+
+  // A category made from the form fills in its usual depreciation.
+  await newAssetDrawer(page).getByRole("button", { name: "+ New Category" }).click();
+  const modal = page.getByRole("dialog", { name: "New Asset Category" });
+  await modal.locator("#new-category-name").fill("Leased Vehicles");
+  await modal.locator("#new-category-method").selectOption("reducing_balance");
+  await modal.locator("#new-category-rate").fill("25");
+  await modal.getByRole("button", { name: "Create Category" }).click();
+  await expect(modal).toBeHidden();
+  await expect(page.locator("#depreciationMethod")).toHaveValue("reducing_balance");
+  await expect(page.locator("#depreciationRate")).toHaveValue("25");
+
+  await newAssetDrawer(page).getByRole("button", { name: "Create Asset" }).click();
+  await expect(newAssetDrawer(page)).toBeHidden();
+  expect(writesTo(store, "POST", "/fixed-assets")[0].body).toMatchObject({
+    asset_tag: "LEASE-1",
+    acquisition_type: "leased",
+    lease_term_months: 36,
+    depreciation_method: "reducing_balance",
+    depreciation_rate_ppm: 250_000,
+    asset_category_id: store.assetCategories[0]!.id,
+    opening_balance: false,
+  });
+
+  await expect(page.getByRole("row", { name: /LEASE-1/ })).toHaveCount(0);
+  await page.getByRole("tab", { name: /Leased assets/ }).click();
+  const row = page.getByRole("row", { name: /LEASE-1/ });
+  await expect(row).toContainText("Leased Vehicles");
+  await expect(row).toContainText("Reducing balance · 25% a year");
+  await expect(row).toContainText("Lease term 36 months");
+  await expect(row.getByRole("button", { name: "Lease Payment" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Amortise" })).toBeVisible();
+});
+
+test("the year-end run reports each asset's charge and the ones already done", async ({ page }) => {
+  store.yearEndResult = {
+    year: 2026,
+    charged: [
+      {
+        fixed_asset_id: "fa1",
+        asset_tag: "FA-001",
+        name: "Generator",
+        acquisition_type: "acquired",
+        depreciation_method: "reducing_balance",
+        charge_minor: 187_500_00,
+        accumulated_depreciation_minor: 437_500_00,
+        book_value_minor: 562_500_00,
+      },
+    ],
+    total_minor: 187_500_00,
+    already_run: ["FA-002"],
+  };
+  await page.goto("/fixed-assets");
+  await page.getByRole("button", { name: "Year-End Depreciation" }).click();
+  const drawer = page.getByRole("dialog", { name: "Year-End Depreciation" });
+  await drawer.locator("#yearEndYear").fill("2026");
+  await drawer.getByRole("button", { name: "Run for 2026" }).click();
+  const result = drawer.getByLabel("Year-end depreciation result");
+  await expect(result).toContainText("₦187,500 charged for 2026 across 1 asset.");
+  await expect(result).toContainText("FA-001");
+  await expect(result).toContainText("Reducing balance");
+  await expect(result).toContainText("Already charged for 2026, not charged again: FA-002.");
+  expect(writesTo(store, "POST", "/fixed-assets/year-end-depreciation")[0].body).toEqual({ year: 2026 });
 });

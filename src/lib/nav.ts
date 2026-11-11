@@ -222,6 +222,15 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: "employees",
             roles: ["admin", "payroll_manager", "manager", "accountant", "hr_manager", "department_manager", "auditor"],
           },
+          // Also under Accounts → Payroll: people look for payroll beside
+          // the employees it pays.
+          {
+            href: "/payroll",
+            label: "Payroll Runs",
+            icon: "payroll",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+            payrollOnly: true,
+          },
           {
             href: "/org-chart",
             label: "Org Chart",

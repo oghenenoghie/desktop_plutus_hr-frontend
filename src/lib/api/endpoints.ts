@@ -33,8 +33,13 @@ import type {
   CandidateCreateBody,
   CandidateUpdateBody,
   ChangePlanBody,
+  AccountCategory,
+  AssetCategory,
+  AssetCategoryCreateBody,
   ChartAccount,
   ChartAccountCreateBody,
+  NextAccountNumber,
+  YearEndDepreciationResult,
   ChartAccountUpdateBody,
   ChecklistItem,
   ChecklistItemCreateBody,
@@ -152,6 +157,7 @@ import type {
   PayeEstimateRequestBody,
   PayrollRegisterLine,
   PayRun,
+  PayRunVarianceFlag,
   PayRunCreateBody,
   PayRunSimulationOut,
   PayRunSimulationRequestBody,
@@ -582,6 +588,8 @@ export const apiKeysApi = {
 
 export const chartAccountsApi = {
   list: () => apiFetch<ChartAccount[]>("/chart-of-accounts"),
+  nextNumber: (category: AccountCategory) =>
+    apiFetch<NextAccountNumber>(`/chart-of-accounts/next-number?category=${category}`),
   create: (body: ChartAccountCreateBody) =>
     apiFetch<ChartAccount>("/chart-of-accounts", { method: "POST", body }),
   update: (id: string, body: ChartAccountUpdateBody) =>
@@ -644,6 +652,7 @@ export const vendorsApi = {
 
 export const billsApi = {
   list: () => apiFetch<Bill[]>("/bills"),
+  get: (id: string) => apiFetch<Bill>(`/bills/${id}`),
   create: (body: BillCreateBody) =>
     apiFetch<Bill>("/bills", { method: "POST", body }),
   approve: (id: string) =>
@@ -675,6 +684,8 @@ export const customersApi = {
 
 export const invoicesApi = {
   list: () => apiFetch<Invoice[]>("/invoices"),
+  get: (id: string) => apiFetch<Invoice>(`/invoices/${id}`),
+  nextNumber: () => apiFetch<{ invoice_number: string }>("/invoices/next-number"),
   create: (body: InvoiceCreateBody) =>
     apiFetch<Invoice>("/invoices", { method: "POST", body }),
   send: (id: string) =>
@@ -757,6 +768,16 @@ export const financialStatementsApi = {
 
 export const fixedAssetsApi = {
   list: () => apiFetch<FixedAsset[]>("/fixed-assets"),
+  categories: () => apiFetch<AssetCategory[]>("/fixed-assets/categories"),
+  createCategory: (body: AssetCategoryCreateBody) =>
+    apiFetch<AssetCategory>("/fixed-assets/categories", { method: "POST", body }),
+  yearEndDepreciation: (year: number) =>
+    apiFetch<YearEndDepreciationResult>("/fixed-assets/year-end-depreciation", {
+      method: "POST",
+      body: { year },
+    }),
+  leasePayment: (id: string, body: { amount_minor: number; payment_date: string }) =>
+    apiFetch<void>(`/fixed-assets/${id}/lease-payment`, { method: "POST", body }),
   mine: () => apiFetch<MyFixedAsset[]>("/fixed-assets/me"),
   create: (body: FixedAssetCreateBody) =>
     apiFetch<FixedAsset>("/fixed-assets", { method: "POST", body }),
@@ -868,6 +889,20 @@ export const payRunsApi = {
       `/pay-runs/${payRunId}/payslips/${payslipId}/pdf`,
       filename,
     ),
+  // What each payslip will be, before the run is posted. Writes nothing.
+  preview: (id: string) => apiFetch<Payslip[]>(`/pay-runs/${id}/preview`),
+  validate: (id: string, overrideVariance = false) =>
+    apiFetch<PayRun>(`/pay-runs/${id}/validate`, {
+      method: "POST",
+      body: { override_variance: overrideVariance },
+    }),
+  varianceFlags: (id: string) => apiFetch<PayRunVarianceFlag[]>(`/pay-runs/${id}/variance-flags`),
+  // Posts the run: writes payslips, posts payroll to the ledger and emails
+  // each employee their payslip.
+  lock: (id: string) => apiFetch<PayRun>(`/pay-runs/${id}/lock`, { method: "POST", body: {} }),
+  markPaid: (id: string) =>
+    apiFetch<PayRun>(`/pay-runs/${id}/mark-paid`, { method: "POST", body: {} }),
+  discard: (id: string) => apiFetch<void>(`/pay-runs/${id}/discard`, { method: "POST", body: {} }),
   reverse: (id: string, acknowledgeFiledOrRemitted = false) =>
     apiFetch<PayRun>(`/pay-runs/${id}/reverse`, {
       method: "POST",

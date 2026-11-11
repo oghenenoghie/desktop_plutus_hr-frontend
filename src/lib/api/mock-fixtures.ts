@@ -117,13 +117,13 @@ const payRun = {
   period_start: "2026-08-01",
   period_end: "2026-08-31",
   frequency: "monthly",
-  status: "completed",
+  status: "locked",
   rule_version_id: "ng-2026.1",
   employee_count: 4,
   gross_minor: 1_565_000_00,
   net_minor: 1_198_400_00,
   created_at: "2026-08-28T10:00:00Z",
-  completed_at: "2026-08-29T14:32:00Z",
+  locked_at: "2026-08-29T14:32:00Z",
   reversed_at: null,
 };
 
@@ -196,7 +196,7 @@ function payslip(params: {
         net_pay_minor: netMinor,
       },
     },
-    created_at: payRun.completed_at,
+    created_at: payRun.locked_at,
   };
 }
 
@@ -279,7 +279,7 @@ function deliveriesFor(slip: (typeof payslips)[number]) {
       recipient_email: PAYSLIP_RECIPIENT_BY_EMPLOYEE_ID[slip.employee_id],
       provider_message_id: `resend-${slip.id.slice(-6)}`,
       error: null,
-      created_at: payRun.completed_at,
+      created_at: payRun.locked_at,
     },
   ];
 }
@@ -548,13 +548,13 @@ export const MOCK_FIXTURES = {
       period_start: "2026-07-01",
       period_end: "2026-07-31",
       frequency: "monthly",
-      status: "completed",
+      status: "locked",
       rule_version_id: "ng-2026.1",
       employee_count: 4,
       gross_minor: 1_565_000_00,
       net_minor: 1_196_800_00,
       created_at: "2026-07-28T10:00:00Z",
-      completed_at: "2026-07-29T13:10:00Z",
+      locked_at: "2026-07-29T13:10:00Z",
     },
     {
       id: "p1111111-0000-0000-0000-000000000003",
@@ -568,7 +568,7 @@ export const MOCK_FIXTURES = {
       gross_minor: 0,
       net_minor: 0,
       created_at: "2026-09-01T08:00:00Z",
-      completed_at: null,
+      locked_at: null,
     },
   ],
   "/leave-requests": [

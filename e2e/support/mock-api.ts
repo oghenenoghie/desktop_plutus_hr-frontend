@@ -1,13 +1,17 @@
 import type { BrowserContext } from "@playwright/test";
 
 import type {
+  AssetCategory,
   BalanceSheet,
   Customer,
   FixedAsset,
   FixedAssetDepreciationHistory,
   InventoryItem,
   Role,
+  StatementLine,
+  StatementSection,
   Vendor,
+  YearEndDepreciationResult,
 } from "@/lib/types";
 
 // Every backend call the app makes is answered here, in the browser, from an
@@ -35,6 +39,8 @@ export interface MockStore {
   invoices: Record<string, unknown>[];
   receiptsByVendor: Record<string, Record<string, unknown>[]>;
   fixedAssets: FixedAsset[];
+  assetCategories: AssetCategory[];
+  yearEndResult?: YearEndDepreciationResult;
   depreciationHistories: Record<string, FixedAssetDepreciationHistory>;
   balanceSheet: BalanceSheet;
 }
@@ -43,8 +49,8 @@ const NOW = "2026-11-01T00:00:00Z";
 const WRITERS: Role[] = ["admin", "payroll_manager", "accountant"];
 
 const ACCOUNTS = [
-  { id: "a1", org_id: "o1", code: "4000", name: "Sales Revenue", type: "revenue", is_system: true, is_active: true, created_at: NOW },
-  { id: "a2", org_id: "o1", code: "5000", name: "Office Expense", type: "expense", is_system: true, is_active: true, created_at: NOW },
+  { id: "a1", org_id: "o1", code: "4000", account_number: "4000", category: "revenue", category_label: "Revenue", statement: "profit_and_loss", name: "Sales Revenue", type: "revenue", is_system: true, is_active: true, created_at: NOW },
+  { id: "a2", org_id: "o1", code: "5000", account_number: "6000", category: "operating_expense", category_label: "Overheads", statement: "profit_and_loss", name: "Office Expense", type: "expense", is_system: true, is_active: true, created_at: NOW },
 ];
 const UNITS = [
   { id: "u1", code: "PCS", name: "Pieces", allows_fraction: false, is_active: true },
@@ -105,10 +111,64 @@ export function fixedAssetRecord(overrides: Partial<FixedAsset>): FixedAsset {
     category: null,
     assignment_status: null,
     assigned_employee_id: null,
+    acquisition_type: "acquired",
+    depreciation_method: "straight_line",
+    depreciation_rate_ppm: null,
+    lease_term_months: null,
+    asset_category_id: null,
     created_at: NOW,
     ...overrides,
   };
   return { ...asset, book_value_minor: asset.cost_minor - asset.accumulated_depreciation_minor };
+}
+
+type Sections = Partial<Record<"non_current_asset" | "current_asset" | "current_liability" | "non_current_liability" | "equity", StatementLine[]>>;
+
+const SECTION_LABELS = {
+  non_current_asset: "Non-current assets",
+  current_asset: "Current assets",
+  current_liability: "Current liabilities",
+  non_current_liability: "Non-current liabilities",
+  equity: "Capital and reserves",
+} as const;
+
+// A balance sheet the way the API builds one: sections with totals, the
+// figures worked out from them, and the same lines by account type.
+export function balanceSheetOf(sections: Sections, profitAndLossReserve = 0): BalanceSheet {
+  const section = (category: keyof typeof SECTION_LABELS, extra: StatementLine[] = []): StatementSection => {
+    const lines = [...(sections[category] ?? []), ...extra];
+    return { category, label: SECTION_LABELS[category], lines, total_minor: lines.reduce((sum, line) => sum + line.balance_minor, 0) };
+  };
+  const nonCurrentAssets = section("non_current_asset");
+  const currentAssets = section("current_asset");
+  const currentLiabilities = section("current_liability");
+  const nonCurrentLiabilities = section("non_current_liability");
+  const capital = section("equity", [
+    { account: "profit_and_loss_reserve", account_name: "Profit and Loss Reserve", balance_minor: profitAndLossReserve, account_number: null },
+  ]);
+  const netCurrent = currentAssets.total_minor - currentLiabilities.total_minor;
+  const lessCurrent = nonCurrentAssets.total_minor + netCurrent;
+  const netAssets = lessCurrent - nonCurrentLiabilities.total_minor;
+  return {
+    as_of: null,
+    non_current_assets: nonCurrentAssets,
+    current_assets: currentAssets,
+    current_liabilities: currentLiabilities,
+    net_current_assets_minor: netCurrent,
+    total_assets_less_current_liabilities_minor: lessCurrent,
+    non_current_liabilities: nonCurrentLiabilities,
+    net_assets_minor: netAssets,
+    capital_and_reserves: capital,
+    profit_and_loss_reserve_minor: profitAndLossReserve,
+    unclassified_accounts: [],
+    balanced: netAssets === capital.total_minor,
+    assets: [...nonCurrentAssets.lines, ...currentAssets.lines],
+    total_assets_minor: nonCurrentAssets.total_minor + currentAssets.total_minor,
+    liabilities: [...currentLiabilities.lines, ...nonCurrentLiabilities.lines],
+    total_liabilities_minor: currentLiabilities.total_minor + nonCurrentLiabilities.total_minor,
+    equity: capital.lines,
+    total_equity_minor: capital.total_minor,
+  };
 }
 
 export function freshStore(role: Role = "admin"): MockStore {
@@ -117,10 +177,10 @@ export function freshStore(role: Role = "admin"): MockStore {
     seq: 100,
     writes: [],
     customers: [
-      { id: "c1", org_id: "o1", name: "Existing Customer", contact_email: null, contact_phone: null, tin: null, created_at: NOW },
+      { id: "c1", org_id: "o1", name: "Existing Customer", contact_email: null, contact_phone: null, tin: null, address: null, created_at: NOW },
     ],
     vendors: [
-      { id: "v1", org_id: "o1", contractor_id: null, name: "Existing Vendor", contact_email: null, contact_phone: null, tin: null, created_at: NOW },
+      { id: "v1", org_id: "o1", contractor_id: null, name: "Existing Vendor", contact_email: null, contact_phone: null, tin: null, address: null, created_at: NOW },
     ],
     items: [itemRecord({ id: "i1", sku: "SKU-1", name: "Paper", quantity_on_hand: "10" })],
     invoices: [],
@@ -128,16 +188,9 @@ export function freshStore(role: Role = "admin"): MockStore {
       v1: [{ id: "g1", grn_number: "GRN-0001", po_number: "PO-0001", accrued_minor: 50000, vendor_id: "v1", status: "posted" }],
     },
     fixedAssets: [],
+    assetCategories: [],
     depreciationHistories: {},
-    balanceSheet: {
-      as_of: null,
-      assets: [],
-      total_assets_minor: 0,
-      liabilities: [],
-      total_liabilities_minor: 0,
-      equity: [],
-      total_equity_minor: 0,
-    },
+    balanceSheet: balanceSheetOf({}),
   };
 }
 
@@ -207,10 +260,16 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
     }
 
     if (method === "GET" && path === "/chart-of-accounts") return json(200, ACCOUNTS);
+    if (method === "GET" && path === "/chart-of-accounts/next-number") {
+      return json(200, { category: url.searchParams.get("category"), account_number: "4010", range_from: 4000, range_to: 4799 });
+    }
     if (method === "GET" && path === "/invoices") return json(200, store.invoices);
+    if (method === "GET" && path === "/invoices/next-number") return json(200, { invoice_number: "INV-0001" });
     if (method === "POST" && path === "/invoices") return json(201, { id: "inv1", status: "draft", ...body });
+    if (method === "POST" && path === "/invoices/inv1/send") return json(200, { id: "inv1", status: "sent" });
     if (method === "GET" && path === "/bills") return json(200, []);
     if (method === "POST" && path === "/bills") return json(201, { id: "bill1", status: "draft", ...body });
+    if (method === "POST" && path === "/bills/bill1/approve") return json(200, { id: "bill1", status: "approved" });
     if (method === "GET" && path === "/inventory/goods-receipts") {
       return json(200, store.receiptsByVendor[url.searchParams.get("vendor_id") ?? ""] ?? []);
     }
@@ -268,6 +327,24 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
       return json(201, { id: "adj1", status: "draft", ...body, lines: [] });
     }
 
+    if (path === "/fixed-assets/categories") {
+      if (method === "GET") return json(200, store.assetCategories);
+      if (method === "POST" && body) {
+        const category: AssetCategory = {
+          id: `cat${++store.seq}`,
+          name: String(body.name),
+          depreciation_method: body.depreciation_method as AssetCategory["depreciation_method"],
+          depreciation_rate_ppm: (body.depreciation_rate_ppm as number | null) ?? null,
+          useful_life_months: (body.useful_life_months as number | null) ?? null,
+          created_at: NOW,
+        };
+        store.assetCategories.push(category);
+        return json(201, category);
+      }
+    }
+    if (method === "POST" && path === "/fixed-assets/year-end-depreciation") {
+      return json(200, store.yearEndResult ?? { year: body?.year, charged: [], total_minor: 0, already_run: [] });
+    }
     if (path === "/fixed-assets") {
       if (method === "GET") return json(200, store.fixedAssets);
       if (method === "POST" && body) {
@@ -293,6 +370,11 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
           salvage_value_minor: salvage,
           useful_life_months: Number(body.useful_life_months),
           accumulated_depreciation_minor: opening,
+          acquisition_type: body.acquisition_type === "leased" ? "leased" : "acquired",
+          depreciation_method: (body.depreciation_method as FixedAsset["depreciation_method"]) ?? "straight_line",
+          depreciation_rate_ppm: (body.depreciation_rate_ppm as number | null) ?? null,
+          lease_term_months: (body.lease_term_months as number | null) ?? null,
+          asset_category_id: (body.asset_category_id as string | null) ?? null,
         });
         store.fixedAssets.push(asset);
         return json(201, asset);

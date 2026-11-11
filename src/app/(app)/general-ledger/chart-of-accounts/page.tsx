@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
+
+import { AccountCreateModal } from "@/components/accounting/account-create-modal";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
-import { Input, Label } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { ACCOUNT_CATEGORIES, byNumber } from "@/lib/accounting";
 import { ApiError } from "@/lib/api/client";
 import { chartAccountsApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
@@ -54,11 +54,16 @@ export default function ChartOfAccountsPage() {
     }
   }
 
+  const grouped = ACCOUNT_CATEGORIES.map((category) => ({
+    ...category,
+    accounts: [...(accounts.data ?? [])].filter((account) => account.category === category.value).sort(byNumber),
+  }));
+
   return (
     <div>
       <PageHeader
         title="Chart of Accounts"
-        subtitle="The account codes payroll and manual journal entries post against"
+        subtitle="Numbered by range: 1000–3999 balance sheet, 4000–4999 sales and other income, 5000–5999 cost of sales, 6000–7999 overheads"
         action={
           <div className="flex gap-3">
             <Link href="/general-ledger">
@@ -84,7 +89,7 @@ export default function ChartOfAccountsPage() {
           <Table>
             <Thead>
               <tr>
-                <Th>Code</Th>
+                <Th>Number</Th>
                 <Th>Name</Th>
                 <Th>Type</Th>
                 <Th>Source</Th>
@@ -92,24 +97,46 @@ export default function ChartOfAccountsPage() {
               </tr>
             </Thead>
             <tbody>
-              {accounts.data.map((account) => (
-                <tr key={account.id}>
-                  <Td className="font-mono text-[12px]">{account.code}</Td>
-                  <Td className="font-bold">{account.name}</Td>
-                  <Td>{TYPE_LABELS[account.type]}</Td>
-                  <Td>{account.is_system ? "Default" : "Custom"}</Td>
-                  <Td align="right">
-                    <button
-                      type="button"
-                      onClick={() => toggleActive(account)}
-                      className="inline-flex"
-                    >
-                      <Badge tone={account.is_active ? "good" : "neutral"}>
-                        {account.is_active ? "active" : "inactive"}
-                      </Badge>
-                    </button>
-                  </Td>
-                </tr>
+              {grouped.map((group, index) => (
+                <Fragment key={group.value}>
+                  {index === 0 || group.value === "revenue" ? (
+                    <tr>
+                      <td colSpan={5} className="bg-surface px-3 pb-1 pt-4 text-[11px] font-extrabold uppercase tracking-[0.06em] text-ink">
+                        {group.value === "revenue" ? "Profit and Loss" : "Balance Sheet"}
+                      </td>
+                    </tr>
+                  ) : null}
+                  <tr>
+                    <td colSpan={5} className="px-3 pb-1 pt-3 text-[12px] font-bold text-ink-soft">
+                      {group.label} · {group.from}–{group.to}
+                    </td>
+                  </tr>
+                  {group.accounts.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-2 text-[12px] text-ink-soft">
+                        No accounts yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {group.accounts.map((account) => (
+                    <tr key={account.id}>
+                      <Td className="font-mono text-[13px] font-bold">{account.account_number}</Td>
+                      <Td>
+                        <span className="font-bold">{account.name}</span>
+                        <span className="ml-2 font-mono text-[11px] text-ink-soft">{account.code}</span>
+                      </Td>
+                      <Td>{TYPE_LABELS[account.type]}</Td>
+                      <Td>{account.is_system ? "Default" : "Custom"}</Td>
+                      <Td align="right">
+                        <button type="button" onClick={() => toggleActive(account)} className="inline-flex">
+                          <Badge tone={account.is_active ? "good" : "neutral"}>
+                            {account.is_active ? "active" : "inactive"}
+                          </Badge>
+                        </button>
+                      </Td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </Table>
@@ -117,7 +144,7 @@ export default function ChartOfAccountsPage() {
       </Card>
 
       {creating ? (
-        <NewAccountDrawer
+        <AccountCreateModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -126,70 +153,5 @@ export default function ChartOfAccountsPage() {
         />
       ) : null}
     </div>
-  );
-}
-
-function NewAccountDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { showToast } = useToast();
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [type, setType] = useState<AccountType>("asset");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setSubmitting(true);
-    try {
-      await chartAccountsApi.create({ code, name, type });
-      onCreated();
-    } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Drawer title="New Account" onClose={onClose}>
-      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
-        <div>
-          <Label htmlFor="code">Code</Label>
-          <Input
-            id="code"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="e.g. accounts_receivable"
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="name">Name</Label>
-          <Input
-            id="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Accounts Receivable"
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="type">Type</Label>
-          <Select id="type" value={type} onChange={(event) => setType(event.target.value as AccountType)}>
-            {Object.entries(TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="mt-auto flex justify-end gap-3 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create Account"}
-          </Button>
-        </div>
-      </form>
-    </Drawer>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, use, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,8 +17,9 @@ import { ApiError } from "@/lib/api/client";
 import { employeesApi, payRunsApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { payRunStatusLabel } from "@/lib/pay-runs";
 import { isEnginePayslip } from "@/lib/payslip-lines";
-import type { Payslip, PayslipDelivery } from "@/lib/types";
+import type { PayRunVarianceFlag, Payslip, PayslipDelivery } from "@/lib/types";
 
 interface PayslipDerivationOutputs {
   gross_minor: number;
@@ -33,12 +36,34 @@ interface PayslipDerivationOutputs {
   net_pay_minor: number;
 }
 
+const STEPS: { key: string; label: string; hint: string }[] = [
+  { key: "draft", label: "Draft", hint: "Check each payslip below" },
+  { key: "validated", label: "Validated", hint: "TINs and pay changes checked" },
+  { key: "locked", label: "Posted", hint: "In the books, payslips emailed" },
+  { key: "paid", label: "Paid", hint: "Net pay disbursed" },
+];
+
+function percent(part: number, whole: number): string {
+  if (!whole) return "";
+  return `${Math.round((part / whole) * 1000) / 10}%`;
+}
+
 export default function PayRunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { showToast } = useToast();
   const isNigeria = useIsNigeria();
+  const router = useRouter();
   const payRun = useApiResource(() => payRunsApi.get(id), [id]);
-  const payslips = useApiResource(() => payRunsApi.payslips(id), [id]);
+  const status = payRun.data?.status;
+  const posted = status === "locked" || status === "reversed";
+  const payslips = useApiResource(() => payRunsApi.payslips(id), [id, status]);
+  // Before a run is posted there are no payslips yet: what each one will be
+  // is worked out on the server without writing anything.
+  const preview = useApiResource(
+    () => (status === "draft" || status === "validated" ? payRunsApi.preview(id) : Promise.resolve([])),
+    [id, status],
+  );
+  const slips = posted ? payslips : preview;
   const employees = useApiResource(() => employeesApi.list());
   const employeesById = new Map((employees.data ?? []).map((employee) => [employee.id, employee]));
 
@@ -48,6 +73,56 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [needsAcknowledgment, setNeedsAcknowledgment] = useState(false);
+  const [varianceFlags, setVarianceFlags] = useState<PayRunVarianceFlag[] | null>(null);
+
+  function errorText(err: unknown, fallback: string): string {
+    return err instanceof ApiError ? String(err.detail ?? err.message) : fallback;
+  }
+
+  async function handleValidate(overrideVariance: boolean) {
+    try {
+      await payRunsApi.validate(id, overrideVariance);
+      setVarianceFlags(null);
+      showToast("Pay run validated. Post it to the records when the figures are right.", "good");
+      payRun.reload();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && errorText(err, "").includes("variance flag")) {
+        setVarianceFlags(await payRunsApi.varianceFlags(id));
+        return;
+      }
+      showToast(errorText(err, "Validation failed."), "bad");
+    }
+  }
+
+  async function handlePost() {
+    try {
+      await payRunsApi.lock(id);
+      showToast("Pay run posted: payroll is in the books and payslips are being emailed.", "good");
+      payRun.reload();
+    } catch (err) {
+      showToast(errorText(err, "Posting failed."), "bad");
+    }
+  }
+
+  async function handleMarkPaid() {
+    try {
+      await payRunsApi.markPaid(id);
+      showToast("Pay run marked as paid", "good");
+      payRun.reload();
+    } catch (err) {
+      showToast(errorText(err, "Couldn't mark the run paid."), "bad");
+    }
+  }
+
+  async function handleDiscard() {
+    try {
+      await payRunsApi.discard(id);
+      showToast("Pay run discarded", "good");
+      router.push("/payroll");
+    } catch (err) {
+      showToast(errorText(err, "Couldn't discard the run."), "bad");
+    }
+  }
 
   async function handleReverse(acknowledgeFiledOrRemitted: boolean) {
     try {
@@ -64,7 +139,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
           return;
         }
       }
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Reversal failed.", "bad");
+      showToast(errorText(err, "Reversal failed."), "bad");
     }
   }
 
@@ -74,10 +149,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
       const result = await payRunsApi.deliveries(id, slipId);
       setDeliveries((prev) => ({ ...prev, [slipId]: result }));
     } catch (err) {
-      showToast(
-        err instanceof ApiError ? String(err.detail ?? err.message) : "Failed to load delivery status.",
-        "bad",
-      );
+      showToast(errorText(err, "Failed to load delivery status."), "bad");
     } finally {
       setLoadingDeliveriesId(null);
     }
@@ -89,7 +161,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
       return;
     }
     setExpandedId(slip.id);
-    if (!deliveries[slip.id]) {
+    if (posted && !deliveries[slip.id]) {
       loadDeliveries(slip.id);
     }
   }
@@ -101,7 +173,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
       const filename = `payslip-${employee?.employee_number ?? slip.employee_id}-${slip.period_end}.pdf`;
       await payRunsApi.downloadPayslipPdf(id, slip.id, filename);
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Download failed.", "bad");
+      showToast(errorText(err, "Download failed."), "bad");
     } finally {
       setDownloadingId(null);
     }
@@ -114,44 +186,134 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
       showToast("Payslip resent", "good");
       await loadDeliveries(slip.id);
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Resend failed.", "bad");
+      showToast(errorText(err, "Resend failed."), "bad");
     } finally {
       setResendingId(null);
     }
   }
 
+  const run = payRun.data;
+  const totals = (slips.data ?? []).reduce(
+    (sum, slip) => ({ gross: sum.gross + slip.gross_minor, net: sum.net + slip.net_minor }),
+    { gross: 0, net: 0 },
+  );
+  const currentStep = !run
+    ? -1
+    : run.status === "reversed"
+      ? -1
+      : run.disbursed_at
+        ? 3
+        : STEPS.findIndex((step) => step.key === run.status);
+
   return (
     <div>
       {payRun.loading ? <LoadingState /> : null}
       {payRun.error ? <ErrorState message={payRun.error} /> : null}
-      {payRun.data ? (
+      {run ? (
         <>
           <PageHeader
-            title={`${formatDate(payRun.data.period_start)} – ${formatDate(payRun.data.period_end)}`}
-            subtitle={`${titleCase(payRun.data.frequency)} pay run · ${payRun.data.employee_count} employees`}
+            title={`${formatDate(run.period_start)} – ${formatDate(run.period_end)}`}
+            subtitle={`${titleCase(run.frequency)} pay run · ${run.employee_ids.length} employees`}
             action={
-              payRun.data.status === "completed" ? (
-                <ConfirmActionButton
-                  action={() => handleReverse(false)}
-                  label="Reverse Pay Run"
-                  tone="danger"
-                  confirmTitle="Reverse this pay run?"
-                  confirmMessage="This posts a correcting journal entry, restores any loan balances this run repaid, and removes any statutory liabilities it generated that haven't been filed yet. Payslips themselves are never edited or deleted. This can't be undone."
-                  confirmLabel="Reverse"
-                />
-              ) : null
+              <div className="flex flex-wrap gap-2">
+                {run.status === "draft" || run.status === "validated" ? (
+                  <ConfirmActionButton
+                    action={handleDiscard}
+                    label="Discard"
+                    tone="danger"
+                    confirmTitle="Discard this pay run?"
+                    confirmMessage="Nothing has been posted yet, so nothing else changes."
+                    confirmLabel="Discard"
+                  />
+                ) : null}
+                {run.status === "draft" ? (
+                  <Button onClick={() => handleValidate(false)}>Validate</Button>
+                ) : null}
+                {run.status === "validated" ? (
+                  <ConfirmActionButton
+                    action={handlePost}
+                    label="Post to Records"
+                    tone="primary"
+                    confirmTitle="Post this pay run to the records?"
+                    confirmMessage={`Writes ${run.employee_ids.length} payslip(s), posts ${formatMoney(totals.gross)} gross pay and the employer's costs to the general ledger (profit and loss and balance sheet), and emails each employee their payslip. A posted run can only be reversed, not edited.`}
+                    confirmLabel="Post"
+                  />
+                ) : null}
+                {posted ? (
+                  <Link href={`/print/pay-runs/${id}`}>
+                    <Button variant="secondary">Print</Button>
+                  </Link>
+                ) : null}
+                {run.status === "locked" && !run.disbursed_at ? (
+                  <ConfirmActionButton
+                    action={handleMarkPaid}
+                    label="Mark as Paid"
+                    tone="primary"
+                    confirmTitle="Mark this pay run as paid?"
+                    confirmMessage={`Records that ${formatMoney(run.net_minor)} net pay has been paid to the employees.`}
+                    confirmLabel="Mark Paid"
+                  />
+                ) : null}
+                {run.status === "locked" ? (
+                  <ConfirmActionButton
+                    action={() => handleReverse(false)}
+                    label="Reverse Pay Run"
+                    tone="danger"
+                    confirmTitle="Reverse this pay run?"
+                    confirmMessage="This posts a correcting journal entry, restores any loan balances this run repaid, and removes any statutory liabilities it generated that haven't been filed yet. Payslips themselves are never edited or deleted. This can't be undone."
+                    confirmLabel="Reverse"
+                  />
+                ) : null}
+              </div>
             }
           />
 
+          {currentStep >= 0 ? (
+            <ol aria-label="Pay run steps" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {STEPS.map((step, index) => (
+                <li
+                  key={step.key}
+                  aria-current={index === currentStep ? "step" : undefined}
+                  className={`rounded-panel border px-4 py-3 ${index <= currentStep ? "border-primary bg-surface" : "border-border bg-bg"}`}
+                >
+                  <p className={`text-[12px] font-extrabold ${index <= currentStep ? "text-primary" : "text-ink-soft"}`}>
+                    {index + 1}. {step.label}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-ink-soft">{step.hint}</p>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+
+          {varianceFlags ? (
+            <div role="alert" className="mb-6 rounded-panel border border-warn bg-warn-tint px-4 py-3">
+              <p className="text-[13px] font-bold text-warn-ink">
+                Check these before validating: pay that changed a lot since the last posted run, or employees left out of
+                it.
+              </p>
+              <ul className="mt-2 list-disc pl-5 text-[13px] text-warn-ink">
+                {varianceFlags.map((flag) => (
+                  <li key={flag.id}>
+                    {employeesById.get(flag.employee_id)?.full_name ?? "An employee"}:{" "}
+                    {flag.flag_type === "gross_swing" ? "gross pay changed by 30% or more" : "not in this run"}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3">
+                <Button onClick={() => handleValidate(true)}>Validate Anyway</Button>
+              </div>
+            </div>
+          ) : null}
+
           <Card className="mb-6">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <SummaryStat label="Status" value={<StatusBadge status={payRun.data.status} />} />
-              <SummaryStat label="Gross" value={formatMoney(payRun.data.gross_minor)} />
-              <SummaryStat label="Net" value={formatMoney(payRun.data.net_minor)} />
+              <SummaryStat label="Status" value={<StatusBadge status={run.status} label={payRunStatusLabel(run)} />} />
+              <SummaryStat label={posted ? "Gross" : "Gross (preview)"} value={formatMoney(posted ? run.gross_minor : totals.gross)} />
+              <SummaryStat label={posted ? "Net" : "Net (preview)"} value={formatMoney(posted ? run.net_minor : totals.net)} />
               <SummaryStat
-                label={payRun.data.status === "reversed" ? "Reversed" : "Completed"}
+                label={run.status === "reversed" ? "Reversed" : run.disbursed_at ? "Paid" : "Posted"}
                 value={formatDate(
-                  payRun.data.status === "reversed" ? payRun.data.reversed_at : payRun.data.completed_at,
+                  run.status === "reversed" ? run.reversed_at : (run.disbursed_at ?? run.locked_at),
                 )}
               />
             </div>
@@ -177,15 +339,19 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
 
           <Card>
             <CardHeader
-              title="Payslips"
-              subtitle="Every figure derived step by step, the way it was computed"
+              title={posted ? "Payslips" : "Payslips (preview)"}
+              subtitle={
+                posted
+                  ? "Every figure derived step by step, the way it was computed"
+                  : "What each payslip will be when the run is posted. Nothing is in the books yet."
+              }
             />
-            {payslips.loading ? <LoadingState /> : null}
-            {payslips.error ? <ErrorState message={payslips.error} /> : null}
-            {payslips.data && payslips.data.length === 0 ? (
+            {slips.loading ? <LoadingState /> : null}
+            {slips.error ? <ErrorState message={slips.error} /> : null}
+            {slips.data && slips.data.length === 0 && !slips.loading ? (
               <EmptyState label="No payslips for this run." />
             ) : null}
-            {payslips.data && payslips.data.length > 0 ? (
+            {slips.data && slips.data.length > 0 ? (
               <Table>
                 <Thead>
                   <tr>
@@ -197,7 +363,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                   </tr>
                 </Thead>
                 <tbody>
-                  {payslips.data.map((slip) => {
+                  {slips.data.map((slip) => {
                     const outputs = slip.derivation?.outputs as PayslipDerivationOutputs | undefined;
                     return (
                       <Fragment key={slip.id}>
@@ -211,16 +377,18 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                           <Td align="right">
                             <div className="flex items-center justify-end gap-2">
                               <Button size="md" variant="secondary" onClick={() => toggleExpand(slip)}>
-                                {expandedId === slip.id ? "Hide" : "· how?"}
+                                {expandedId === slip.id ? "Hide working" : "Show working"}
                               </Button>
-                              <Button
-                                size="md"
-                                variant="secondary"
-                                onClick={() => handleDownload(slip)}
-                                disabled={downloadingId === slip.id}
-                              >
-                                {downloadingId === slip.id ? "Downloading…" : "PDF"}
-                              </Button>
+                              {posted ? (
+                                <Button
+                                  size="md"
+                                  variant="secondary"
+                                  onClick={() => handleDownload(slip)}
+                                  disabled={downloadingId === slip.id}
+                                >
+                                  {downloadingId === slip.id ? "Downloading…" : "PDF"}
+                                </Button>
+                              ) : null}
                             </div>
                           </Td>
                         </tr>
@@ -240,12 +408,12 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                           value={outputs.pensionable_pay_minor}
                                         />
                                         <DerivationRow
-                                          label="Pension (Employee, 8%)"
+                                          label={`Pension (Employee, ${percent(outputs.pension_employee_minor, outputs.pensionable_pay_minor)})`}
                                           value={outputs.pension_employee_minor}
                                           subtract
                                         />
                                         <DerivationRow
-                                          label="Pension (Employer, 10%)"
+                                          label={`Pension (Employer, ${percent(outputs.pension_employer_minor, outputs.pensionable_pay_minor)})`}
                                           value={outputs.pension_employer_minor}
                                           muted
                                         />
@@ -290,6 +458,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                       </span>
                                     </div>
                                   </div>
+                                  {posted ? (
                                   <div>
                                     <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">
                                       Delivery
@@ -323,6 +492,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                       {resendingId === slip.id ? "Resending…" : "Resend Payslip"}
                                     </Button>
                                   </div>
+                                  ) : null}
                                 </div>
                               ) : (
                                 <p className="text-[13px] text-ink-soft">

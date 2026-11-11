@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
+import { accountLabel } from "@/lib/accounting";
 import { ApiError } from "@/lib/api/client";
 import { chartAccountsApi, companyBankAccountsApi, ledgerReconciliationApi } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
@@ -316,7 +317,7 @@ function NewBankAccountDrawer({
             <option value="">Select account</option>
             {assetAccounts.map((account) => (
               <option key={account.id} value={account.code}>
-                {account.name}
+                {accountLabel(account)}
               </option>
             ))}
           </Select>
@@ -512,7 +513,7 @@ function ByLedgerAccountTab() {
           <option value="">Select an account</option>
           {assetAccounts.map((account) => (
             <option key={account.id} value={account.code}>
-              {account.name} ({account.code})
+              {accountLabel(account)}
             </option>
           ))}
         </Select>

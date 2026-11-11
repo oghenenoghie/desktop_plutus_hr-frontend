@@ -12,6 +12,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { accountLabel } from "@/lib/accounting";
 import { ApiError } from "@/lib/api/client";
 import { budgetsApi, chartAccountsApi, departmentsApi } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
@@ -293,7 +294,7 @@ function NewBudgetDrawer({ onClose, onCreated }: { onClose: () => void; onCreate
                   <option value="">Select account</option>
                   {budgetableAccounts.map((account) => (
                     <option key={account.id} value={account.code}>
-                      {account.name}
+                      {accountLabel(account)}
                     </option>
                   ))}
                 </Select>

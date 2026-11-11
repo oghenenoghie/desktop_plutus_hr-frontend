@@ -12,6 +12,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { payRunsApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
+import { payRunStatusLabel } from "@/lib/pay-runs";
 
 export default function PayrollPage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function PayrollPage() {
                 <Th align="right">Gross</Th>
                 <Th align="right">Net</Th>
                 <Th>Status</Th>
-                <Th>Completed</Th>
+                <Th>Posted</Th>
                 <Th align="right">Actions</Th>
               </tr>
             </Thead>
@@ -55,15 +56,16 @@ export default function PayrollPage() {
                   </Td>
                   <Td>{titleCase(run.frequency)}</Td>
                   <Td align="right">{run.employee_count}</Td>
-                  <Td align="right">{formatMoney(run.gross_minor)}</Td>
-                  <Td align="right">{formatMoney(run.net_minor)}</Td>
+                  {/* Payslips are only written when a run is posted. */}
+                  <Td align="right">{run.locked_at ? formatMoney(run.gross_minor) : <span className="text-ink-soft">Not posted</span>}</Td>
+                  <Td align="right">{run.locked_at ? formatMoney(run.net_minor) : <span className="text-ink-soft">—</span>}</Td>
                   <Td>
-                    <StatusBadge status={run.status} />
+                    <StatusBadge status={run.status} label={payRunStatusLabel(run)} />
                   </Td>
-                  <Td>{formatDate(run.completed_at)}</Td>
+                  <Td>{formatDate(run.locked_at)}</Td>
                   <Td align="right">
                     <Button size="md" variant="secondary" onClick={() => router.push(`/payroll/${run.id}`)}>
-                      View
+                      {run.status === "draft" || run.status === "validated" ? "Review & Post" : "View"}
                     </Button>
                   </Td>
                 </tr>

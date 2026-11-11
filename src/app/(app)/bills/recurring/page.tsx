@@ -13,6 +13,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { accountLabel } from "@/lib/accounting";
 import { ApiError } from "@/lib/api/client";
 import { chartAccountsApi, recurringBillsApi, vendorsApi } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
@@ -200,7 +201,7 @@ function NewRecurringBillDrawer({ onClose, onCreated }: { onClose: () => void; o
             <option value="">Select expense account</option>
             {expenseAccounts.map((account) => (
               <option key={account.id} value={account.code}>
-                {account.name}
+                {accountLabel(account)}
               </option>
             ))}
           </Select>

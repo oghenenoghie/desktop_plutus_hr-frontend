@@ -111,8 +111,8 @@ export default function SetupPage() {
   return (
     <div>
       <PageHeader
-        title="Setup & Onboarding"
-        subtitle="Company and statutory registration, and the defaults new-hire forms start from"
+        title="Company Information"
+        subtitle="Your company's details, tax ID and statutory registration, and the defaults new-hire forms start from"
       />
 
       {organisation.loading ? <LoadingState /> : null}
@@ -185,8 +185,8 @@ export default function SetupPage() {
 
           <Card>
             <CardHeader
-              title="Statutory registration"
-              subtitle="Used across payslips, statutory filings, and generated documents"
+              title="Company details and tax ID"
+              subtitle="Printed on invoices (the tax ID at the top right, as a tax invoice requires), payslips, statutory filings and generated documents"
             />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -199,7 +199,9 @@ export default function SetupPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="company-tin">{isNigeria ? "Company TIN" : "Company tax ID number"}</Label>
+                <Label htmlFor="company-tin">
+                  {isNigeria ? "Company tax ID (TIN)" : "Company tax ID number"}
+                </Label>
                 <Input
                   id="company-tin"
                   value={companyTin}

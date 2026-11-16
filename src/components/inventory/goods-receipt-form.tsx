@@ -51,8 +51,10 @@ function draftsFrom(po: PurchaseOrder, receipt?: GoodsReceipt): Record<string, L
   return drafts;
 }
 
-// Records what arrived against an issued purchase order. Saved as a draft;
-// stock moves only when the receipt is posted.
+// Records what arrived against an issued purchase order. Stock moves only
+// when the receipt is posted, so the main button saves and posts in one go
+// ("Receive into stock"); "Save draft" keeps a receipt that still needs
+// checking out of stock until it's posted from its own page.
 export function GoodsReceiptForm({
   po,
   receipt,
@@ -61,7 +63,7 @@ export function GoodsReceiptForm({
 }: {
   po: PurchaseOrder;
   receipt?: GoodsReceipt;
-  onSaved: (saved: GoodsReceipt) => void;
+  onSaved: (saved: GoodsReceipt, posted: boolean) => void;
   onCancel: () => void;
 }) {
   const { showToast } = useToast();
@@ -85,8 +87,10 @@ export function GoodsReceiptForm({
     setDrafts((current) => ({ ...current, [lineId]: { ...current[lineId], ...patch } }));
   }
 
-  async function onSubmit(event: React.FormEvent) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const postAfterSaving = submitter?.value === "post";
     const lines: GoodsReceiptLineInput[] = [];
     for (const line of po.lines ?? []) {
       const draft = drafts[line.id];
@@ -126,7 +130,17 @@ export function GoodsReceiptForm({
       const saved = receipt
         ? await goodsReceiptsApi.update(receipt.id, header)
         : await goodsReceiptsApi.create({ ...header, purchase_order_id: po.id });
-      onSaved(saved);
+      if (!postAfterSaving) {
+        onSaved(saved, false);
+        return;
+      }
+      try {
+        onSaved(await goodsReceiptsApi.post(saved.id), true);
+      } catch (err) {
+        // Saved, but not in stock: say so, and land on the draft to post it.
+        showToast(`${saved.grn_number} was saved as a draft but not put into stock: ${errorText(err, "posting failed")}`, "bad");
+        onSaved(saved, false);
+      }
     } catch (err) {
       showToast(errorText(err, "Could not save."), "bad");
       setSubmitting(false);
@@ -263,8 +277,11 @@ export function GoodsReceiptForm({
         <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
           Cancel
         </Button>
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : receipt ? "Save changes" : "Save draft"}
+        <Button type="submit" variant="secondary" value="draft" disabled={submitting}>
+          {receipt ? "Save changes" : "Save draft"}
+        </Button>
+        <Button type="submit" value="post" disabled={submitting}>
+          {submitting ? "Saving…" : "Receive into stock"}
         </Button>
       </div>
     </form>

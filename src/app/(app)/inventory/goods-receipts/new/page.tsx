@@ -30,7 +30,10 @@ function NewGoodsReceipt() {
   const poId = useSearchParams().get("po");
   return (
     <div>
-      <PageHeader title="Receive Goods" subtitle="Saved as a draft; post it to put the accepted goods into stock" />
+      <PageHeader
+        title="Receive Goods"
+        subtitle="Receive into stock adds the accepted goods to stock on hand now. Save a draft instead if the delivery still needs checking."
+      />
       {poId ? <ReceiveAgainst poId={poId} /> : <ChooseOrder />}
     </div>
   );
@@ -48,8 +51,13 @@ function ReceiveAgainst({ poId }: { poId: string }) {
     <GoodsReceiptForm
       po={order.data}
       onCancel={() => router.push(`/inventory/purchase-orders/${poId}`)}
-      onSaved={(saved) => {
-        showToast(`${saved.grn_number} saved as a draft`, "good");
+      onSaved={(saved, posted) => {
+        showToast(
+          posted
+            ? `${saved.grn_number} received: stock on hand updated`
+            : `${saved.grn_number} saved as a draft: not in stock until it's posted`,
+          posted ? "good" : "neutral",
+        );
         router.push(`/inventory/goods-receipts/${saved.id}`);
       }}
     />

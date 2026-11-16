@@ -92,7 +92,9 @@ export default function InventorySettingsPage() {
             <AccountingCard settings={settings.data} canManage={canManage} onStarted={settings.reload} />
             <OperationsCard settings={settings.data} canManage={canManage} onSaved={settings.reload} />
             <UnitsCard canManage={canManage} />
-            <CategoriesCard canManage={canManage} />
+            <div id="item-categories" className="scroll-mt-6">
+              <CategoriesCard canManage={canManage} />
+            </div>
           </>
         ) : null}
       </div>

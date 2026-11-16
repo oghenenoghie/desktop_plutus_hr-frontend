@@ -125,10 +125,10 @@ export function fixedAssetRecord(overrides: Partial<FixedAsset>): FixedAsset {
 type Sections = Partial<Record<"non_current_asset" | "current_asset" | "current_liability" | "non_current_liability" | "equity", StatementLine[]>>;
 
 const SECTION_LABELS = {
-  non_current_asset: "Non-current assets",
+  non_current_asset: "Fixed assets",
   current_asset: "Current assets",
-  current_liability: "Current liabilities",
-  non_current_liability: "Non-current liabilities",
+  current_liability: "Current liabilities: amounts falling due within one year",
+  non_current_liability: "Long-term liabilities: amounts falling due after more than one year",
   equity: "Capital and reserves",
 } as const;
 

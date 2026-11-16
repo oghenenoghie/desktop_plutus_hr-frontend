@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { InventoryError, MoneyOrHidden } from "@/components/inventory/inventory-ui";
@@ -59,7 +60,17 @@ export default function InventoryItemsPage() {
         title="Items"
         subtitle="Everything the organisation stocks or consumes, with stock on hand across all warehouses"
         action={
-          canManage && !items.error ? <Button onClick={() => setEditing("new")}>New Item</Button> : undefined
+          canManage && !items.error ? (
+            <div className="flex gap-2">
+              <Link
+                href="/inventory/settings#item-categories"
+                className="inline-flex items-center rounded-md border border-border bg-surface px-3 text-[13px] font-bold text-ink hover:bg-bg"
+              >
+                Manage Categories
+              </Link>
+              <Button onClick={() => setEditing("new")}>New Item</Button>
+            </div>
+          ) : undefined
         }
       />
 

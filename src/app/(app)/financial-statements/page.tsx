@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { type StatementRow, StatementTable, sectionRows } from "@/components/accounting/statement-table";
@@ -22,7 +23,7 @@ function profitRows(statement: IncomeStatement): StatementRow[] {
     ...sectionRows(statement.sales, "Total sales"),
     ...sectionRows(statement.cost_of_sales, "Total cost of sales", { less: true }),
     { key: "gross-profit", label: "Gross profit", figure: statement.gross_profit_minor, kind: "result" },
-    ...(statement.other_income.lines.length > 0 ? sectionRows(statement.other_income, "Total other income") : []),
+    ...sectionRows(statement.other_income, "Total other income"),
     ...sectionRows(statement.overheads, "Total overheads", { less: true }),
     {
       key: "net-profit",
@@ -79,7 +80,7 @@ export default function FinancialStatementsPage() {
       <Card>
         <CardHeader
           title="Profit and Loss Account"
-          subtitle="Sales, less cost of sales, is gross profit; less overheads, net profit. The account ranges set where each account appears."
+          subtitle="Sales, less cost of sales, is gross profit; less overheads — including depreciation and lease amortisation — net profit. Only accounts with something on them in the period appear."
           action={
             <div className="flex items-end gap-3">
               <div className="w-40">
@@ -122,6 +123,19 @@ export default function FinancialStatementsPage() {
         ) : null}
         {incomeStatement.data ? (
           <div className="mx-auto max-w-[760px]">
+            {incomeStatement.data.assets_awaiting_depreciation > 0 ? (
+              <p className="mb-4 rounded-md bg-warn-tint px-3 py-2 text-[12px] text-warn-ink">
+                {incomeStatement.data.assets_awaiting_depreciation === 1
+                  ? "1 fixed asset has"
+                  : `${incomeStatement.data.assets_awaiting_depreciation} fixed assets have`}{" "}
+                no depreciation or amortisation posted for this period, so it isn&apos;t in these figures yet.
+                Depreciation reaches the profit and loss account once it&apos;s run on the{" "}
+                <Link href="/fixed-assets" className="font-bold underline">
+                  Fixed Asset Register
+                </Link>{" "}
+                (monthly, or the year-end run).
+              </p>
+            ) : null}
             <StatementTable rows={profitRows(incomeStatement.data)} />
           </div>
         ) : null}

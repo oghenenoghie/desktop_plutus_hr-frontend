@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { type StatementRow, StatementTable, numbered, sectionRows } from "@/components/accounting/statement-table";
+import { type StatementRow, StatementTable, accountLabel, sectionRows } from "@/components/accounting/statement-table";
 import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -15,37 +15,26 @@ import { financialStatementsApi } from "@/lib/api/endpoints";
 import { useApiResource } from "@/lib/hooks";
 import type { BalanceSheet, StatementLine } from "@/lib/types";
 
-// Each kind of fixed asset at cost, less what's been written off it (a
-// contra-asset carried with a credit, i.e. negative, balance), then its net
-// book value — owned assets against accumulated depreciation, leased ones
-// against accumulated amortisation — the same grouping as the PDF. Without
-// both accounts of a pair, the lines stand as they are.
-const PAIRS: [cost: string, contra: string, net: string][] = [
-  ["fixed_assets", "accumulated_depreciation", "Net book value"],
-  ["right_of_use_assets", "accumulated_amortisation", "Net book value of leased assets"],
-];
+// The server sends fixed assets as a summary, whatever accounts hold them:
+// everything at cost, and what's been written off it (accumulated
+// depreciation and amortisation, a contra-asset carried with a credit, i.e.
+// negative, balance). Net fixed assets is the section's total. The asset by
+// asset breakdown is the Fixed Asset Register's, not the balance sheet's.
+const WRITTEN_OFF = "fixed_assets_written_off";
 
 function fixedAssetRows(lines: StatementLine[]): StatementRow[] {
-  const byAccount = new Map(lines.map((line) => [line.account, line]));
-  const grouped = PAIRS.filter(([cost, contra]) => byAccount.has(cost) && byAccount.has(contra));
-  const contras = new Set(grouped.map(([, contra]) => contra));
-  return lines.flatMap((line): StatementRow[] => {
-    if (contras.has(line.account)) return [];
-    const pair = grouped.find(([cost]) => cost === line.account);
-    if (!pair) return [{ key: line.account, label: numbered(line), figure: line.balance_minor, kind: "line" }];
-    const contra = byAccount.get(pair[1])!;
-    return [
-      { key: line.account, label: `${numbered(line)} at cost`, figure: line.balance_minor, kind: "line" },
-      { key: contra.account, label: `Less: ${numbered(contra)}`, figure: contra.balance_minor, kind: "less" },
-      { key: `${line.account}-net`, label: pair[2], figure: line.balance_minor + contra.balance_minor, kind: "total" },
-    ];
-  });
+  return lines.map((line): StatementRow =>
+    line.account === WRITTEN_OFF
+      ? { key: line.account, label: `Less: ${accountLabel(line)}`, figure: line.balance_minor, kind: "less" }
+      : { key: line.account, label: accountLabel(line), figure: line.balance_minor, kind: "line" },
+  );
 }
 
-// The vertical form, top to bottom, as the PDF prints it.
+// The vertical form, top to bottom, as the PDF prints it. Sections with
+// nothing in them are left out.
 function sheetRows(sheet: BalanceSheet): StatementRow[] {
   return [
-    ...sectionRows(sheet.non_current_assets, "Total fixed assets", {
+    ...sectionRows(sheet.non_current_assets, "Net fixed assets", {
       lines: fixedAssetRows(sheet.non_current_assets.lines),
     }),
     ...sectionRows(sheet.current_assets, "Total current assets"),
@@ -57,9 +46,7 @@ function sheetRows(sheet: BalanceSheet): StatementRow[] {
       figure: sheet.total_assets_less_current_liabilities_minor,
       kind: "result",
     },
-    ...(sheet.non_current_liabilities.lines.length > 0
-      ? sectionRows(sheet.non_current_liabilities, "Total non-current liabilities", { less: true })
-      : []),
+    ...sectionRows(sheet.non_current_liabilities, "Total long-term liabilities", { less: true }),
     { key: "net-assets", label: "Net assets", figure: sheet.net_assets_minor, kind: "grand" },
     ...sectionRows(sheet.capital_and_reserves, "Total capital and reserves").map((row): StatementRow =>
       row.kind === "total" ? { ...row, kind: "grand" } : row,
@@ -107,7 +94,7 @@ export default function BalanceSheetPage() {
       <Card>
         <CardHeader
           title="Balance Sheet"
-          subtitle="Fixed assets, current assets and current liabilities, then capital and reserves. The Profit and Loss Reserve carries the result to date, so net assets always equal capital and reserves."
+          subtitle="Fixed assets at cost less depreciation, plus current assets, less liabilities by when they fall due, is net assets; capital and reserves — share capital and the Profit and Loss Reserve — equal it. The Fixed Asset Register has the asset by asset breakdown."
           action={
             <div className="flex items-end gap-3">
               <div className="w-44">

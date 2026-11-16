@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { canManageInventory, canOperateInventory, canSeeInventoryValues, formatQuantity } from "@/lib/inventory";
+import type { GoodsReceipt } from "@/lib/types";
 
 export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -44,9 +45,9 @@ export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ i
         <EditReceipt
           purchaseOrderId={grn.purchase_order_id}
           onCancel={() => setEditing(false)}
-          onSaved={() => {
+          onSaved={(saved, posted) => {
             setEditing(false);
-            showToast(`${grn.grn_number} saved`, "good");
+            showToast(posted ? `${saved.grn_number} received into stock` : `${saved.grn_number} saved`, "good");
             receipt.reload();
           }}
           receiptId={grn.id}
@@ -113,6 +114,16 @@ export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ i
       />
 
       <div className="flex flex-col gap-6">
+        {grn.status === "draft" ? (
+          <div role="status" className="rounded-panel border border-warn bg-warn-tint px-4 py-3 text-[13px] text-warn-ink">
+            <p className="font-bold">Not in stock yet</p>
+            <p className="mt-0.5">
+              This receipt is a draft, so stock on hand hasn&apos;t changed.{" "}
+              {canAct ? "Post receipt (above) adds" : "Once it's posted, it adds"} the accepted goods to{" "}
+              {grn.warehouse_code} — {grn.warehouse_name}.
+            </p>
+          </div>
+        ) : null}
         <Card>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Field label="Status">
@@ -232,7 +243,7 @@ function EditReceipt({
 }: {
   purchaseOrderId: string;
   receiptId: string;
-  onSaved: () => void;
+  onSaved: (saved: GoodsReceipt, posted: boolean) => void;
   onCancel: () => void;
 }) {
   const { user } = useAuth();

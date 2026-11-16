@@ -101,6 +101,21 @@ export interface Employee {
   job_grade_id: string | null;
   shift_id: string | null;
   tin: string | null;
+  // Personal, contact and pension-scheme details: null unless the viewer
+  // keeps employee records (admin, payroll, accountant, HR) or is this
+  // employee. Optional for older servers, which never sent them.
+  pfa_name?: string | null;
+  rsa_pin?: string | null;
+  nhf_number?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  nationality?: string | null;
+  marital_status?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  residential_address?: string | null;
+  next_of_kin_name?: string | null;
+  next_of_kin_phone?: string | null;
   // null when salary_masked is true and the viewer is a manager (not the
   // employee themselves, and not admin/payroll_manager) — never null for
   // any other viewer.
@@ -176,23 +191,37 @@ export interface CreateEmployeeLoginOut {
 }
 
 // PATCH /employees/{id} — mirrors app.schemas.employees.EmployeeUpdate. Every
-// field optional and independently settable; the UI only exercises the
-// subset a given drawer edits.
+// field optional and independently settable: anything recorded when the
+// employee was created can be completed or corrected later. Required fields
+// (number, name, pay, ...) can be changed but not set to null; an optional
+// one is cleared with null.
 export interface EmployeeUpdateBody {
+  employee_number?: string;
   full_name?: string;
+  employment_type?: EmploymentType;
+  date_of_joining?: string;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  nationality?: string | null;
+  marital_status?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  residential_address?: string | null;
+  next_of_kin_name?: string | null;
+  next_of_kin_phone?: string | null;
   state_of_residence?: string;
   state_of_origin?: string | null;
-  job_title?: string;
+  job_title?: string | null;
   contract_end_date?: string | null;
   manager_id?: string | null;
   department_id?: string | null;
   branch_id?: string | null;
   job_grade_id?: string | null;
   shift_id?: string | null;
-  tin?: string;
-  pfa_name?: string;
-  rsa_pin?: string;
-  nhf_number?: string;
+  tin?: string | null;
+  pfa_name?: string | null;
+  rsa_pin?: string | null;
+  nhf_number?: string | null;
   basic_minor?: number;
   housing_minor?: number;
   transport_minor?: number;
@@ -743,6 +772,67 @@ export interface Payslip {
   created_at: string;
 }
 
+// How a Nigerian payslip's PAYE was reached (derivation.paye_working):
+// cumulative-annual PAYE on the year's chargeable income so far, band by
+// band, less what earlier periods withheld. Absent on older payslips.
+export interface PayeBandSlice {
+  from_minor: number;
+  to_minor: number | null;
+  rate_ppm: number;
+  taxed_minor: number;
+  tax_minor: number;
+}
+
+export interface PayeWorking {
+  method: "cumulative_annual";
+  chargeable_income_to_date_minor: number;
+  bands: PayeBandSlice[];
+  tax_due_to_date_minor: number;
+  withheld_before_minor: number;
+  this_period_minor: number;
+  first_band_ceiling_minor: number | null;
+  first_band_rate_ppm: number | null;
+}
+
+// GET /pay-runs/{id}/readiness: who can't be paid yet (blocker: validation
+// refuses the run) and whose payslip or payment won't reach them (warning).
+export type PayRunReadinessCode =
+  | "missing_tin"
+  | "missing_email"
+  | "missing_bank_account"
+  | "unverified_bank_account";
+
+export interface PayRunReadinessIssue {
+  employee_id: string;
+  employee_number: string;
+  full_name: string;
+  code: PayRunReadinessCode;
+  severity: "blocker" | "warning";
+  message: string;
+}
+
+// GET /pay-runs/{id}/statutory-charges: each scheme split into what comes
+// out of employees' pay and what the employer pays on top.
+export interface StatutoryCharge {
+  scheme: string;
+  name: string;
+  state: string | null;
+  employee_minor: number;
+  employer_minor: number;
+  total_minor: number;
+  base_minor: number | null;
+  authority: string | null;
+  due_date: string | null;
+}
+
+export interface PayRunStatutoryCharges {
+  basis: "preview" | "posted";
+  charges: StatutoryCharge[];
+  employee_deductions_minor: number;
+  employer_costs_minor: number;
+  note: string | null;
+}
+
 export type StatutoryLineKind = "employee_contribution" | "employer_contribution" | "income_tax";
 
 export interface PayslipStatutoryLine {
@@ -1291,11 +1381,34 @@ export interface Invoice {
   issue_date: string;
   due_date: string;
   revenue_account_code: string;
+  // The net amount, before VAT. What the customer owes is total_minor.
   amount_minor: number;
+  // How VAT applies, the rate's name as printed ("VAT 7.5%", "Zero-rated",
+  // or a name the user gave), the rate and the VAT itself, all fixed when
+  // the invoice was raised. No treatment: no VAT was charged.
+  vat_treatment: VatTreatment | null;
+  vat_rate_name: string | null;
+  vat_rate_ppm: number;
+  vat_minor: number;
+  total_minor: number;
   description: string | null;
   status: InvoiceStatus;
   paid_at: string | null;
   created_at: string;
+}
+
+export type VatTreatment = "standard" | "exempt" | "zero_rated" | "other";
+
+// GET /invoices/vat-options: what the invoice form's VAT dropdown offers.
+export interface VatOption {
+  treatment: VatTreatment;
+  label: string;
+  rate_ppm: number | null; // null for "other": the user enters the rate
+}
+
+export interface VatOptions {
+  country_code: string;
+  options: VatOption[];
 }
 
 export interface InvoiceCreateBody {
@@ -1305,8 +1418,12 @@ export interface InvoiceCreateBody {
   issue_date: string;
   due_date: string;
   revenue_account_code: string;
+  // Net of VAT.
   amount_minor: number;
   description?: string | null;
+  vat_treatment?: VatTreatment | null;
+  vat_rate_name?: string | null;
+  vat_rate_ppm?: number | null;
 }
 
 // --- financial statements ---

@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { EmployeePhotoField } from "@/components/employee-photo-field";
 import { PageHeader } from "@/components/layout/page-header";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ import {
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { RegionField, useIsNigeria, useRegionLabel } from "@/components/region-field";
+import { useIsNigeria, useRegionLabel } from "@/components/region-field";
 import type {
   ChecklistItem,
   ChecklistType,
@@ -52,8 +52,9 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const { user } = useAuth();
   const canManage = user?.role === "admin" || user?.role === "payroll_manager";
+  // The roles the server lets change an employee's record.
+  const canEdit = canManage || user?.role === "accountant";
   const employee = useApiResource(() => employeesApi.get(id), [id]);
-  const [editing, setEditing] = useState(false);
   const [creatingLogin, setCreatingLogin] = useState(false);
   const [createdLogin, setCreatedLogin] = useState<CreateEmployeeLoginOut | null>(null);
 
@@ -82,10 +83,12 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                     Create Login
                   </Button>
                 ) : null}
-                {canManage ? (
-                  <Button size="md" variant="secondary" onClick={() => setEditing(true)}>
-                    Edit Details
-                  </Button>
+                {canEdit ? (
+                  <Link href={`/employees/${employee.data.id}/edit`}>
+                    <Button size="md" variant="secondary">
+                      Edit Details
+                    </Button>
+                  </Link>
                 ) : null}
                 {canManage && employee.data.lifecycle_state === "active" ? (
                   <Button
@@ -99,18 +102,6 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               </div>
             }
           />
-
-          {editing ? (
-            <EditDetailsDrawer
-              employee={employee.data}
-              onClose={() => setEditing(false)}
-              onSaved={() => {
-                setEditing(false);
-                employee.reload();
-              }}
-              onPhotoChanged={() => employee.reload()}
-            />
-          ) : null}
 
           {creatingLogin ? (
             <CreateLoginDrawer
@@ -156,163 +147,6 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
         </>
       ) : null}
     </div>
-  );
-}
-
-function EditDetailsDrawer({
-  employee,
-  onClose,
-  onSaved,
-  onPhotoChanged,
-}: {
-  employee: Employee;
-  onClose: () => void;
-  onSaved: () => void;
-  onPhotoChanged: () => void;
-}) {
-  const regionLabel = useRegionLabel();
-  const isNigeria = useIsNigeria();
-  const { showToast } = useToast();
-  const branches = useApiResource(() => branchesApi.list());
-  // Tax inputs some countries' rules need. Shown only to someone who can see
-  // the employee's pay (they're masked with it), and sent only when changed.
-  const showTaxInputs = !isNigeria && employee.basic_minor !== null;
-  const initialHalfShares = employee.tax_half_shares?.toString() ?? "";
-  const initialExpatriate = employee.is_expatriate == null ? "" : employee.is_expatriate ? "yes" : "no";
-  const [halfShares, setHalfShares] = useState(initialHalfShares);
-  const [expatriate, setExpatriate] = useState(initialExpatriate);
-  const [stateOfOrigin, setStateOfOrigin] = useState(employee.state_of_origin ?? "");
-  const [branchId, setBranchId] = useState(employee.branch_id ?? "");
-  const [contractEndDate, setContractEndDate] = useState(employee.contract_end_date ?? "");
-  const [submitting, setSubmitting] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
-
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setSubmitting(true);
-    try {
-      await employeesApi.update(employee.id, {
-        state_of_origin: stateOfOrigin || null,
-        branch_id: branchId || null,
-        contract_end_date: contractEndDate || null,
-        ...(showTaxInputs && halfShares !== initialHalfShares
-          ? { tax_half_shares: halfShares === "" ? null : Number(halfShares) }
-          : {}),
-        ...(showTaxInputs && expatriate !== initialExpatriate
-          ? { is_expatriate: expatriate === "" ? null : expatriate === "yes" }
-          : {}),
-      });
-      showToast("Employee details updated", "good");
-      onSaved();
-    } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
-      setSubmitting(false);
-    }
-  }
-
-  async function onPhotoSelected(blob: Blob, consent: boolean) {
-    setPhotoBusy(true);
-    try {
-      await employeesApi.uploadPhoto(employee.id, blob, consent);
-      showToast("Photo updated", "good");
-      onPhotoChanged();
-    } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Photo upload failed.", "bad");
-    } finally {
-      setPhotoBusy(false);
-    }
-  }
-
-  async function onPhotoRemoved() {
-    setPhotoBusy(true);
-    try {
-      await employeesApi.deletePhoto(employee.id);
-      showToast("Photo removed", "good");
-      onPhotoChanged();
-    } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not remove photo.", "bad");
-    } finally {
-      setPhotoBusy(false);
-    }
-  }
-
-  return (
-    <Drawer title={`Edit Details — ${employee.full_name}`} onClose={onClose}>
-      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
-        <div>
-          <Label htmlFor="edit-state-of-origin">{regionLabel} of Origin</Label>
-          <RegionField
-            id="edit-state-of-origin"
-            value={stateOfOrigin}
-            onChange={setStateOfOrigin}
-            emptyLabel="Not set"
-          />
-        </div>
-        <div>
-          <Label htmlFor="edit-branch">Branch (Work Location)</Label>
-          <Select id="edit-branch" value={branchId} onChange={(event) => setBranchId(event.target.value)}>
-            <option value="">No branch</option>
-            {(branches.data ?? []).map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="edit-contract-end-date">Contract End Date</Label>
-          <Input
-            id="edit-contract-end-date"
-            type="date"
-            value={contractEndDate}
-            onChange={(event) => setContractEndDate(event.target.value)}
-          />
-        </div>
-        {showTaxInputs ? (
-          <>
-            <div>
-              <Label htmlFor="edit-half-shares">Family Shares (in halves)</Label>
-              <Input
-                id="edit-half-shares"
-                type="number"
-                min={0}
-                step={1}
-                inputMode="numeric"
-                value={halfShares}
-                onChange={(event) => setHalfShares(event.target.value)}
-                placeholder="Where income tax depends on family; 1 share = 2"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-expatriate">Expatriate Status</Label>
-              <Select id="edit-expatriate" value={expatriate} onChange={(event) => setExpatriate(event.target.value)}>
-                <option value="">Not recorded</option>
-                <option value="no">Local staff</option>
-                <option value="yes">Expatriate</option>
-              </Select>
-            </div>
-          </>
-        ) : null}
-        <div>
-          <Label>Photo</Label>
-          <EmployeePhotoField
-            name={employee.full_name}
-            previewUrl={employee.photo_url}
-            busy={photoBusy}
-            onSelect={onPhotoSelected}
-            onRemove={onPhotoRemoved}
-          />
-        </div>
-        <div className="mt-auto flex justify-end gap-3 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Saving…" : "Save"}
-          </Button>
-        </div>
-      </form>
-    </Drawer>
   );
 }
 
@@ -447,10 +281,45 @@ function OverviewTab({ employeeId }: { employeeId: string }) {
           <dd className="font-bold">{formatDate(e.contract_end_date)}</dd>
           <dt className="text-ink-soft">Pay Frequency</dt>
           <dd className="font-bold">{titleCase(e.pay_frequency)}</dd>
-          <dt className="text-ink-soft">TIN</dt>
-          <dd className="font-bold">{e.tin ?? "Missing"}</dd>
+          <dt className="text-ink-soft">{isNigeria ? "TIN" : "Tax ID"}</dt>
+          <dd className={`font-bold ${e.tin ? "" : "text-bad"}`}>
+            {e.tin ?? (isNigeria ? "Missing: needed before they can be paid" : "Missing")}
+          </dd>
           <dt className="text-ink-soft">Annual Leave Days</dt>
           <dd className="font-bold">{e.annual_leave_entitlement_days}</dd>
+        </dl>
+      </Card>
+      <Card>
+        <CardHeader title="Personal & Contact" />
+        <dl className="grid grid-cols-[160px_1fr] gap-y-2.5 text-[13px]">
+          <dt className="text-ink-soft">Email</dt>
+          <dd className="font-bold">{e.email ?? "Not recorded"}</dd>
+          <dt className="text-ink-soft">Phone</dt>
+          <dd className="font-bold">{e.phone ?? "—"}</dd>
+          <dt className="text-ink-soft">Address</dt>
+          <dd className="font-bold">{e.residential_address ?? "—"}</dd>
+          <dt className="text-ink-soft">Date of Birth</dt>
+          <dd className="font-bold">{formatDate(e.date_of_birth ?? null)}</dd>
+          <dt className="text-ink-soft">Gender</dt>
+          <dd className="font-bold">{e.gender ?? "—"}</dd>
+          <dt className="text-ink-soft">Nationality</dt>
+          <dd className="font-bold">{e.nationality ?? "—"}</dd>
+          <dt className="text-ink-soft">Marital Status</dt>
+          <dd className="font-bold">{e.marital_status ?? "—"}</dd>
+          <dt className="text-ink-soft">Next of Kin</dt>
+          <dd className="font-bold">
+            {e.next_of_kin_name ? `${e.next_of_kin_name}${e.next_of_kin_phone ? ` · ${e.next_of_kin_phone}` : ""}` : "—"}
+          </dd>
+          {isNigeria ? (
+            <>
+              <dt className="text-ink-soft">Pension PFA</dt>
+              <dd className="font-bold">{e.pfa_name ?? "—"}</dd>
+              <dt className="text-ink-soft">RSA PIN</dt>
+              <dd className="font-bold">{e.rsa_pin ?? "—"}</dd>
+              <dt className="text-ink-soft">NHF Number</dt>
+              <dd className="font-bold">{e.nhf_number ?? "—"}</dd>
+            </>
+          ) : null}
         </dl>
       </Card>
       <Card>

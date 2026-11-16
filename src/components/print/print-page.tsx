@@ -16,6 +16,7 @@ import type { Role } from "@/lib/types";
 export function PrintPage({
   title,
   subtitle,
+  aside,
   allow,
   loading,
   error,
@@ -24,6 +25,8 @@ export function PrintPage({
 }: {
   title: string;
   subtitle?: string;
+  // Printed under the title, top right: a tax invoice's TIN and number.
+  aside?: React.ReactNode;
   allow: Role[];
   loading: boolean;
   error: string | null;
@@ -32,7 +35,7 @@ export function PrintPage({
 }) {
   return (
     <AuthGate allow={allow}>
-      <PrintBody title={title} subtitle={subtitle} loading={loading} error={error} ready={ready}>
+      <PrintBody title={title} subtitle={subtitle} aside={aside} loading={loading} error={error} ready={ready}>
         {children}
       </PrintBody>
     </AuthGate>
@@ -42,6 +45,7 @@ export function PrintPage({
 function PrintBody({
   title,
   subtitle,
+  aside,
   loading,
   error,
   ready,
@@ -49,6 +53,7 @@ function PrintBody({
 }: {
   title: string;
   subtitle?: string;
+  aside?: React.ReactNode;
   loading: boolean;
   error: string | null;
   ready: boolean;
@@ -82,7 +87,10 @@ function PrintBody({
             <p className="text-[18px] font-extrabold">{user?.org_name ?? ""}</p>
             {subtitle ? <p className="mt-1 text-[12px] text-ink-soft">{subtitle}</p> : null}
           </div>
-          <h1 className="text-right text-[22px] font-extrabold uppercase tracking-[0.04em]">{title}</h1>
+          <div className="text-right">
+            <h1 className="text-[22px] font-extrabold uppercase tracking-[0.04em]">{title}</h1>
+            {aside && ready ? <div className="mt-1 text-[12px]">{aside}</div> : null}
+          </div>
         </header>
         {loading ? <LoadingState /> : null}
         {error ? <ErrorState message={error} /> : null}

@@ -120,6 +120,7 @@ import type {
   InventoryWarehouseBody,
   Invoice,
   InvoiceCreateBody,
+  VatOptions,
   IssueDepartment,
   JobGrade,
   JobGradeCreateBody,
@@ -158,6 +159,8 @@ import type {
   PayeEstimateRequestBody,
   PayrollRegisterLine,
   PayRun,
+  PayRunReadinessIssue,
+  PayRunStatutoryCharges,
   PayRunVarianceFlag,
   PayRunCreateBody,
   PayRunSimulationOut,
@@ -687,6 +690,7 @@ export const invoicesApi = {
   list: () => apiFetch<Invoice[]>("/invoices"),
   get: (id: string) => apiFetch<Invoice>(`/invoices/${id}`),
   nextNumber: () => apiFetch<{ invoice_number: string }>("/invoices/next-number"),
+  vatOptions: () => apiFetch<VatOptions>("/invoices/vat-options"),
   create: (body: InvoiceCreateBody) =>
     apiFetch<Invoice>("/invoices", { method: "POST", body }),
   send: (id: string) =>
@@ -892,6 +896,13 @@ export const payRunsApi = {
     ),
   // What each payslip will be, before the run is posted. Writes nothing.
   preview: (id: string) => apiFetch<Payslip[]>(`/pay-runs/${id}/preview`),
+  // Who can't be paid yet (blocker) or won't receive their payslip or pay
+  // (warning).
+  readiness: (id: string) => apiFetch<PayRunReadinessIssue[]>(`/pay-runs/${id}/readiness`),
+  // PAYE, pension, NHF, NSITF (or a country's schemes), employee and
+  // employer shares. Worked out from the preview until the run is posted.
+  statutoryCharges: (id: string) =>
+    apiFetch<PayRunStatutoryCharges>(`/pay-runs/${id}/statutory-charges`),
   validate: (id: string, overrideVariance = false) =>
     apiFetch<PayRun>(`/pay-runs/${id}/validate`, {
       method: "POST",

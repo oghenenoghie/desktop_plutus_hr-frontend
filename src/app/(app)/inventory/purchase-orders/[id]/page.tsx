@@ -220,6 +220,9 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                     <Td>{receipt.warehouse_code}</Td>
                     <Td>
                       <StatusBadge status={receipt.status} />
+                      {receipt.status === "draft" ? (
+                        <span className="ml-2 text-[12px] text-warn-ink">Not in stock until posted</span>
+                      ) : null}
                     </Td>
                   </tr>
                 ))}

@@ -656,7 +656,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       {
         href: "/setup",
-        label: "Setup & Onboarding",
+        label: "Company Information",
         icon: "setup",
         roles: ["admin"],
       },

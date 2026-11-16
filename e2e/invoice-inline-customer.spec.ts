@@ -141,5 +141,9 @@ test("a new customer is selected and the invoice saves with it", async ({ page }
     revenue_account_code: "4000",
     amount_minor: 150000,
     description: "Consulting retainer",
+    // The VAT dropdown starts on the standard rate; the server sets it.
+    vat_treatment: "standard",
+    vat_rate_name: null,
+    vat_rate_ppm: null,
   });
 });

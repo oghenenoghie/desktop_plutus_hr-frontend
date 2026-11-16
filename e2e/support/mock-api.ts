@@ -265,6 +265,17 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
     }
     if (method === "GET" && path === "/invoices") return json(200, store.invoices);
     if (method === "GET" && path === "/invoices/next-number") return json(200, { invoice_number: "INV-0001" });
+    if (method === "GET" && path === "/invoices/vat-options") {
+      return json(200, {
+        country_code: "NG",
+        options: [
+          { treatment: "standard", label: "VAT 7.5%", rate_ppm: 75_000 },
+          { treatment: "exempt", label: "VAT exempt", rate_ppm: 0 },
+          { treatment: "zero_rated", label: "Zero-rated", rate_ppm: 0 },
+          { treatment: "other", label: "Other rate", rate_ppm: null },
+        ],
+      });
+    }
     if (method === "POST" && path === "/invoices") return json(201, { id: "inv1", status: "draft", ...body });
     if (method === "POST" && path === "/invoices/inv1/send") return json(200, { id: "inv1", status: "sent" });
     if (method === "GET" && path === "/bills") return json(200, []);

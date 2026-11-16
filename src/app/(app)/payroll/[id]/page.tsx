@@ -17,9 +17,16 @@ import { ApiError } from "@/lib/api/client";
 import { employeesApi, payRunsApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney, titleCase } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { payRunStatusLabel } from "@/lib/pay-runs";
+import { authorityLabel, payRunStatusLabel } from "@/lib/pay-runs";
 import { isEnginePayslip } from "@/lib/payslip-lines";
-import type { PayRunVarianceFlag, Payslip, PayslipDelivery } from "@/lib/types";
+import type {
+  PayeWorking,
+  PayRunReadinessIssue,
+  PayRunStatutoryCharges,
+  PayRunVarianceFlag,
+  Payslip,
+  PayslipDelivery,
+} from "@/lib/types";
 
 interface PayslipDerivationOutputs {
   gross_minor: number;
@@ -64,6 +71,15 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
     [id, status],
   );
   const slips = posted ? payslips : preview;
+  // Who can't be paid yet, and whose payslip or pay won't reach them.
+  const readiness = useApiResource(
+    () => (status === "draft" || status === "validated" ? payRunsApi.readiness(id) : Promise.resolve([])),
+    [id, status],
+  );
+  const charges = useApiResource(
+    () => (status && status !== "reversed" ? payRunsApi.statutoryCharges(id) : Promise.resolve(null)),
+    [id, status],
+  );
   const employees = useApiResource(() => employeesApi.list());
   const employeesById = new Map((employees.data ?? []).map((employee) => [employee.id, employee]));
 
@@ -91,6 +107,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
         return;
       }
       showToast(errorText(err, "Validation failed."), "bad");
+      readiness.reload();
     }
   }
 
@@ -305,6 +322,8 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
             </div>
           ) : null}
 
+          {readiness.data && readiness.data.length > 0 ? <ReadinessPanel issues={readiness.data} /> : null}
+
           <Card className="mb-6">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <SummaryStat label="Status" value={<StatusBadge status={run.status} label={payRunStatusLabel(run)} />} />
@@ -317,6 +336,18 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                 )}
               />
             </div>
+            {charges.data ? (
+              <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4">
+                <SummaryStat
+                  label="Statutory deductions"
+                  value={formatMoney(charges.data.employee_deductions_minor)}
+                />
+                <SummaryStat
+                  label="Employer's statutory costs"
+                  value={formatMoney(charges.data.employer_costs_minor)}
+                />
+              </div>
+            ) : null}
             {needsAcknowledgment ? (
               <div className="mt-4 rounded-panel border border-bad bg-bad-tint px-4 py-3">
                 <p className="text-[13px] font-bold text-bad">
@@ -336,6 +367,11 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
               </div>
             ) : null}
           </Card>
+
+          {charges.data && charges.data.charges.length > 0 ? (
+            <StatutoryChargesCard charges={charges.data} />
+          ) : null}
+          {charges.error ? <ErrorState message={charges.error} /> : null}
 
           <Card>
             <CardHeader
@@ -357,6 +393,8 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                   <tr>
                     <Th>Employee</Th>
                     <Th align="right">Gross</Th>
+                    <Th align="right">{isNigeria ? "Pension" : "Contributions"}</Th>
+                    {isNigeria ? <Th align="right">NHF</Th> : null}
                     <Th align="right">{isNigeria ? "PAYE" : "Income tax"}</Th>
                     <Th align="right">Net</Th>
                     <Th align="right">Actions</Th>
@@ -372,7 +410,13 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                             {employeesById.get(slip.employee_id)?.full_name ?? "—"}
                           </Td>
                           <Td align="right">{formatMoney(slip.gross_minor)}</Td>
-                          <Td align="right">{formatMoney(slip.paye_minor)}</Td>
+                          <Td align="right">
+                            {formatMoney(isEnginePayslip(slip) ? engineContributions(slip) : slip.pension_employee_minor)}
+                          </Td>
+                          {isNigeria ? <Td align="right">{formatMoney(slip.nhf_minor)}</Td> : null}
+                          <Td align="right">
+                            {formatMoney(isEnginePayslip(slip) ? engineIncomeTax(slip) : slip.paye_minor)}
+                          </Td>
                           <Td align="right">{formatMoney(slip.net_minor)}</Td>
                           <Td align="right">
                             <div className="flex items-center justify-end gap-2">
@@ -394,7 +438,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                         </tr>
                         {expandedId === slip.id ? (
                           <tr>
-                            <td colSpan={5} className="border-b border-border bg-bg px-4 py-5">
+                            <td colSpan={isNigeria ? 7 : 6} className="border-b border-border bg-bg px-4 py-5">
                               {outputs ? (
                                 <div className="grid gap-6 lg:grid-cols-2">
                                   <div className="space-y-3">
@@ -428,6 +472,7 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                           value={outputs.cumulative_chargeable_income_minor}
                                         />
                                         <DerivationRow label="PAYE" value={outputs.paye_minor} subtract />
+                                        <PayeWorkingRows working={slip.derivation?.paye_working as PayeWorking | undefined} />
                                       </>
                                     )}
                                     {outputs.loan_deduction_minor > 0 ? (
@@ -562,6 +607,197 @@ function DerivationRow({
         {subtract ? "− " : ""}
         {formatMoney(value)}
       </span>
+    </div>
+  );
+}
+
+function engineContributions(slip: Payslip): number {
+  return (slip.statutory_lines ?? [])
+    .filter((line) => line.kind === "employee_contribution")
+    .reduce((sum, line) => sum + line.amount_minor, 0);
+}
+
+function engineIncomeTax(slip: Payslip): number {
+  return (slip.statutory_lines ?? [])
+    .filter((line) => line.kind === "income_tax")
+    .reduce((sum, line) => sum + line.amount_minor, 0);
+}
+
+function ratePercent(ratePpm: number): string {
+  return `${Math.round(ratePpm / 100) / 100}%`;
+}
+
+// What stops the run (blockers: validation refuses it) and what won't reach
+// an employee (warnings), each with a link to put it right.
+function ReadinessPanel({ issues }: { issues: PayRunReadinessIssue[] }) {
+  const blockers = issues.filter((issue) => issue.severity === "blocker");
+  const warnings = issues.filter((issue) => issue.severity === "warning");
+  return (
+    <div className="mb-6 space-y-3">
+      {blockers.length > 0 ? (
+        <div role="alert" className="rounded-panel border border-bad bg-bad-tint px-4 py-3">
+          <p className="text-[13px] font-bold text-bad-ink">
+            This run can&apos;t be validated or posted yet. The figures below are a preview; fix{" "}
+            {blockers.length === 1 ? "this" : `these ${blockers.length}`} first:
+          </p>
+          <ul className="mt-2 space-y-1 text-[13px] text-bad-ink">
+            {blockers.map((issue) => (
+              <li key={`${issue.employee_id}-${issue.code}`}>
+                <span className="font-bold">{issue.full_name}</span> ({issue.employee_number}): {issue.message}{" "}
+                <Link
+                  href={`/employees/${issue.employee_id}/edit`}
+                  className="font-bold underline underline-offset-2"
+                >
+                  {issue.code === "missing_tin" ? "Add their TIN" : "Fix"}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {warnings.length > 0 ? (
+        <div className="rounded-panel border border-warn bg-warn-tint px-4 py-3">
+          <p className="text-[13px] font-bold text-warn-ink">Check before posting</p>
+          <ul className="mt-2 space-y-1 text-[13px] text-warn-ink">
+            {warnings.map((issue) => (
+              <li key={`${issue.employee_id}-${issue.code}`}>
+                <span className="font-bold">{issue.full_name}</span> ({issue.employee_number}): {issue.message}{" "}
+                <Link
+                  href={`/employees/${issue.employee_id}${issue.code === "missing_email" ? "/edit" : ""}`}
+                  className="font-bold underline underline-offset-2"
+                >
+                  {issue.code === "missing_email" ? "Add their email" : "Open employee"}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Each statutory scheme the run carries: what comes out of employees' pay,
+// what the employer pays on top, who it's paid to and by when.
+function StatutoryChargesCard({ charges }: { charges: PayRunStatutoryCharges }) {
+  const total = charges.employee_deductions_minor + charges.employer_costs_minor;
+  return (
+    <Card className="mb-6">
+      <CardHeader
+        title="Statutory charges"
+        subtitle={
+          charges.basis === "posted"
+            ? "What this run owes each authority, as recorded when it was posted"
+            : "Worked out from the preview: these are recorded as amounts owed when the run is posted"
+        }
+      />
+      <Table>
+        <Thead>
+          <tr>
+            <Th>Scheme</Th>
+            <Th>Paid to</Th>
+            <Th>Due</Th>
+            <Th align="right">From employees</Th>
+            <Th align="right">Employer pays</Th>
+            <Th align="right">Total</Th>
+          </tr>
+        </Thead>
+        <tbody>
+          {charges.charges.map((charge) => (
+            <tr key={`${charge.scheme}-${charge.state ?? ""}`}>
+              <Td className="font-bold">
+                {charge.name}
+                {charge.state ? <span className="font-normal text-ink-soft"> · {charge.state}</span> : null}
+              </Td>
+              <Td>{authorityLabel(charge.authority, charge.state)}</Td>
+              <Td>{formatDate(charge.due_date)}</Td>
+              <Td align="right">{charge.employee_minor ? formatMoney(charge.employee_minor) : "—"}</Td>
+              <Td align="right">{charge.employer_minor ? formatMoney(charge.employer_minor) : "—"}</Td>
+              <Td align="right" className="font-bold">
+                {formatMoney(charge.total_minor)}
+              </Td>
+            </tr>
+          ))}
+          <tr>
+            <Td className="font-extrabold" colSpan={3}>
+              Total
+            </Td>
+            <Td align="right" className="font-extrabold">
+              {formatMoney(charges.employee_deductions_minor)}
+            </Td>
+            <Td align="right" className="font-extrabold">
+              {formatMoney(charges.employer_costs_minor)}
+            </Td>
+            <Td align="right" className="font-extrabold">
+              {formatMoney(total)}
+            </Td>
+          </tr>
+        </tbody>
+      </Table>
+      {charges.note ? <p className="mt-3 text-[12px] text-ink-soft">{charges.note}</p> : null}
+    </Card>
+  );
+}
+
+// How a Nigerian payslip's PAYE was reached: tax on the year's chargeable
+// income so far, band by band, less what earlier periods already withheld.
+function PayeWorkingRows({ working }: { working: PayeWorking | undefined }) {
+  if (!working) return null;
+  const nil =
+    working.this_period_minor === 0 &&
+    working.first_band_rate_ppm === 0 &&
+    working.first_band_ceiling_minor !== null &&
+    working.chargeable_income_to_date_minor <= working.first_band_ceiling_minor;
+  return (
+    <div className="rounded-panel border border-border bg-surface px-3 py-3">
+      <p className="text-[12px] font-extrabold text-ink">How the PAYE was worked out</p>
+      <p className="mt-1 text-[12px] text-ink-soft">
+        PAYE is charged on the year&apos;s chargeable income so far (
+        {formatMoney(working.chargeable_income_to_date_minor)}), band by band, less what earlier
+        periods already withheld.
+      </p>
+      <table className="mt-2 w-full text-[12px]">
+        <tbody>
+          {working.bands.map((band) => (
+            <tr key={band.from_minor}>
+              <td className="py-0.5 text-ink-soft">
+                {band.from_minor === 0
+                  ? `First ${formatMoney(band.to_minor ?? 0)}`
+                  : band.to_minor === null
+                    ? `Above ${formatMoney(band.from_minor)}`
+                    : `${formatMoney(band.from_minor)} to ${formatMoney(band.to_minor)}`}
+              </td>
+              <td className="py-0.5 text-right text-ink-soft">
+                {formatMoney(band.taxed_minor)} at {ratePercent(band.rate_ppm)}
+              </td>
+              <td className="py-0.5 text-right font-bold">{formatMoney(band.tax_minor)}</td>
+            </tr>
+          ))}
+          <tr className="border-t border-border">
+            <td className="pt-1.5" colSpan={2}>
+              Tax due on the year so far
+            </td>
+            <td className="pt-1.5 text-right font-bold">{formatMoney(working.tax_due_to_date_minor)}</td>
+          </tr>
+          <tr>
+            <td colSpan={2}>Less PAYE already withheld this year</td>
+            <td className="text-right font-bold">− {formatMoney(working.withheld_before_minor)}</td>
+          </tr>
+          <tr>
+            <td className="font-extrabold" colSpan={2}>
+              PAYE this period
+            </td>
+            <td className="text-right font-extrabold">{formatMoney(working.this_period_minor)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {nil ? (
+        <p className="mt-2 text-[12px] text-ink-soft">
+          No PAYE this period: the year&apos;s chargeable income so far is within the first{" "}
+          {formatMoney(working.first_band_ceiling_minor ?? 0)}, which is taxed at 0%. PAYE starts once that is
+          passed.
+        </p>
+      ) : null}
     </div>
   );
 }

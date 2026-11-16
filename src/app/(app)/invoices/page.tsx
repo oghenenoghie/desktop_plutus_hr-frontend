@@ -28,12 +28,18 @@ import {
   creditNotesApi,
   customersApi,
   invoicesApi,
+  organisationApi,
 } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { withCreated } from "@/lib/records";
-import type { ChartAccount, Customer, Invoice } from "@/lib/types";
+import type { ChartAccount, Customer, Invoice, VatTreatment } from "@/lib/types";
+
+// What the customer owes: net plus VAT (an older server sends only the net).
+function invoiceTotal(invoice: Invoice): number {
+  return invoice.total_minor ?? invoice.amount_minor;
+}
 
 export default function InvoicesPage() {
   const invoices = useApiResource(() => invoicesApi.list());
@@ -120,7 +126,7 @@ export default function InvoicesPage() {
                 <Th>Customer Invoice #</Th>
                 <Th>Customer</Th>
                 <Th>Due</Th>
-                <Th align="right">Amount</Th>
+                <Th align="right">Total</Th>
                 <Th>Status</Th>
                 <Th align="right">Actions</Th>
               </tr>
@@ -131,7 +137,16 @@ export default function InvoicesPage() {
                   <Td className="font-bold">{invoice.invoice_number}</Td>
                   <Td>{customerNameById.get(invoice.customer_id) ?? "—"}</Td>
                   <Td>{formatDate(invoice.due_date)}</Td>
-                  <Td align="right">{formatMoney(invoice.amount_minor)}</Td>
+                  <Td align="right">
+                    {formatMoney(invoiceTotal(invoice))}
+                    {invoice.vat_minor ? (
+                      <span className="block text-[11px] text-ink-soft">
+                        incl. {invoice.vat_rate_name ?? "VAT"} {formatMoney(invoice.vat_minor)}
+                      </span>
+                    ) : invoice.vat_treatment ? (
+                      <span className="block text-[11px] text-ink-soft">{invoice.vat_rate_name}</span>
+                    ) : null}
+                  </Td>
                   <Td>
                     <StatusBadge status={invoice.status} />
                   </Td>
@@ -144,7 +159,7 @@ export default function InvoicesPage() {
                             label="Send"
                             tone="primary"
                             confirmTitle="Send this customer invoice?"
-                            confirmMessage={`This posts ${formatMoney(invoice.amount_minor)} as revenue and a receivable against "${customerNameById.get(invoice.customer_id) ?? "this customer"}".`}
+                            confirmMessage={`This posts ${formatMoney(invoice.amount_minor)} as revenue${invoice.vat_minor ? ` and ${formatMoney(invoice.vat_minor)} as VAT owed` : ""}, and ${formatMoney(invoiceTotal(invoice))} as a receivable against "${customerNameById.get(invoice.customer_id) ?? "this customer"}".`}
                             confirmLabel="Send"
                           />
                           <ConfirmActionButton
@@ -163,7 +178,7 @@ export default function InvoicesPage() {
                           label="Mark Paid"
                           tone="primary"
                           confirmTitle="Mark this customer invoice as paid?"
-                          confirmMessage={`This clears ${formatMoney(invoice.amount_minor)} from accounts receivable against Cash and Bank.`}
+                          confirmMessage={`This clears ${formatMoney(invoiceTotal(invoice))} from accounts receivable against Cash and Bank.`}
                           confirmLabel="Mark Paid"
                         />
                       ) : null}
@@ -212,7 +227,7 @@ export default function InvoicesPage() {
       {emailingInvoice ? (
         <EmailPdfDrawer
           title={`Email Customer Invoice ${emailingInvoice.invoice_number}`}
-          description={`Sends customer invoice ${emailingInvoice.invoice_number} (${formatMoney(emailingInvoice.amount_minor)}) as a PDF attachment.`}
+          description={`Sends customer invoice ${emailingInvoice.invoice_number} (${formatMoney(invoiceTotal(emailingInvoice))}) as a PDF attachment.`}
           defaultTo={
             customerById.get(emailingInvoice.customer_id)?.contact_email
           }
@@ -271,7 +286,7 @@ function CreditNoteDrawer({
     (sum, note) => sum + note.amount_minor,
     0,
   );
-  const remaining = invoice.amount_minor - alreadyCredited;
+  const remaining = invoiceTotal(invoice) - alreadyCredited;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -300,7 +315,7 @@ function CreditNoteDrawer({
     <Drawer title={`Credit Note — ${invoice.invoice_number}`} onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
-          Invoice total {formatMoney(invoice.amount_minor)}, already credited{" "}
+          Invoice total {formatMoney(invoiceTotal(invoice))}, already credited{" "}
           {formatMoney(alreadyCredited)}, remaining balance{" "}
           <span className="font-bold text-ink">{formatMoney(remaining)}</span>.
         </p>
@@ -414,6 +429,24 @@ function NewInvoiceDrawer({
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [postNow, setPostNow] = useState(true);
+  // VAT: the options for this organisation's country, the standard rate
+  // first. "" until chosen means the first option.
+  const vatOptions = useApiResource(() => invoicesApi.vatOptions());
+  const organisation = useApiResource(() => organisationApi.get());
+  const [vatTreatment, setVatTreatment] = useState<VatTreatment | "">("");
+  const [otherRateName, setOtherRateName] = useState("");
+  const [otherRatePercent, setOtherRatePercent] = useState("");
+  const chosenVat = vatTreatment || vatOptions.data?.options[0]?.treatment || "";
+  const chosenOption = vatOptions.data?.options.find((option) => option.treatment === chosenVat);
+  const ratePpm =
+    chosenVat === "other"
+      ? otherRatePercent.trim() === ""
+        ? null
+        : Math.round(Number(otherRatePercent) * 10_000)
+      : (chosenOption?.rate_ppm ?? 0);
+  const netMinor = toMinorUnits(amount);
+  // A preview only: the server works out the VAT (half up) and stores it.
+  const vatMinor = ratePpm === null ? 0 : Math.floor((netMinor * ratePpm + 500_000) / 1_000_000);
   const [submitting, setSubmitting] = useState(false);
 
   const revenueAccounts = withCreated(accounts.data, createdAccounts)
@@ -430,8 +463,11 @@ function NewInvoiceDrawer({
         issue_date: issueDate,
         due_date: dueDate,
         revenue_account_code: revenueAccountCode,
-        amount_minor: toMinorUnits(amount),
+        amount_minor: netMinor,
         description: description || null,
+        vat_treatment: chosenVat || null,
+        vat_rate_name: chosenVat === "other" ? otherRateName.trim() : null,
+        vat_rate_ppm: chosenVat === "other" ? ratePpm : null,
       });
       if (postNow) {
         try {
@@ -542,7 +578,7 @@ function NewInvoiceDrawer({
           </Select>
         </div>
         <div>
-          <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
+          <Label htmlFor="amount">Amount before VAT ({currencyLabel()})</Label>
           <Input
             id="amount"
             value={amount}
@@ -551,6 +587,71 @@ function NewInvoiceDrawer({
             required
           />
         </div>
+        <div>
+          <Label htmlFor="vat">VAT</Label>
+          <Select
+            id="vat"
+            value={chosenVat}
+            onChange={(event) => setVatTreatment(event.target.value as VatTreatment)}
+            required
+          >
+            {(vatOptions.data?.options ?? []).map((option) => (
+              <option key={option.treatment} value={option.treatment}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          {vatOptions.error ? <p className="mt-1 text-[11px] text-bad">{vatOptions.error}</p> : null}
+        </div>
+        {chosenVat === "other" ? (
+          <div className="grid grid-cols-[1fr_120px] gap-3">
+            <div>
+              <Label htmlFor="vatRateName">Rate name</Label>
+              <Input
+                id="vatRateName"
+                value={otherRateName}
+                onChange={(event) => setOtherRateName(event.target.value)}
+                placeholder="Ghana VAT 15%"
+                maxLength={64}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="vatRatePercent">Rate (%)</Label>
+              <Input
+                id="vatRatePercent"
+                value={otherRatePercent}
+                onChange={(event) => setOtherRatePercent(event.target.value)}
+                inputMode="decimal"
+                placeholder="15"
+                required
+              />
+            </div>
+            <p className="col-span-2 -mt-1 text-[11px] text-ink-soft">
+              For a customer taxed under another country&apos;s rules. The name is printed on the invoice.
+            </p>
+          </div>
+        ) : null}
+        {netMinor > 0 ? (
+          <dl className="grid grid-cols-[1fr_auto] gap-y-1 rounded-panel border border-border bg-bg px-3 py-2 text-[13px]">
+            <dt className="text-ink-soft">Amount before VAT</dt>
+            <dd className="text-right font-bold">{formatMoney(netMinor)}</dd>
+            <dt className="text-ink-soft">
+              {chosenVat === "other" ? otherRateName.trim() || "VAT" : (chosenOption?.label ?? "VAT")}
+            </dt>
+            <dd className="text-right font-bold">{formatMoney(vatMinor)}</dd>
+            <dt className="font-extrabold">Total due</dt>
+            <dd className="text-right font-extrabold">{formatMoney(netMinor + vatMinor)}</dd>
+          </dl>
+        ) : null}
+        {organisation.data && !organisation.data.company_tin ? (
+          <p className="rounded-panel border border-warn bg-warn-tint px-3 py-2 text-[12px] text-warn-ink">
+            Your company&apos;s TIN isn&apos;t set, so it can&apos;t be printed on the invoice.{" "}
+            <Link href="/setup" className="font-bold underline underline-offset-2">
+              Add it in Company Information
+            </Link>
+          </p>
+        ) : null}
         <div>
           <Label htmlFor="description">Description</Label>
           <Textarea
@@ -570,7 +671,7 @@ function NewInvoiceDrawer({
           <span>
             Post to the books now
             <span className="block text-[11px] text-ink-soft">
-              Records the revenue in the profit and loss account and the amount in accounts receivable. Untick to keep it as a draft and post it later with Send.
+              Records the revenue in the profit and loss account, any VAT as owed to the tax authority, and the total in accounts receivable. Untick to keep it as a draft and post it later with Send.
             </span>
           </span>
         </label>

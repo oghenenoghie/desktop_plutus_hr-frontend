@@ -42,25 +42,37 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const locked = lockedReason(pathname, access);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg">
+    <div className="flex h-dvh overflow-hidden bg-bg">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-panel focus:bg-surface focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-ink"
+      >
+        Skip to main content
+      </a>
       <Sidebar
         role={user.role}
         access={access}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8">
-          {locked === "payroll" ? (
-            <PayrollUnavailable countryName={user.country_name} currency={user.currency} />
-          ) : locked === "nigeria" ? (
-            <NigeriaOnly countryName={user.country_name} />
-          ) : locked === "engine" ? (
-            <EngineOnly />
-          ) : (
-            children
-          )}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7 lg:px-8"
+        >
+          <div className="mx-auto w-full max-w-[1600px]">
+            {locked === "payroll" ? (
+              <PayrollUnavailable countryName={user.country_name} currency={user.currency} />
+            ) : locked === "nigeria" ? (
+              <NigeriaOnly countryName={user.country_name} />
+            ) : locked === "engine" ? (
+              <EngineOnly />
+            ) : (
+              children
+            )}
+          </div>
         </main>
       </div>
     </div>

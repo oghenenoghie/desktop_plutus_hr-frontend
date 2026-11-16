@@ -235,13 +235,14 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
-      className={`flex items-center gap-2.5 rounded-panel px-3 py-2.5 text-[13px] font-bold transition-colors ${
+      aria-current={active ? "page" : undefined}
+      className={`flex min-h-10 items-center gap-2.5 rounded-panel px-3 py-2.5 text-[13px] font-semibold transition-colors ${
         active
           ? "bg-primary text-white"
           : "text-white/70 hover:bg-white/5 hover:text-white"
       }`}
     >
-      <Icon size={16} strokeWidth={2.25} />
+      <Icon size={16} strokeWidth={2} aria-hidden="true" />
       {item.label}
     </Link>
   );
@@ -262,7 +263,8 @@ function GroupHeading({
     <button
       type="button"
       onClick={onToggle}
-      className={`flex w-full items-center justify-between rounded-panel px-3 py-2 text-left text-[11px] font-extrabold uppercase tracking-[0.04em] text-white/50 hover:text-white/80 ${
+      aria-expanded={!collapsed}
+      className={`flex min-h-9 w-full items-center justify-between rounded-panel px-3 py-2 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-white/55 transition-colors hover:bg-white/5 hover:text-white/90 ${
         indent ? "pl-3" : ""
       }`}
     >
@@ -348,7 +350,7 @@ export function Sidebar({
           </div>
         </div>
 
-        <nav className="sidebar-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto px-4 pb-6">
+        <nav id="primary-navigation" aria-label="Primary navigation" className="sidebar-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-6">
           {groups.map((group) => {
             const groupCollapsed = collapsed.has(group.heading);
             return (

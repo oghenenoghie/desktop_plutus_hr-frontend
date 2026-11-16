@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -18,28 +18,117 @@ import { departmentsApi, jobPostingsApi } from "@/lib/api/endpoints";
 import { formatDate } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 
+type PostingFilter = "all" | "open" | "closed";
+
 export default function RecruitmentPage() {
   const router = useRouter();
   const jobPostings = useApiResource(() => jobPostingsApi.list());
   const departments = useApiResource(() => departmentsApi.list());
   const departmentsById = new Map((departments.data ?? []).map((department) => [department.id, department]));
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<PostingFilter>("all");
+
+  const postings = jobPostings.data ?? [];
+  const openCount = postings.filter((posting) => posting.status === "open").length;
+  const closedCount = postings.filter((posting) => posting.status === "closed").length;
+  const filteredPostings = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase();
+    return postings.filter((posting) => {
+      const departmentName = posting.department_id
+        ? departmentsById.get(posting.department_id)?.name ?? ""
+        : "";
+      const matchesSearch =
+        !term ||
+        posting.title.toLocaleLowerCase().includes(term) ||
+        departmentName.toLocaleLowerCase().includes(term);
+      const matchesStatus = statusFilter === "all" || posting.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [postings, departmentsById, search, statusFilter]);
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Recruitment"
-        subtitle="Open roles and their candidate pipelines"
+        subtitle="Manage vacancies and move candidates through your hiring pipeline"
         action={<Button onClick={() => setCreating(true)}>New Job Posting</Button>}
       />
 
+      <section aria-label="Recruitment overview" className="grid gap-3 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Total postings</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{postings.length}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">All recorded vacancies</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Open postings</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{openCount}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">Currently accepting candidates</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Closed postings</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{closedCount}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">No longer accepting candidates</p>
+        </Card>
+      </section>
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0 flex-1">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search job title or department"
+              aria-label="Search job postings by title or department"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as PostingFilter)}
+              aria-label="Filter job postings by status"
+              className="w-full sm:w-44"
+            >
+              <option value="all">All statuses</option>
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+            </Select>
+            <span className="whitespace-nowrap text-[12px] font-bold text-ink-soft" aria-live="polite">
+              {filteredPostings.length} of {postings.length} postings
+            </span>
+            {search || statusFilter !== "all" ? (
+              <Button
+                size="md"
+                variant="ghost"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </Card>
+
       <Card>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[14px] font-extrabold text-ink">Job postings</h2>
+            <p className="mt-1 text-[12px] text-ink-soft">Select a vacancy to review its candidates and hiring status.</p>
+          </div>
+        </div>
         {jobPostings.loading ? <LoadingState /> : null}
         {jobPostings.error ? <ErrorState message={jobPostings.error} /> : null}
-        {jobPostings.data && jobPostings.data.length === 0 ? (
-          <EmptyState label="No job postings on record yet." />
+        {jobPostings.data && postings.length === 0 ? (
+          <EmptyState label="No job postings on record yet. Create a posting to start building your candidate pipeline." />
         ) : null}
-        {jobPostings.data && jobPostings.data.length > 0 ? (
+        {jobPostings.data && postings.length > 0 && filteredPostings.length === 0 ? (
+          <EmptyState label="No job postings match these filters. Try a different search or clear the filters." />
+        ) : null}
+        {filteredPostings.length > 0 ? (
           <Table>
             <Thead>
               <tr>
@@ -52,7 +141,7 @@ export default function RecruitmentPage() {
               </tr>
             </Thead>
             <tbody>
-              {jobPostings.data.map((posting) => (
+              {filteredPostings.map((posting) => (
                 <tr key={posting.id}>
                   <Td className="font-bold">{posting.title}</Td>
                   <Td>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -19,22 +19,84 @@ export default function LearningPage() {
   const router = useRouter();
   const courses = useApiResource(() => trainingCoursesApi.list());
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const courseList = courses.data ?? [];
+  const providerCount = new Set(
+    courseList.map((course) => course.provider?.trim()).filter((provider): provider is string => Boolean(provider)),
+  ).size;
+  const durationTrackedCount = courseList.filter((course) => course.duration_hours != null).length;
+  const filteredCourses = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase();
+    if (!term) return courseList;
+    return courseList.filter((course) =>
+      [course.title, course.provider ?? ""].some((value) => value.toLocaleLowerCase().includes(term)),
+    );
+  }, [courseList, search]);
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Learning and Development"
-        subtitle="Training course catalogue and enrollments"
+        subtitle="Manage the training catalogue and monitor employee learning activity"
         action={<Button onClick={() => setCreating(true)}>New Course</Button>}
       />
 
+      <section aria-label="Learning catalogue overview" className="grid gap-3 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Total courses</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{courseList.length}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">Courses in the catalogue</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Providers recorded</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{providerCount}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">Distinct named providers</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Duration recorded</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{durationTrackedCount}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">Courses with a defined duration</p>
+        </Card>
+      </section>
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search course title or provider"
+              aria-label="Search courses by title or provider"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 sm:justify-end">
+            <span className="whitespace-nowrap text-[12px] font-bold text-ink-soft" aria-live="polite">
+              {filteredCourses.length} of {courseList.length} courses
+            </span>
+            {search ? (
+              <Button size="md" variant="ghost" onClick={() => setSearch("")}>
+                Clear search
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </Card>
+
       <Card>
+        <div className="mb-4">
+          <h2 className="text-[14px] font-extrabold text-ink">Course catalogue</h2>
+          <p className="mt-1 text-[12px] text-ink-soft">Open a course to manage enrollments, materials and assessments.</p>
+        </div>
         {courses.loading ? <LoadingState /> : null}
         {courses.error ? <ErrorState message={courses.error} /> : null}
-        {courses.data && courses.data.length === 0 ? (
-          <EmptyState label="No training courses on record yet." />
+        {courses.data && courseList.length === 0 ? (
+          <EmptyState label="No training courses on record yet. Add a course to start building your learning catalogue." />
         ) : null}
-        {courses.data && courses.data.length > 0 ? (
+        {courses.data && courseList.length > 0 && filteredCourses.length === 0 ? (
+          <EmptyState label="No courses match your search. Try another title or provider, or clear the search." />
+        ) : null}
+        {filteredCourses.length > 0 ? (
           <Table>
             <Thead>
               <tr>
@@ -45,7 +107,7 @@ export default function LearningPage() {
               </tr>
             </Thead>
             <tbody>
-              {courses.data.map((course) => (
+              {filteredCourses.map((course) => (
                 <tr key={course.id}>
                   <Td className="font-bold">{course.title}</Td>
                   <Td>{course.provider ?? "—"}</Td>

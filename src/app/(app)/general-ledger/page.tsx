@@ -23,12 +23,23 @@ export default function GeneralLedgerPage() {
   const trialBalance = useApiResource(() => generalLedgerApi.trialBalance());
   const departments = useApiResource(() => departmentsApi.list());
   const [departmentFilter, setDepartmentFilter] = useState("");
+  const [entrySearch, setEntrySearch] = useState("");
   const entries = useApiResource(
     () => generalLedgerApi.entries({ departmentId: departmentFilter || undefined }),
     [departmentFilter],
   );
   const departmentsById = new Map((departments.data ?? []).map((department) => [department.id, department]));
   const [posting, setPosting] = useState(false);
+  const ledgerRows = entries.data ?? [];
+  const query = entrySearch.trim().toLocaleLowerCase();
+  const filteredEntries = ledgerRows.filter((entry) => {
+    const departmentName = entry.department_id ? departmentsById.get(entry.department_id)?.name ?? "" : "";
+    return !query || [entry.description ?? "", entry.account_name ?? "", entry.account, departmentName]
+      .some((value) => value.toLocaleLowerCase().includes(query));
+  });
+  const debitTotal = (trialBalance.data ?? []).reduce((sum, line) => sum + line.total_debit_minor, 0);
+  const creditTotal = (trialBalance.data ?? []).reduce((sum, line) => sum + line.total_credit_minor, 0);
+  const balanceDifference = Math.abs(debitTotal - creditTotal);
 
   return (
     <div>
@@ -45,8 +56,22 @@ export default function GeneralLedgerPage() {
         }
       />
 
+      <section aria-label="Trial balance summary" className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          { label: "Total debits", value: debitTotal },
+          { label: "Total credits", value: creditTotal },
+          { label: "Difference", value: balanceDifference },
+        ].map((item) => (
+          <div key={item.label} className="rounded-panel border border-border bg-surface px-4 py-3">
+            <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">{item.label}</div>
+            <div className="mt-1 text-xl font-extrabold tabular-nums">{trialBalance.loading ? "—" : formatMoney(item.value)}</div>
+            <div className="mt-1 text-xs text-ink-soft">{item.label === "Difference" ? (balanceDifference === 0 ? "Debits and credits agree" : "Review the trial balance") : "Across the current trial balance"}</div>
+          </div>
+        ))}
+      </section>
+
       <Card className="mb-6">
-        <CardHeader title="Trial Balance" />
+        <CardHeader title="Trial Balance" subtitle="Account-level debit and credit totals from the ledger" />
         {trialBalance.loading ? <LoadingState /> : null}
         {trialBalance.error ? <ErrorState message={trialBalance.error} /> : null}
         {trialBalance.data && trialBalance.data.length === 0 ? (
@@ -83,27 +108,30 @@ export default function GeneralLedgerPage() {
           title="Ledger Entries"
           subtitle="Filter by cost centre to see one department's share of payroll postings"
           action={
-            <div className="w-56">
-              <Select
-                value={departmentFilter}
-                onChange={(event) => setDepartmentFilter(event.target.value)}
-              >
-                <option value="">All departments</option>
-                {(departments.data ?? []).map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </Select>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <div className="w-full sm:w-64">
+                <Input aria-label="Search ledger entries" type="search" value={entrySearch} onChange={(event) => setEntrySearch(event.target.value)} placeholder="Search description or account" />
+              </div>
+              <div className="w-full sm:w-56">
+                <Select aria-label="Filter ledger entries by department" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                  <option value="">All departments</option>
+                  {(departments.data ?? []).map((department) => (
+                    <option key={department.id} value={department.id}>{department.name}</option>
+                  ))}
+                </Select>
+              </div>
             </div>
           }
         />
         {entries.loading ? <LoadingState /> : null}
         {entries.error ? <ErrorState message={entries.error} /> : null}
-        {entries.data && entries.data.length === 0 ? (
-          <EmptyState label="No ledger entries yet." />
+        {entries.data && ledgerRows.length === 0 ? (
+          <EmptyState label="No ledger entries for this department yet." />
         ) : null}
-        {entries.data && entries.data.length > 0 ? (
+        {entries.data && ledgerRows.length > 0 && filteredEntries.length === 0 ? (
+          <EmptyState label="No entries match this search. Try another term or clear the search." />
+        ) : null}
+        {entries.data && filteredEntries.length > 0 ? (
           <Table>
             <Thead>
               <tr>
@@ -116,7 +144,7 @@ export default function GeneralLedgerPage() {
               </tr>
             </Thead>
             <tbody>
-              {entries.data.map((entry) => (
+              {filteredEntries.map((entry) => (
                 <tr key={entry.id}>
                   <Td>{formatDateTime(entry.created_at)}</Td>
                   <Td>{entry.description ?? "—"}</Td>
@@ -128,6 +156,9 @@ export default function GeneralLedgerPage() {
               ))}
             </tbody>
           </Table>
+        ) : null}
+        {entries.data && filteredEntries.length > 0 ? (
+          <p className="mt-3 text-xs text-ink-soft" aria-live="polite">{filteredEntries.length.toLocaleString("en-NG")} of {ledgerRows.length.toLocaleString("en-NG")} entries shown</p>
         ) : null}
       </Card>
 

@@ -52,7 +52,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-7">
       <PageHeader
         title="Overview"
         subtitle="Workforce, payroll and compliance at a glance"
@@ -75,7 +75,14 @@ export default function DashboardPage() {
       {summary.error ? <ErrorState message={summary.error} /> : null}
 
       {summary.data ? (
-        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <section aria-labelledby="overview-snapshot" className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="overview-snapshot" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
+              Operational snapshot
+            </h2>
+            <span className="text-[11px] font-semibold text-ink-soft">Current company position</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
           <KpiTile label="Active Employees" value={summary.data.active_employee_count.toLocaleString("en-NG")} />
           <KpiTile
             label="Outstanding Liability"
@@ -94,11 +101,12 @@ export default function DashboardPage() {
             value={summary.data.expiring_contract_count.toLocaleString("en-NG")}
             caption="Within 30 days"
           />
-        </div>
+          </div>
+        </section>
       ) : null}
 
       {summary.data ? (
-        <Card className="mb-8">
+        <Card className="border-primary/15">
           <CardHeader
             title="Financial Information"
             subtitle="Cash and outstanding balances across the accounting suite"
@@ -125,7 +133,7 @@ export default function DashboardPage() {
       ) : null}
 
       {summary.data?.last_completed_pay_run ? (
-        <Card className="mb-8">
+        <Card className="border-primary/15">
           <CardHeader
             title="Last Completed Pay Run"
             subtitle={`${formatDate(summary.data.last_completed_pay_run.period_start)} – ${formatDate(summary.data.last_completed_pay_run.period_end)}`}
@@ -147,7 +155,16 @@ export default function DashboardPage() {
         </Card>
       ) : null}
 
-      <div className="mb-8 grid gap-6 lg:grid-cols-2">
+      <section aria-labelledby="payroll-activity" className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="payroll-activity" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
+            Payroll activity
+          </h2>
+          <Link href="/payroll" className="text-xs font-bold text-primary hover:underline">
+            Open payroll workspace
+          </Link>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <Card>
           <CardHeader title="Payroll Cost Trend" subtitle="Net pay across the last 6 completed pay runs" />
           {payRuns.loading ? <LoadingState /> : null}
@@ -199,9 +216,17 @@ export default function DashboardPage() {
             </Table>
           ) : null}
         </Card>
-      </div>
+        </div>
+      </section>
 
-      <Card className="mb-8">
+      <section aria-labelledby="people-activity" className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="people-activity" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
+            People
+          </h2>
+          <span className="text-[11px] text-ink-soft">Recently added to your organisation</span>
+        </div>
+        <Card>
         <CardHeader
           title="Recently Added Employees"
           action={
@@ -238,9 +263,17 @@ export default function DashboardPage() {
             </tbody>
           </Table>
         ) : null}
-      </Card>
+        </Card>
+      </section>
 
-      <Card>
+      <section aria-labelledby="compliance-deadlines" className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="compliance-deadlines" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
+            Compliance
+          </h2>
+          <span className="text-[11px] text-ink-soft">Upcoming obligations and remittances</span>
+        </div>
+        <Card>
         <CardHeader title="Upcoming Statutory Deadlines" subtitle="Filings and remittances due within 30 days" />
         {deadlines.loading ? <LoadingState /> : null}
         {deadlines.error ? <ErrorState message={deadlines.error} /> : null}
@@ -275,7 +308,8 @@ export default function DashboardPage() {
             </tbody>
           </Table>
         ) : null}
-      </Card>
+        </Card>
+      </section>
 
       {broadcasting ? <BroadcastDrawer onClose={() => setBroadcasting(false)} /> : null}
     </div>
@@ -293,39 +327,49 @@ function PayrollCostTrendChart({ payRuns }: { payRuns: PayRun[] }) {
   const barGap = 10;
   const barWidth = (width - barGap * (payRuns.length - 1)) / payRuns.length;
   const maxNet = Math.max(...payRuns.map((run) => run.net_minor), 1);
+  const firstRun = payRuns[0];
+  const latestRun = payRuns[payRuns.length - 1];
+  const summary = firstRun && latestRun
+    ? `Net pay moved from ${formatMoney(firstRun.net_minor)} for the period ending ${formatDate(firstRun.period_end)} to ${formatMoney(latestRun.net_minor)} for the period ending ${formatDate(latestRun.period_end)}. Values are shown for the ${payRuns.length} most recent completed pay runs.`
+    : "No completed pay run data is available.";
 
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height + 22}`}
-      className="w-full"
-      role="img"
-      aria-label="Net pay across recent pay runs"
-    >
-      <line x1={0} y1={height} x2={width} y2={height} stroke="var(--color-border)" strokeWidth={1} />
-      {payRuns.map((run, index) => {
-        const barHeight = Math.max((run.net_minor / maxNet) * (height - 8), 2);
-        const x = index * (barWidth + barGap);
-        const y = height - barHeight;
-        return (
-          <g key={run.id}>
-            <rect x={x} y={y} width={barWidth} height={barHeight} rx={4} fill="var(--color-primary)">
-              <title>
-                {formatDate(run.period_end)} — {formatMoney(run.net_minor)}
-              </title>
-            </rect>
-            <text
-              x={x + barWidth / 2}
-              y={height + 16}
-              textAnchor="middle"
-              className="fill-ink-soft"
-              style={{ fontSize: 10, fontWeight: 700 }}
-            >
-              {new Date(run.period_end).toLocaleDateString("en-NG", { month: "short" })}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <figure className="min-w-0" aria-labelledby="payroll-cost-trend-description">
+      <svg
+        viewBox={`0 0 ${width} ${height + 22}`}
+        className="w-full"
+        role="img"
+        aria-labelledby="payroll-cost-trend-description"
+      >
+        <title id="payroll-cost-trend-description">Net pay across recent completed pay runs</title>
+        <desc>{summary}</desc>
+        <line x1={0} y1={height} x2={width} y2={height} stroke="var(--color-border)" strokeWidth={1} />
+        {payRuns.map((run, index) => {
+          const barHeight = Math.max((run.net_minor / maxNet) * (height - 8), 2);
+          const x = index * (barWidth + barGap);
+          const y = height - barHeight;
+          return (
+            <g key={run.id}>
+              <rect x={x} y={y} width={barWidth} height={barHeight} rx={4} fill="var(--color-primary)">
+                <title>
+                  {formatDate(run.period_end)} — {formatMoney(run.net_minor)}
+                </title>
+              </rect>
+              <text
+                x={x + barWidth / 2}
+                y={height + 16}
+                textAnchor="middle"
+                className="fill-ink-soft"
+                style={{ fontSize: 10, fontWeight: 700 }}
+              >
+                {new Date(run.period_end).toLocaleDateString("en-NG", { month: "short" })}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption className="sr-only">{summary}</figcaption>
+    </figure>
   );
 }
 

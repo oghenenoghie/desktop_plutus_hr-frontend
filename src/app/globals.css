@@ -3,6 +3,7 @@
 :root {
   --bg: oklch(97% 0.015 95);
   --surface: oklch(99% 0.005 95);
+  --surface-muted: oklch(95% 0.012 95);
   --border: oklch(90% 0.02 95);
   --ink: oklch(22% 0.02 95);
   --ink-soft: oklch(48% 0.02 95);
@@ -22,11 +23,13 @@
   --good-ink: oklch(48% 0.13 152);
   --warn-ink: oklch(50% 0.14 70);
   --bad-ink: oklch(50% 0.17 25);
+  --focus: oklch(45% 0.11 152);
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
   --color-border: var(--border);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
@@ -44,6 +47,7 @@
   --color-good-ink: var(--good-ink);
   --color-warn-ink: var(--warn-ink);
   --color-bad-ink: var(--bad-ink);
+  --color-focus: var(--focus);
 
   --font-sans: var(--font-manrope), sans-serif;
 
@@ -55,22 +59,38 @@
   --radius-lg: 16px;
 }
 
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
+  min-height: 100%;
   background: var(--bg);
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 * {
   border-color: var(--border);
 }
 
-/* A brief press-down on every button and button-styled link — no shadows
-   or color change, matching the flat, border-only register elsewhere;
-   just enough to confirm a click landed. */
+::selection {
+  background: var(--primary-tint);
+  color: var(--primary-dark);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 button:not(:disabled),
 a.rounded-btn {
   cursor: pointer;
-  transition: transform 0.1s ease-out;
+  transition: transform 0.1s ease-out, background-color 0.15s ease-out, color 0.15s ease-out;
 }
 
 button:disabled {
@@ -79,10 +99,14 @@ button:disabled {
 
 button:not(:disabled):active,
 a.rounded-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.985);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   button:not(:disabled),
   a.rounded-btn {
     transition: none;
@@ -95,9 +119,7 @@ a.rounded-btn:active {
 }
 
 /* The sidebar nav list can be taller than the viewport (many role-gated
-   items). Default OS/browser scrollbars are often overlay-hidden until
-   hover, so a scrollable-but-invisible list reads as "that's everything" —
-   this keeps a thin, always-visible track so the overflow is discoverable. */
+   items). Keep its scroll affordance discoverable without visual noise. */
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.35) transparent;

@@ -12,20 +12,25 @@ export interface StatementRow {
   kind: "heading" | "line" | "less" | "total" | "result" | "grand";
 }
 
-export function numbered(line: StatementLine): string {
-  return line.account_number ? `${line.account_number}  ${line.account_name}` : line.account_name;
+// An account by its name: a statement is read without the account numbers,
+// which belong to the chart and the ledger.
+export function accountLabel(line: StatementLine): string {
+  return line.account_name;
 }
 
+// A section's heading, lines and total — or nothing at all when the section
+// holds nothing, since a statement leaves out what it doesn't have.
 export function sectionRows(
   section: StatementSection,
   totalLabel: string,
   options: { less?: boolean; lines?: StatementRow[] } = {},
 ): StatementRow[] {
+  if (section.lines.length === 0) return [];
   const lines =
     options.lines ??
     section.lines.map((line): StatementRow => ({
       key: line.account,
-      label: numbered(line),
+      label: accountLabel(line),
       figure: line.balance_minor,
       kind: "line",
     }));

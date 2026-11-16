@@ -53,7 +53,30 @@ export function ItemFormModal({
   const vendors = useApiResource(() => vendorsApi.list());
   const loadedCategories = useApiResource(() => (categoriesProp ? Promise.resolve(null) : inventoryApi.categories()));
   const loadedUnits = useApiResource(() => (unitsProp ? Promise.resolve(null) : inventoryApi.units()));
-  const categories = categoriesProp ?? loadedCategories.data ?? [];
+  // Categories (product lines) made from this form are added to the list and
+  // selected, so items can be set up without leaving it.
+  const [createdCategories, setCreatedCategories] = useState<InventoryCategory[]>([]);
+  const knownCategories = [...(categoriesProp ?? loadedCategories.data ?? []), ...createdCategories];
+  // An item kept in a category that has since been deactivated still shows
+  // it, so saving the item doesn't quietly take it out of the category.
+  const categories =
+    item?.category_id && !knownCategories.some((category) => category.id === item.category_id)
+      ? [
+          ...knownCategories,
+          {
+            id: item.category_id,
+            name: `${item.category_name ?? "Current category"} (inactive)`,
+            parent_id: null,
+            is_active: false,
+            expense_account_code: null,
+            created_at: "",
+          },
+        ]
+      : knownCategories;
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryParent, setNewCategoryParent] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
   const units = unitsProp ?? loadedUnits.data ?? [];
   const typeOptions = item && !itemTypes.includes(item.item_type) ? [...itemTypes, item.item_type] : itemTypes;
   const [sku, setSku] = useState(item?.sku ?? "");
@@ -111,6 +134,27 @@ export function ItemFormModal({
     }
   }
 
+  async function addCategory() {
+    if (!newCategoryName.trim()) return;
+    setSavingCategory(true);
+    try {
+      const created = await inventoryApi.createCategory({
+        name: newCategoryName.trim(),
+        parent_id: newCategoryParent || null,
+      });
+      setCreatedCategories((current) => [...current, created]);
+      setCategoryId(created.id);
+      setAddingCategory(false);
+      setNewCategoryName("");
+      setNewCategoryParent("");
+      showToast(`Category "${created.name}" created`, "good");
+    } catch (err) {
+      showToast(errorText(err), "bad");
+    } finally {
+      setSavingCategory(false);
+    }
+  }
+
   const unitOptions = units.filter((unit) => unit.is_active || unit.id === item?.base_unit_id);
 
   return (
@@ -156,7 +200,14 @@ export function ItemFormModal({
             </Select>
           </div>
           <div>
-            <Label htmlFor="item-category">Category</Label>
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <Label htmlFor="item-category">Category (product line)</Label>
+              {!addingCategory ? (
+                <Button type="button" size="md" variant="secondary" onClick={() => setAddingCategory(true)}>
+                  + New Category
+                </Button>
+              ) : null}
+            </div>
             <Select id="item-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
               <option value="">None</option>
               {categories.map((category) => (
@@ -167,6 +218,60 @@ export function ItemFormModal({
             </Select>
           </div>
         </div>
+        {addingCategory ? (
+          <div className="rounded-md border border-border bg-bg p-3" role="group" aria-label="New category">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="new-category-name">New category name</Label>
+                <Input
+                  id="new-category-name"
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  placeholder="e.g. Stationery"
+                  maxLength={255}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-category-parent">Inside (optional)</Label>
+                <Select
+                  id="new-category-parent"
+                  value={newCategoryParent}
+                  onChange={(event) => setNewCategoryParent(event.target.value)}
+                >
+                  <option value="">Top level</option>
+                  {knownCategories
+                    .filter((category) => category.is_active)
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                </Select>
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] text-ink-soft">
+              Group items into as many categories as the business has product lines. Inventory Settings lists them all,
+              with the expense account each one&apos;s issues are charged to.
+            </p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button
+                type="button"
+                size="md"
+                variant="secondary"
+                onClick={() => {
+                  setAddingCategory(false);
+                  setNewCategoryName("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="button" size="md" onClick={addCategory} disabled={savingCategory || !newCategoryName.trim()}>
+                {savingCategory ? "Adding…" : "Add Category"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="item-reorder">Reorder level</Label>

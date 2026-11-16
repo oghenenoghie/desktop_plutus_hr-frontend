@@ -25,7 +25,7 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { departmentsApi, employeesApi, fixedAssetOpsApi, fixedAssetsApi } from "@/lib/api/endpoints";
+import { chartAccountsApi, departmentsApi, employeesApi, fixedAssetOpsApi, fixedAssetsApi } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { withCreated } from "@/lib/records";
@@ -772,6 +772,18 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
   const alreadyOwned = source === "opening";
   const isLeased = source === "leased";
   const [openingDepreciation, setOpeningDepreciation] = useState("");
+  // What paid for an asset already owned: the owners' money (Share Capital)
+  // by default, or a loan; every asset is financed one way or the other. ""
+  // leaves it in Opening Balance Equity, to be cleared once the rest of the
+  // opening balances are in.
+  const [fundingAccount, setFundingAccount] = useState("share_capital");
+  const chartAccounts = useApiResource(() => chartAccountsApi.list());
+  const fundingOptions = (chartAccounts.data ?? []).filter(
+    (account) =>
+      account.is_active &&
+      (account.type === "equity" || account.type === "liability") &&
+      account.code !== "opening_balance_equity",
+  );
   const assetCategories = useApiResource(() => fixedAssetsApi.categories());
   const [createdCategories, setCreatedCategories] = useState<AssetCategory[]>([]);
   const categoryOptions = withCreated(assetCategories.data, createdCategories);
@@ -820,6 +832,8 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
         assigned_employee_id: assignedEmployeeId || null,
         opening_balance: alreadyOwned,
         opening_accumulated_depreciation_minor: openingDepreciationMinor,
+        opening_funding_account:
+          alreadyOwned && fundingOptions.some((account) => account.code === fundingAccount) ? fundingAccount : null,
         acquisition_type: isLeased ? "leased" : "acquired",
         depreciation_method: method,
         depreciation_rate_ppm: method === "write_off" ? null : percentToPpm(rate),
@@ -879,12 +893,35 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           </Select>
           <p id="acquisitionSourceHint" className="mt-1 text-[11px] text-ink-soft">
             {alreadyOwned
-              ? "No cash is posted: the asset comes on at cost, less the depreciation it has already built up, against Opening Balance Equity."
+              ? "No cash is posted: the asset comes on at cost, less the depreciation it has already built up, against what paid for it (below)."
               : isLeased
                 ? "Posts the cost as a right-of-use asset against Lease Liability. It's amortised over the lease, and lease payments reduce the liability."
                 : "Posts the cost against Cash and Bank."}
           </p>
         </div>
+        {alreadyOwned ? (
+          <div>
+            <Label htmlFor="openingFunding">Paid For By</Label>
+            <Select
+              id="openingFunding"
+              value={fundingAccount}
+              onChange={(event) => setFundingAccount(event.target.value)}
+              aria-describedby="openingFundingHint"
+            >
+              {fundingOptions.map((account) => (
+                <option key={account.code} value={account.code}>
+                  {account.name}
+                  {account.type === "liability" ? " (borrowing)" : " (owners' money)"}
+                </option>
+              ))}
+              <option value="">Not known yet — hold in Opening Balance Equity</option>
+            </Select>
+            <p id="openingFundingHint" className="mt-1 text-[11px] text-ink-soft">
+              Every asset is paid for by the owners or by borrowing. Its book value goes to that account, so the
+              balance sheet shows it in Share Capital or as a loan rather than as a reserve.
+            </p>
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="cost">Cost ({currencyLabel()})</Label>

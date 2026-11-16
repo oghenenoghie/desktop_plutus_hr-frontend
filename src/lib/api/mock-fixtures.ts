@@ -1447,6 +1447,7 @@ export const MOCK_FIXTURES = {
     ],
     total_expenses_minor: 2_065_200_00,
     net_income_minor: -765_200_00,
+    assets_awaiting_depreciation: 0,
   },
   "/budgets": [
     {

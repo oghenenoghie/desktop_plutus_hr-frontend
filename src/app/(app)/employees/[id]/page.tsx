@@ -937,13 +937,20 @@ function DecideProbationDrawer({
   );
 }
 
+function documentSize(bytes: number | null): string {
+  if (bytes === null) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function DocumentsTab({ employeeId }: { employeeId: string }) {
   const documents = useApiResource(() => employeeDocumentsApi.forEmployee(employeeId), [employeeId]);
   const [creating, setCreating] = useState(false);
 
   return (
     <Card>
-      <CardHeader title="Documents" action={<Button onClick={() => setCreating(true)}>New Document</Button>} />
+      <CardHeader title="Documents" action={<Button onClick={() => setCreating(true)}>Upload Document</Button>} />
       {documents.loading ? <LoadingState /> : null}
       {documents.error ? <ErrorState message={documents.error} /> : null}
       {documents.data && documents.data.length === 0 ? <EmptyState label="No documents on file." /> : null}
@@ -953,8 +960,9 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
             <tr>
               <Th>Category</Th>
               <Th>Title</Th>
+              <Th>File</Th>
               <Th>Expiry</Th>
-              <Th align="right">File</Th>
+              <Th align="right">Open</Th>
             </tr>
           </Thead>
           <tbody>
@@ -964,16 +972,23 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
                   <Badge tone="neutral">{titleCase(doc.category)}</Badge>
                 </Td>
                 <Td className="font-bold">{doc.title}</Td>
+                <Td className="text-[12px] text-ink-soft">
+                  {doc.file_name ? `${doc.file_name} · ${documentSize(doc.size_bytes)}` : "Linked file"}
+                </Td>
                 <Td>{formatDate(doc.expiry_date)}</Td>
                 <Td align="right">
-                  <a
-                    href={doc.storage_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[12px] font-bold text-primary hover:underline"
-                  >
-                    Open
-                  </a>
+                  {doc.storage_url ? (
+                    <a
+                      href={doc.storage_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[12px] font-bold text-primary hover:underline"
+                    >
+                      Open
+                    </a>
+                  ) : (
+                    "—"
+                  )}
                 </Td>
               </tr>
             ))}
@@ -995,6 +1010,12 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
   );
 }
 
+// What a document on an HR file usually is: a PDF, a scan or a photo taken
+// on a phone, or a Word document — the types the server accepts.
+const DOCUMENT_ACCEPT =
+  "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
 function NewDocumentDrawer({
   employeeId,
   onClose,
@@ -1005,33 +1026,101 @@ function NewDocumentDrawer({
   onCreated: () => void;
 }) {
   const { showToast } = useToast();
+  // A file from this computer or phone (the usual case), or a link to one
+  // that already lives somewhere else.
+  const [source, setSource] = useState<"upload" | "link">("upload");
   const [category, setCategory] = useState<DocumentCategory>("identification");
   const [title, setTitle] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [storageUrl, setStorageUrl] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const fileError =
+    file && file.size > MAX_DOCUMENT_BYTES
+      ? `This file is ${documentSize(file.size)}; documents can be up to 10 MB.`
+      : null;
+
+  function chooseFile(chosen: File | null) {
+    setFile(chosen);
+    // The file's own name is a fair title until one is typed.
+    if (chosen && !title) setTitle(chosen.name.replace(/\.[^.]+$/, ""));
+  }
+
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (source === "upload" && (!file || fileError)) return;
     setSubmitting(true);
     try {
-      await employeeDocumentsApi.create(employeeId, {
-        category,
-        title,
-        storage_url: storageUrl,
-        expiry_date: expiryDate || null,
-      });
-      showToast("Document recorded", "good");
+      if (source === "upload" && file) {
+        await employeeDocumentsApi.upload(employeeId, {
+          file,
+          category,
+          title,
+          expiry_date: expiryDate || null,
+        });
+        showToast("Document uploaded", "good");
+      } else {
+        await employeeDocumentsApi.create(employeeId, {
+          category,
+          title,
+          storage_url: storageUrl,
+          expiry_date: expiryDate || null,
+        });
+        showToast("Document recorded", "good");
+      }
       onCreated();
     } catch (err) {
-      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Upload failed.", "bad");
       setSubmitting(false);
     }
   }
 
   return (
-    <Drawer title="New Document" onClose={onClose}>
+    <Drawer title="Upload Document" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+        <div>
+          <Label htmlFor="documentSource">File</Label>
+          <Select
+            id="documentSource"
+            value={source}
+            onChange={(event) => setSource(event.target.value as "upload" | "link")}
+          >
+            <option value="upload">Upload from this computer or phone</option>
+            <option value="link">Link to a file stored elsewhere</option>
+          </Select>
+        </div>
+        {source === "upload" ? (
+          <div>
+            <Label htmlFor="documentFile">Choose File</Label>
+            <input
+              id="documentFile"
+              type="file"
+              accept={DOCUMENT_ACCEPT}
+              onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
+              aria-describedby="documentFileHint"
+              required
+              className="block w-full cursor-pointer rounded-md border border-border bg-surface px-3 py-2 text-[13px] file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-[12px] file:font-bold file:text-white"
+            />
+            <p id="documentFileHint" className={`mt-1 text-[11px] ${fileError ? "text-bad-ink" : "text-ink-soft"}`}>
+              {fileError ??
+                (file
+                  ? `${file.name} · ${documentSize(file.size)}`
+                  : "A PDF, a photo or scan (JPEG, PNG, WebP, HEIC) or a Word document, up to 10 MB. On a phone you can take a photo of the document.")}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <Label htmlFor="storageUrl">File URL</Label>
+            <Input
+              id="storageUrl"
+              value={storageUrl}
+              onChange={(event) => setStorageUrl(event.target.value)}
+              placeholder="https://…"
+              required
+            />
+          </div>
+        )}
         <div>
           <Label htmlFor="category">Category</Label>
           <Select id="category" value={category} onChange={(event) => setCategory(event.target.value as DocumentCategory)}>
@@ -1047,16 +1136,6 @@ function NewDocumentDrawer({
           <Input id="title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. National ID" required />
         </div>
         <div>
-          <Label htmlFor="storageUrl">File URL</Label>
-          <Input
-            id="storageUrl"
-            value={storageUrl}
-            onChange={(event) => setStorageUrl(event.target.value)}
-            placeholder="https://…"
-            required
-          />
-        </div>
-        <div>
           <Label htmlFor="expiryDate">Expiry Date</Label>
           <Input id="expiryDate" type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
         </div>
@@ -1064,8 +1143,8 @@ function NewDocumentDrawer({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Saving…" : "Save Document"}
+          <Button type="submit" disabled={submitting || (source === "upload" && (!file || Boolean(fileError)))}>
+            {submitting ? (source === "upload" ? "Uploading…" : "Saving…") : source === "upload" ? "Upload Document" : "Save Document"}
           </Button>
         </div>
       </form>

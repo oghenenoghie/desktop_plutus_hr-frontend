@@ -1364,6 +1364,9 @@ export interface IncomeStatement {
   expenses: StatementLine[];
   total_expenses_minor: number;
   net_income_minor: number;
+  // Active assets held in the period with depreciation still to charge but
+  // none posted in it: depreciation reaches this statement only once it's run.
+  assets_awaiting_depreciation: number;
 }
 
 // --- fixed assets ---
@@ -1455,10 +1458,13 @@ export interface FixedAssetCreateBody {
   assigned_employee_id?: string | null;
   // An asset the organisation owned before it started using Plutus. It comes
   // onto the books as an opening balance (no cash moves) carrying the
-  // depreciation it had already built up, the book value against Opening
-  // Balance Equity. Without it, the cost is posted as paid from cash.
+  // depreciation it had already built up, the book value against what paid
+  // for it: opening_funding_account, an equity account (Share Capital, the
+  // owners' money) or a liability (a loan) — Opening Balance Equity when
+  // it's left out. Without opening_balance, the cost is paid from cash.
   opening_balance?: boolean;
   opening_accumulated_depreciation_minor?: number;
+  opening_funding_account?: string | null;
   acquisition_type?: AcquisitionType;
   depreciation_method?: DepreciationMethod;
   depreciation_rate_ppm?: number | null;
@@ -1778,7 +1784,14 @@ export interface EmployeeDocument {
   employee_id: string;
   category: DocumentCategory;
   title: string;
-  storage_url: string;
+  // Where to open the file: for an uploaded file, a signed link that expires
+  // after a few minutes (reload the list for a new one); otherwise the link
+  // the document was recorded with.
+  storage_url: string | null;
+  // Set for a file uploaded to Plutus; null for a recorded link.
+  file_name: string | null;
+  content_type: string | null;
+  size_bytes: number | null;
   expiry_date: string | null;
   uploaded_by: string | null;
   created_at: string;
@@ -1788,6 +1801,14 @@ export interface EmployeeDocumentCreateBody {
   category: DocumentCategory;
   title: string;
   storage_url: string;
+  expiry_date?: string | null;
+}
+
+// A file chosen on the computer or phone, uploaded to the employee's record.
+export interface EmployeeDocumentUploadBody {
+  file: File;
+  category: DocumentCategory;
+  title: string;
   expiry_date?: string | null;
 }
 

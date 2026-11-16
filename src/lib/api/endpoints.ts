@@ -76,6 +76,7 @@ import type {
   EmployeeCreateBody,
   EmployeeDocument,
   EmployeeDocumentCreateBody,
+  EmployeeDocumentUploadBody,
   EmployeeDocumentUpdateBody,
   EmployeeHistoryEvent,
   EmployeeUpdateBody,
@@ -1158,6 +1159,14 @@ export const employeeDocumentsApi = {
       method: "POST",
       body,
     }),
+  upload: (employeeId: string, body: EmployeeDocumentUploadBody) => {
+    const formData = new FormData();
+    formData.set("file", body.file, body.file.name);
+    formData.set("category", body.category);
+    formData.set("title", body.title);
+    if (body.expiry_date) formData.set("expiry_date", body.expiry_date);
+    return uploadFile<EmployeeDocument>(`/employees/${employeeId}/documents/upload`, formData);
+  },
   update: (documentId: string, body: EmployeeDocumentUpdateBody) =>
     apiFetch<EmployeeDocument>(`/employees/documents/${documentId}`, {
       method: "PATCH",

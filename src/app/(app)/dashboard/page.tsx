@@ -1,43 +1,136 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { ArrowRight, CalendarDays, ClipboardCheck, Fingerprint, Users, Wallet } from "lucide-react";
+import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/layout/page-header";
+import { ComplianceAlertsCard, PayrollStatusCard, RecentActivityCard } from "@/components/dashboard/activity-cards";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+import { StatCard, type StatChange } from "@/components/dashboard/stat-card";
+import { DepartmentDistributionCard, WorkforceOverviewCard } from "@/components/dashboard/workforce-cards";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { KpiTile } from "@/components/ui/kpi-tile";
-import { StatusBadge } from "@/components/ui/badge";
-import { Table, Td, Th, Thead } from "@/components/ui/table";
+import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { analyticsApi } from "@/lib/analytics/api";
+import { useAnalyticsAccess } from "@/lib/analytics/access";
+import { presetRange, type PresetKey } from "@/lib/analytics/filters";
+import { formatPeriodRange, formatValue } from "@/lib/analytics/format";
+import type { Metric } from "@/lib/analytics/types";
 import { ApiError } from "@/lib/api/client";
-import { dashboardApi, employeesApi, notificationsApi, payRunsApi, remindersApi } from "@/lib/api/endpoints";
-import { formatDate, formatMoney } from "@/lib/format";
+import {
+  auditLogApi,
+  dashboardApi,
+  employeesApi,
+  notificationsApi,
+  payRunsApi,
+  remindersApi,
+} from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/auth-context";
+import { currentPayRun, firstName, lagosToday } from "@/lib/dashboard";
+import { formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { payRunStatusLabel } from "@/lib/pay-runs";
-import { liabilityLabel } from "@/lib/liabilities";
-import type { PayRun } from "@/lib/types";
+import { navGroupsForRole, type CountryAccess } from "@/lib/nav";
+
+type PeriodKey = Extract<PresetKey, "this_month" | "last_month" | "this_quarter" | "this_year" | "last_12_months">;
+
+const PERIODS: { key: PeriodKey; label: string; versus: string }[] = [
+  { key: "this_month", label: "This month", versus: "vs last month" },
+  { key: "last_month", label: "Last month", versus: "vs the month before" },
+  { key: "this_quarter", label: "This quarter", versus: "vs last quarter" },
+  { key: "this_year", label: "This year", versus: "vs last year" },
+  { key: "last_12_months", label: "Last 12 months", versus: "vs the 12 months before" },
+];
+
+function periodQuery(key: PeriodKey): string {
+  const { from, to } = presetRange(key);
+  const params = new URLSearchParams();
+  if (from) params.set("date_from", from);
+  if (to) params.set("date_to", to);
+  return params.toString();
+}
+
+function changeOf(metric: Metric | undefined, versus: string): StatChange | null {
+  if (!metric || metric.value === null || metric.change_pct === null) return null;
+  return { pct: metric.change_pct, higherIsBetter: metric.higher_is_better, versus };
+}
+
+function sparkOf(points: { value: number | null }[] | undefined): number[] | null {
+  const values = (points ?? []).map((point) => point.value).filter((value): value is number => value !== null);
+  return values.length >= 2 ? values : null;
+}
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const analytics = useAnalyticsAccess();
+  const { showToast } = useToast();
+  const [period, setPeriod] = useState<PeriodKey>("this_month");
+  const [broadcasting, setBroadcasting] = useState(false);
+  const today = lagosToday();
+  const periodInfo = PERIODS.find((option) => option.key === period)!;
+
+  // What this role can open decides which cards and requests make sense.
+  const countryAccess: CountryAccess = {
+    payrollAvailable: user?.payroll_available !== false,
+    isNigeria: (user?.country_code ?? "NG") === "NG",
+  };
+  const pages = useMemo(() => {
+    const hrefs = new Set<string>();
+    if (!user) return hrefs;
+    for (const group of navGroupsForRole(user.role, countryAccess)) {
+      const items = group.subgroups ? group.subgroups.flatMap((subgroup) => subgroup.items) : (group.items ?? []);
+      for (const item of items) hrefs.add(item.href);
+    }
+    return hrefs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- countryAccess is derived from user
+  }, [user]);
+  const seesPayroll = pages.has("/payroll");
+  const seesEmployees = pages.has("/employees");
+  const seesAudit = pages.has("/audit-log");
+  const seesLedger = pages.has("/general-ledger");
+  const analyticsReady = analytics.access !== null || analytics.error;
+  const canOverview = Boolean(analytics.access?.can_view);
+  const canWorkforce = analytics.can("workforce");
+  const canAttendance = analytics.can("attendance");
+
   const summary = useApiResource(() => dashboardApi.summary());
   const deadlines = useApiResource(() => dashboardApi.deadlines(30));
-  const payRuns = useApiResource(() => payRunsApi.list());
-  const employees = useApiResource(() => employeesApi.list());
-  const [broadcasting, setBroadcasting] = useState(false);
-  const { showToast } = useToast();
+  const payRuns = useApiResource(() => (seesPayroll ? payRunsApi.list() : Promise.resolve(null)), [seesPayroll]);
+  const employees = useApiResource(() => (seesEmployees ? employeesApi.list() : Promise.resolve(null)), [seesEmployees]);
+  const audit = useApiResource(() => (seesAudit ? auditLogApi.list({ limit: 6 }) : Promise.resolve(null)), [seesAudit]);
+  const overview = useApiResource(
+    () => (canOverview ? analyticsApi.overview(periodQuery(period)) : Promise.resolve(null)),
+    [canOverview, period],
+  );
+  const workforce = useApiResource(() => (canWorkforce ? analyticsApi.workforce("") : Promise.resolve(null)), [canWorkforce]);
+  const attendance = useApiResource(
+    () => (canAttendance ? analyticsApi.attendance("") : Promise.resolve(null)),
+    [canAttendance],
+  );
 
-  const completedPayRuns = (payRuns.data ?? [])
-    .filter((run) => run.status === "locked")
+  const run = payRuns.data ? currentPayRun(payRuns.data) : null;
+  const needsReadiness = run !== null && (run.status === "draft" || run.status === "validated");
+  const readiness = useApiResource(
+    () => (run && needsReadiness ? payRunsApi.readiness(run.id) : Promise.resolve(null)),
+    [run?.id, needsReadiness],
+  );
+
+  const kpi = (key: string) => overview.data?.kpis.find((metric) => metric.key === key);
+  const headcount = kpi("headcount");
+  const cost = kpi("cost");
+  const attendanceRate = kpi("attendance_rate");
+  const completedRuns = (payRuns.data ?? [])
+    .filter((payRun) => payRun.status === "locked")
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
-  const recentPayRuns = [...completedPayRuns].reverse().slice(0, 5);
-  const trendPayRuns = completedPayRuns.slice(-6);
-  const recentEmployees = [...(employees.data ?? [])]
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 5);
+  const lastRun = summary.data?.last_completed_pay_run ?? null;
+  const missingTin = employees.data
+    ? employees.data.filter((employee) => employee.lifecycle_state !== "terminated" && !employee.tin?.trim()).length
+    : null;
+  const pendingLeave = summary.data?.pending_leave_request_count ?? 0;
+  const pendingExpenses = summary.data?.pending_expense_count ?? 0;
+  const pendingTotal = pendingLeave + pendingExpenses;
 
   async function runReminders() {
     try {
@@ -51,68 +144,199 @@ export default function DashboardPage() {
     }
   }
 
+  const name = firstName(user?.display_name);
+  const loadingFigure = !analyticsReady || overview.loading;
+
   return (
-    <div className="space-y-7">
-      <PageHeader
-        title="Overview"
-        subtitle="Workforce, payroll and compliance at a glance"
-        action={
-          <div className="flex gap-3">
-            <ConfirmActionButton
-              action={runReminders}
-              label="Run Reminders"
-              tone="primary"
-              confirmTitle="Run the reminder job now?"
-              confirmMessage="Notifies admins/payroll managers of upcoming statutory deadlines and stale approval requests. Intended to run on a schedule externally, but safe to trigger on demand."
-              confirmLabel="Run"
+    <div className="space-y-6">
+      <header className="flex flex-col gap-4 border-b border-border/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-primary">Dashboard</p>
+          <h1 className="mt-1 text-[26px] font-extrabold tracking-tight text-ink sm:text-[30px]">
+            Welcome back{name ? `, ${name}` : ""}!
+          </h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            Here&apos;s what&apos;s happening at {user?.org_name ?? "your organisation"} today.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="dashboard-period" className="sr-only">
+            Period for the headline figures
+          </label>
+          <div className="relative">
+            <CalendarDays
+              size={16}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-primary"
             />
-            <Button onClick={() => setBroadcasting(true)}>Send Announcement</Button>
+            <select
+              id="dashboard-period"
+              value={period}
+              onChange={(event) => setPeriod(event.target.value as PeriodKey)}
+              className="h-10 appearance-none rounded-btn border border-border bg-surface pl-9 pr-9 text-[13px] font-bold text-ink focus:border-primary focus:outline-none"
+            >
+              {PERIODS.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink-soft">
+              ▼
+            </span>
           </div>
-        }
-      />
+        </div>
+      </header>
 
-      {summary.loading ? <LoadingState /> : null}
-      {summary.error ? <ErrorState message={summary.error} /> : null}
+      <section aria-label="Headline figures" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={Users}
+          label="Total employees"
+          value={
+            headcount?.value != null
+              ? formatValue(headcount.value, "count", null)
+              : summary.data
+                ? summary.data.active_employee_count.toLocaleString("en-NG")
+                : "…"
+          }
+          change={changeOf(headcount, periodInfo.versus)}
+          spark={sparkOf(workforce.data?.headcount_trend.series[0]?.points)}
+          caption={headcount?.value != null ? `At the end of ${periodInfo.label.toLowerCase()}` : "Active now"}
+          href={seesEmployees ? "/employees" : undefined}
+          hrefLabel="All employees"
+        />
+        <StatCard
+          icon={Wallet}
+          label="Payroll cost"
+          value={
+            cost?.value != null
+              ? formatValue(cost.value, "money", cost.currency)
+              : loadingFigure
+                ? "…"
+                : !canOverview && lastRun
+                  ? formatMoney(lastRun.gross_minor)
+                  : "—"
+          }
+          change={changeOf(cost, periodInfo.versus)}
+          spark={completedRuns.length >= 2 ? completedRuns.slice(-6).map((payRun) => payRun.gross_minor) : null}
+          caption={
+            cost?.value != null ? (
+              `Gross pay and employer costs, ${periodInfo.label.toLowerCase()}`
+            ) : lastRun ? (
+              <>
+                {canOverview ? `No payroll posted for ${periodInfo.label.toLowerCase()}. ` : ""}
+                Latest run: {formatPeriodRange(lastRun.period_start, lastRun.period_end)},{" "}
+                {formatMoney(lastRun.gross_minor)} gross.
+              </>
+            ) : (
+              "No pay run posted yet."
+            )
+          }
+          href={seesPayroll ? "/payroll" : undefined}
+          hrefLabel="Pay runs"
+        />
+        <StatCard
+          icon={Fingerprint}
+          label="Attendance rate"
+          value={
+            attendanceRate?.value != null
+              ? formatValue(attendanceRate.value, "percent", null)
+              : loadingFigure
+                ? "…"
+                : "—"
+          }
+          change={changeOf(attendanceRate, periodInfo.versus)}
+          spark={sparkOf(attendance.data?.rate_trend.series[0]?.points)}
+          caption={
+            attendanceRate?.value != null
+              ? `Of scheduled working days, ${periodInfo.label.toLowerCase()}`
+              : canOverview
+                ? `No attendance recorded for ${periodInfo.label.toLowerCase()}.`
+                : "Attendance figures aren't part of your role's access."
+          }
+          href={pages.has("/attendance") ? "/attendance" : undefined}
+          hrefLabel="Attendance"
+        />
+        <StatCard
+          icon={ClipboardCheck}
+          label="Pending approvals"
+          value={summary.data ? pendingTotal.toLocaleString("en-NG") : "…"}
+          attention={pendingTotal > 0}
+          caption={
+            summary.data ? (
+              <>
+                {pages.has("/leave") ? (
+                  <Link href="/leave" className="font-semibold text-ink hover:underline">
+                    {pendingLeave} leave
+                  </Link>
+                ) : (
+                  `${pendingLeave} leave`
+                )}{" "}
+                ·{" "}
+                {pages.has("/expenses") ? (
+                  <Link href="/expenses" className="font-semibold text-ink hover:underline">
+                    {pendingExpenses} expense{pendingExpenses === 1 ? "" : "s"}
+                  </Link>
+                ) : (
+                  `${pendingExpenses} expense${pendingExpenses === 1 ? "" : "s"}`
+                )}{" "}
+                waiting for a decision
+              </>
+            ) : null
+          }
+        />
+      </section>
 
-      {summary.data ? (
-        <section aria-labelledby="overview-snapshot" className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="overview-snapshot" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
-              Operational snapshot
-            </h2>
-            <span className="text-[11px] font-semibold text-ink-soft">Current company position</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-          <KpiTile label="Active Employees" value={summary.data.active_employee_count.toLocaleString("en-NG")} />
-          <KpiTile
-            label="Outstanding Liability"
-            value={formatMoney(summary.data.outstanding_liability_minor)}
-          />
-          <KpiTile
-            label="Pending Leave Requests"
-            value={summary.data.pending_leave_request_count.toLocaleString("en-NG")}
-          />
-          <KpiTile
-            label="Pending Expenses"
-            value={summary.data.pending_expense_count.toLocaleString("en-NG")}
-          />
-          <KpiTile
-            label="Expiring Contracts"
-            value={summary.data.expiring_contract_count.toLocaleString("en-NG")}
-            caption="Within 30 days"
-          />
-          </div>
-        </section>
-      ) : null}
+      <div className="grid gap-4 xl:grid-cols-[1.75fr_1fr]">
+        <WorkforceOverviewCard
+          workforce={workforce.data}
+          loading={!analyticsReady || workforce.loading}
+          error={workforce.error}
+          unavailable={analyticsReady && !canWorkforce}
+          currentYear={today.slice(0, 4)}
+        />
+        <DepartmentDistributionCard
+          workforce={workforce.data}
+          loading={!analyticsReady || workforce.loading}
+          error={workforce.error}
+          unavailable={analyticsReady && !canWorkforce}
+        />
+      </div>
 
-      {summary.data ? (
-        <Card className="border-primary/15">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {seesAudit ? <RecentActivityCard entries={audit.data} loading={audit.loading} error={audit.error} /> : null}
+        {seesPayroll ? (
+          <PayrollStatusCard
+            run={run}
+            readiness={readiness.data}
+            loading={payRuns.loading}
+            error={payRuns.error}
+          />
+        ) : null}
+        <ComplianceAlertsCard
+          deadlines={deadlines.data}
+          missingTinCount={missingTin}
+          expiringContracts={summary.data?.expiring_contract_count ?? null}
+          outstandingMinor={summary.data?.outstanding_liability_minor ?? null}
+          today={today}
+          loading={deadlines.loading}
+          error={deadlines.error}
+        />
+      </div>
+
+      {seesLedger && summary.data ? (
+        <Card>
           <CardHeader
-            title="Financial Information"
-            subtitle="Cash and outstanding balances across the accounting suite"
+            title="Financial position"
+            subtitle="Cash and outstanding balances from the general ledger"
             action={
-              <Link href="/general-ledger">
-                <Button variant="secondary">General Ledger</Button>
+              <Link
+                href="/general-ledger"
+                className="inline-flex items-center gap-1 text-[12px] font-bold text-primary hover:underline"
+              >
+                General Ledger
+                <ArrowRight size={13} strokeWidth={2.5} aria-hidden="true" />
               </Link>
             }
           />
@@ -132,248 +356,14 @@ export default function DashboardPage() {
         </Card>
       ) : null}
 
-      {summary.data?.last_completed_pay_run ? (
-        <Card className="border-primary/15">
-          <CardHeader
-            title="Last Completed Pay Run"
-            subtitle={`${formatDate(summary.data.last_completed_pay_run.period_start)} – ${formatDate(summary.data.last_completed_pay_run.period_end)}`}
-          />
-          <div className="grid grid-cols-3 gap-4 text-[13px]">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Employees</div>
-              <div className="mt-1 font-extrabold">{summary.data.last_completed_pay_run.employee_count}</div>
-            </div>
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Gross</div>
-              <div className="mt-1 font-extrabold">{formatMoney(summary.data.last_completed_pay_run.gross_minor)}</div>
-            </div>
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Net</div>
-              <div className="mt-1 font-extrabold">{formatMoney(summary.data.last_completed_pay_run.net_minor)}</div>
-            </div>
-          </div>
-        </Card>
-      ) : null}
+      <QuickActions pages={pages} onAnnounce={() => setBroadcasting(true)} onRunReminders={runReminders} />
 
-      <section aria-labelledby="payroll-activity" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="payroll-activity" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
-            Payroll activity
-          </h2>
-          <Link href="/payroll" className="text-xs font-bold text-primary hover:underline">
-            Open payroll workspace
-          </Link>
-        </div>
-        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card>
-          <CardHeader title="Payroll Cost Trend" subtitle="Net pay across the last 6 completed pay runs" />
-          {payRuns.loading ? <LoadingState /> : null}
-          {payRuns.error ? <ErrorState message={payRuns.error} /> : null}
-          {payRuns.data && trendPayRuns.length === 0 ? (
-            <EmptyState label="No completed pay runs yet." />
-          ) : null}
-          {trendPayRuns.length > 0 ? <PayrollCostTrendChart payRuns={trendPayRuns} /> : null}
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="Recent Pay Runs"
-            action={
-              <Link href="/payroll">
-                <Button variant="secondary">All Pay Runs</Button>
-              </Link>
-            }
-          />
-          {payRuns.loading ? <LoadingState /> : null}
-          {payRuns.error ? <ErrorState message={payRuns.error} /> : null}
-          {payRuns.data && recentPayRuns.length === 0 ? (
-            <EmptyState label="No pay runs completed yet." />
-          ) : null}
-          {recentPayRuns.length > 0 ? (
-            <Table>
-              <Thead>
-                <tr>
-                  <Th>Period</Th>
-                  <Th>Status</Th>
-                  <Th align="right">Net</Th>
-                </tr>
-              </Thead>
-              <tbody>
-                {recentPayRuns.map((run) => (
-                  <tr key={run.id}>
-                    <Td>
-                      {formatDate(run.period_start)} – {formatDate(run.period_end)}
-                    </Td>
-                    <Td>
-                      <StatusBadge status={run.status} label={payRunStatusLabel(run)} />
-                    </Td>
-                    <Td align="right" className="font-bold">
-                      {formatMoney(run.net_minor)}
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          ) : null}
-        </Card>
-        </div>
-      </section>
-
-      <section aria-labelledby="people-activity" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="people-activity" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
-            People
-          </h2>
-          <span className="text-[11px] text-ink-soft">Recently added to your organisation</span>
-        </div>
-        <Card>
-        <CardHeader
-          title="Recently Added Employees"
-          action={
-            <Link href="/employees">
-              <Button variant="secondary">All Employees</Button>
-            </Link>
-          }
-        />
-        {employees.loading ? <LoadingState /> : null}
-        {employees.error ? <ErrorState message={employees.error} /> : null}
-        {employees.data && recentEmployees.length === 0 ? (
-          <EmptyState label="No employees on record yet." />
-        ) : null}
-        {recentEmployees.length > 0 ? (
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Employee</Th>
-                <Th>Employment Type</Th>
-                <Th>Joined</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {recentEmployees.map((employee) => (
-                <tr key={employee.id}>
-                  <Td className="font-bold">
-                    {employee.full_name}
-                    <span className="ml-2 font-normal text-ink-soft">{employee.employee_number}</span>
-                  </Td>
-                  <Td>{employee.employment_type.replace(/_/g, " ")}</Td>
-                  <Td>{formatDate(employee.date_of_joining)}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : null}
-        </Card>
-      </section>
-
-      <section aria-labelledby="compliance-deadlines" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="compliance-deadlines" className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary-dark">
-            Compliance
-          </h2>
-          <span className="text-[11px] text-ink-soft">Upcoming obligations and remittances</span>
-        </div>
-        <Card>
-        <CardHeader title="Upcoming Statutory Deadlines" subtitle="Filings and remittances due within 30 days" />
-        {deadlines.loading ? <LoadingState /> : null}
-        {deadlines.error ? <ErrorState message={deadlines.error} /> : null}
-        {deadlines.data && deadlines.data.length === 0 ? (
-          <EmptyState label="No deadlines due within the next 30 days." />
-        ) : null}
-        {deadlines.data && deadlines.data.length > 0 ? (
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Scheme</Th>
-                <Th>Authority</Th>
-                <Th>State</Th>
-                <Th align="right">Amount</Th>
-                <Th>Due</Th>
-                <Th>Status</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {deadlines.data.map((liability) => (
-                <tr key={liability.id}>
-                  <Td>{liabilityLabel(liability)}</Td>
-                  <Td>{liability.authority}</Td>
-                  <Td>{liability.state ?? "—"}</Td>
-                  <Td align="right">{formatMoney(liability.amount_minor)}</Td>
-                  <Td>{formatDate(liability.due_date)}</Td>
-                  <Td>
-                    <StatusBadge status={liability.status} />
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : null}
-        </Card>
-      </section>
-
-      {broadcasting ? <BroadcastDrawer onClose={() => setBroadcasting(false)} /> : null}
+      {broadcasting ? <BroadcastModal onClose={() => setBroadcasting(false)} /> : null}
     </div>
   );
 }
 
-// Single-series magnitude-over-time — a hand-rolled SVG bar chart rather
-// than a new charting dependency, matching the Ledger design system's flat,
-// bordered register (no shadows/gradients) and using the app's own primary
-// hue rather than a categorical palette, since one series needs neither a
-// legend nor color-identity work.
-function PayrollCostTrendChart({ payRuns }: { payRuns: PayRun[] }) {
-  const width = 480;
-  const height = 180;
-  const barGap = 10;
-  const barWidth = (width - barGap * (payRuns.length - 1)) / payRuns.length;
-  const maxNet = Math.max(...payRuns.map((run) => run.net_minor), 1);
-  const firstRun = payRuns[0];
-  const latestRun = payRuns[payRuns.length - 1];
-  const summary = firstRun && latestRun
-    ? `Net pay moved from ${formatMoney(firstRun.net_minor)} for the period ending ${formatDate(firstRun.period_end)} to ${formatMoney(latestRun.net_minor)} for the period ending ${formatDate(latestRun.period_end)}. Values are shown for the ${payRuns.length} most recent completed pay runs.`
-    : "No completed pay run data is available.";
-
-  return (
-    <figure className="min-w-0" aria-labelledby="payroll-cost-trend-description">
-      <svg
-        viewBox={`0 0 ${width} ${height + 22}`}
-        className="w-full"
-        role="img"
-        aria-labelledby="payroll-cost-trend-description"
-      >
-        <title id="payroll-cost-trend-description">Net pay across recent completed pay runs</title>
-        <desc>{summary}</desc>
-        <line x1={0} y1={height} x2={width} y2={height} stroke="var(--color-border)" strokeWidth={1} />
-        {payRuns.map((run, index) => {
-          const barHeight = Math.max((run.net_minor / maxNet) * (height - 8), 2);
-          const x = index * (barWidth + barGap);
-          const y = height - barHeight;
-          return (
-            <g key={run.id}>
-              <rect x={x} y={y} width={barWidth} height={barHeight} rx={4} fill="var(--color-primary)">
-                <title>
-                  {formatDate(run.period_end)} — {formatMoney(run.net_minor)}
-                </title>
-              </rect>
-              <text
-                x={x + barWidth / 2}
-                y={height + 16}
-                textAnchor="middle"
-                className="fill-ink-soft"
-                style={{ fontSize: 10, fontWeight: 700 }}
-              >
-                {new Date(run.period_end).toLocaleDateString("en-NG", { month: "short" })}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-      <figcaption className="sr-only">{summary}</figcaption>
-    </figure>
-  );
-}
-
-function BroadcastDrawer({ onClose }: { onClose: () => void }) {
+function BroadcastModal({ onClose }: { onClose: () => void }) {
   const { showToast } = useToast();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -393,7 +383,7 @@ function BroadcastDrawer({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Drawer title="Send Announcement" onClose={onClose}>
+    <Modal title="Send Announcement" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="announcement-title">Title</Label>
@@ -423,6 +413,6 @@ function BroadcastDrawer({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

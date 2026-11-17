@@ -52,11 +52,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar
         role={user.role}
         access={access}
+        orgName={user.org_name}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <TopBar onMenuClick={() => setSidebarOpen(true)} />
+        <TopBar access={access} onMenuClick={() => setSidebarOpen(true)} />
         <main
           id="main-content"
           tabIndex={-1}

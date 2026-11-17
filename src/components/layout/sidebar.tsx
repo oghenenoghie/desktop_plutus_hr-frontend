@@ -15,6 +15,8 @@ import {
   BookText,
   Boxes,
   Building2,
+  ExternalLink,
+  Headset,
   Calculator,
   CalendarCheck,
   CalendarDays,
@@ -90,7 +92,7 @@ import {
 } from "@/lib/nav";
 import type { Role } from "@/lib/types";
 
-const ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
+export const NAV_ICONS: Record<NavItem["icon"], typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
   notifications: Bell,
   myTeam: UserCog,
@@ -230,7 +232,7 @@ function NavLink({
   active: boolean;
   onClick: () => void;
 }) {
-  const Icon = ICONS[item.icon];
+  const Icon = NAV_ICONS[item.icon];
   return (
     <Link
       href={item.href}
@@ -281,11 +283,13 @@ function GroupHeading({
 export function Sidebar({
   role,
   access,
+  orgName,
   open,
   onClose,
 }: {
   role: Role;
   access: CountryAccess;
+  orgName: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -322,13 +326,19 @@ export function Sidebar({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between px-6 py-6">
-          <div>
-            <div className="text-[15px] font-extrabold tracking-tight">
-              Plutus Technologies
-            </div>
-            <div className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.03em] text-white/50">
-              Ledger
+        <div className="flex items-center justify-between px-5 pb-5 pt-6">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="inline-flex size-9 items-center justify-center rounded-btn bg-white text-[18px] font-extrabold text-primary-dark"
+            >
+              P
+            </span>
+            <div>
+              <div className="text-[17px] font-extrabold leading-tight tracking-tight">Plutus</div>
+              <div className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-white/50">
+                Technologies
+              </div>
             </div>
           </div>
           <button
@@ -341,12 +351,15 @@ export function Sidebar({
           </button>
         </div>
 
-        <div className="mx-6 mb-4 rounded-panel border border-white/10 bg-white/5 px-3 py-2">
-          <div className="text-[10.5px] font-extrabold uppercase tracking-[0.04em] text-white/60">
-            Viewing as
-          </div>
-          <div className="mt-0.5 text-[13px] font-bold">
-            {ROLE_LABELS[role]}
+        <div className="mx-4 mb-4 flex items-center gap-3 rounded-panel border border-white/10 bg-white/[0.06] px-3 py-2.5">
+          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-btn bg-white/10 text-white/85">
+            <Building2 size={18} strokeWidth={2} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-bold" title={orgName}>
+              {orgName}
+            </div>
+            <div className="text-[11px] font-semibold text-white/60">Viewing as {ROLE_LABELS[role]}</div>
           </div>
         </div>
 
@@ -403,6 +416,21 @@ export function Sidebar({
             );
           })}
         </nav>
+
+        <a
+          href="https://www.plutusng.com/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="mx-4 mb-4 flex items-center gap-3 rounded-panel border border-white/10 bg-white/[0.06] px-3 py-3 text-white transition-colors hover:bg-white/10"
+        >
+          <Headset size={20} strokeWidth={2} aria-hidden="true" className="shrink-0 text-white/85" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold">Need help?</span>
+            <span className="block text-[11px] text-white/60">Guides and support</span>
+          </span>
+          <ExternalLink size={14} strokeWidth={2} aria-hidden="true" className="shrink-0 text-white/60" />
+          <span className="sr-only">(opens the Plutus help site in a new window)</span>
+        </a>
       </aside>
     </>
   );

@@ -71,6 +71,11 @@ export interface MeResponse {
   country_name: string;
   currency: string;
   payroll_available: boolean;
+  // Who is signed in: the account's email and the name on the employee
+  // record linked to it. Absent from an API older than these fields, and
+  // display_name is null for an account with no employee record.
+  email?: string | null;
+  display_name?: string | null;
 }
 
 // --- employees ---

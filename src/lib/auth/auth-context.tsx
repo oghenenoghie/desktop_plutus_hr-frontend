@@ -45,8 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setDisplayCurrency(me.currency ?? "NGN");
       setUser(me);
       setStatus("authenticated");
-    } catch {
-      clearTokens();
+    } catch (err) {
+      // Only an answer that turns the session down ends it. A check cut
+      // short (the page navigating away mid-request), a dropped connection
+      // or the API being briefly down (5xx) says nothing about the session,
+      // so the stored sign-in stays for the next page load.
+      if (err instanceof ApiError && err.status < 500) clearTokens();
       setUser(null);
       setStatus("unauthenticated");
     }

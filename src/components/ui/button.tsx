@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 
 type Variant = "primary" | "secondary" | "ghost";
-type Size = "md" | "lg";
+type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary: "bg-primary text-white hover:bg-primary-dark disabled:opacity-50",
@@ -10,6 +10,8 @@ const VARIANT_CLASSES: Record<Variant, string> = {
 };
 
 const SIZE_CLASSES: Record<Size, string> = {
+  // Compact, for a secondary action inside a toolbar (e.g. "Clear filters").
+  sm: "px-3 py-1.5 text-[12px]",
   md: "px-[22px] py-[11px] text-[13px]",
   lg: "px-[22px] py-[13px] text-[14px]",
 };

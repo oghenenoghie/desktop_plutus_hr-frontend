@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -90,7 +90,7 @@ function SettlementPageInner() {
       </Card>
 
       {processing ? (
-        <ProcessSettlementDrawer
+        <ProcessSettlementModal
           employeeId={employeeId}
           onClose={() => setProcessing(false)}
           onProcessed={() => {
@@ -103,7 +103,7 @@ function SettlementPageInner() {
   );
 }
 
-function ProcessSettlementDrawer({
+function ProcessSettlementModal({
   employeeId,
   onClose,
   onProcessed,
@@ -138,7 +138,7 @@ function ProcessSettlementDrawer({
   }
 
   return (
-    <Drawer title="Process Settlement" onClose={onClose}>
+    <Modal title="Process Settlement" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="termination-date">Termination Date</Label>
@@ -192,6 +192,6 @@ function ProcessSettlementDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

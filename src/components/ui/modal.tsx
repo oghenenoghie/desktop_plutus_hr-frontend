@@ -9,13 +9,13 @@ const FIELDS = "input:not([disabled]):not([type='hidden']), select:not([disabled
 const FOCUSABLE = `${FIELDS}, button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])`;
 
 /**
- * Centered dialog for short create/edit workflows that should not navigate
- * away — including on top of an open Drawer (e.g. "New Customer" from an
- * invoice). Same contract as Drawer: portal to body, Escape and backdrop
- * click close it, keyboard users land on its first field and go back to
- * whatever opened it. On top of that it keeps Tab inside itself, and only
- * the topmost overlay answers Escape, so closing it never closes the drawer
- * underneath.
+ * The app's one dialog: every create/edit form, detail view and record list
+ * that shouldn't navigate away opens in it, and one can open on top of
+ * another (e.g. "New Customer" from a new invoice). Portalled to body;
+ * Escape and a click on the backdrop close it; keyboard users land on its
+ * first field, Tab stays inside it, and closing it returns focus to whatever
+ * opened it. Only the topmost dialog answers Escape, so closing one never
+ * closes the one underneath or loses what was typed into it.
  *
  * Only ever mount it in response to a client interaction (every call site
  * renders it from state that starts closed): it portals to `document.body`
@@ -30,7 +30,8 @@ export function Modal({
   title: string;
   onClose: () => void;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  // "xl" for a wide table of records rather than a form.
+  size?: "sm" | "md" | "lg" | "xl";
 }) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
@@ -95,7 +96,7 @@ export function Modal({
       }}
       onClick={(event) => {
         // Portalled events still bubble through the React tree — keep this
-        // click away from a Drawer's backdrop handler underneath.
+        // click away from the backdrop of a dialog underneath.
         event.stopPropagation();
         if (event.target === event.currentTarget && pressStartedOnBackdrop.current) onClose();
         pressStartedOnBackdrop.current = false;
@@ -110,7 +111,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`my-auto flex max-h-[min(90dvh,900px)] w-full flex-col overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl outline-none ${size === "sm" ? "max-w-md" : size === "lg" ? "max-w-3xl" : "max-w-xl"}`}
+        className={`my-auto flex max-h-[min(90dvh,900px)] w-full flex-col overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl outline-none ${size === "sm" ? "max-w-md" : size === "lg" ? "max-w-3xl" : size === "xl" ? "max-w-5xl" : "max-w-xl"}`}
       >
         <header className="mb-5 flex items-center justify-between gap-4">
           <h2 id={titleId} className="text-[17px] font-extrabold text-ink">

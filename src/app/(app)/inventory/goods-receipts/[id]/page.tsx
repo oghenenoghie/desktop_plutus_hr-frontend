@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import { DocumentJournals, DocumentMovements, Field, ReasonDrawer, errorText } from "@/components/inventory/document-ui";
+import { DocumentJournals, DocumentMovements, Field, ReasonModal, errorText } from "@/components/inventory/document-ui";
 import { GoodsReceiptForm } from "@/components/inventory/goods-receipt-form";
 import { InventoryError } from "@/components/inventory/inventory-ui";
 import { PageHeader } from "@/components/layout/page-header";
@@ -214,7 +214,7 @@ export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {reversing ? (
-        <ReasonDrawer
+        <ReasonModal
           title={`Reverse ${grn.grn_number}`}
           explanation="Reversing takes the received goods back out of stock at the current average cost and reopens the quantities on the purchase order. It is refused once the stock has been used or the order has been closed."
           actionLabel="Reverse receipt"

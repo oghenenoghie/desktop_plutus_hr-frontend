@@ -1,7 +1,7 @@
 "use client";
 
 import { AnalyticsPage, type PageContext } from "@/components/analytics/analytics-shell";
-import { ExportButtons } from "@/components/analytics/records-drawer";
+import { ExportButtons } from "@/components/analytics/records-modal";
 import { Card, CardHeader } from "@/components/ui/card";
 import { analyticsApi } from "@/lib/analytics/api";
 import type { Section } from "@/lib/analytics/types";

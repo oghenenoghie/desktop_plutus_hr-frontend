@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -68,7 +68,7 @@ export default function DepartmentsPage() {
       </Card>
 
       {creating ? (
-        <DepartmentDrawer
+        <DepartmentModal
           employees={employees.data ?? []}
           onClose={() => setCreating(false)}
           onSaved={() => {
@@ -79,7 +79,7 @@ export default function DepartmentsPage() {
       ) : null}
 
       {editing ? (
-        <DepartmentDrawer
+        <DepartmentModal
           department={editing}
           employees={employees.data ?? []}
           onClose={() => setEditing(null)}
@@ -93,7 +93,7 @@ export default function DepartmentsPage() {
   );
 }
 
-function DepartmentDrawer({
+function DepartmentModal({
   department,
   employees,
   onClose,
@@ -129,7 +129,7 @@ function DepartmentDrawer({
   }
 
   return (
-    <Drawer title={department ? "Edit Department" : "New Department"} onClose={onClose}>
+    <Modal title={department ? "Edit Department" : "New Department"} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="name">Name</Label>
@@ -161,6 +161,6 @@ function DepartmentDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

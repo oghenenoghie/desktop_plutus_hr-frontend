@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // What every <Modal> must do, wherever it's opened from: open centred as a
 // labelled dialog with the cursor in its first field, survive clicks inside
 // and text selections dragged out onto the backdrop, keep Tab inside, and
-// close on Escape — closing only itself when it sits on top of a drawer.
+// close on Escape — closing only itself when it sits on top of another dialog.
 // Checks after "opens" are soft, so one run reports every broken behaviour.
 export async function expectModalContract(
   page: Page,
@@ -14,7 +14,7 @@ export async function expectModalContract(
   }: {
     open: () => Promise<void>;
     name: string;
-    // The drawer the modal was opened from, which must outlive it.
+    // The dialog the modal was opened from, which must outlive it.
     parent?: Locator;
   },
 ): Promise<Locator> {
@@ -67,7 +67,7 @@ export async function expectModalContract(
     expect.soft(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   });
 
-  await test.step(parent ? "Escape closes it and leaves the drawer open" : "Escape closes it", async () => {
+  await test.step(parent ? "Escape closes it and leaves the dialog underneath open" : "Escape closes it", async () => {
     await modal.locator("input").first().focus();
     await page.keyboard.press("Escape");
     await expect.soft(modal).toBeHidden();

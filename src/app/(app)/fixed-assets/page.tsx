@@ -3,11 +3,11 @@
 import { useState } from "react";
 
 import {
-  AssetCategoriesDrawer,
+  AssetCategoriesModal,
   AssetCategoryModal,
-  LeasePaymentDrawer,
+  LeasePaymentModal,
   METHOD_LABELS,
-  YearEndDepreciationDrawer,
+  YearEndDepreciationModal,
   methodSummary,
   percentToPpm,
   ratePercent,
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { Select } from "@/components/ui/select";
@@ -278,7 +278,7 @@ export default function FixedAssetsPage() {
       </Card>
 
       {creating ? (
-        <NewFixedAssetDrawer
+        <NewFixedAssetModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -290,7 +290,7 @@ export default function FixedAssetsPage() {
       ) : null}
 
       {disposing ? (
-        <DisposeFixedAssetDrawer
+        <DisposeFixedAssetModal
           asset={disposing}
           onClose={() => setDisposing(null)}
           onDisposed={() => {
@@ -301,7 +301,7 @@ export default function FixedAssetsPage() {
       ) : null}
 
       {transferring ? (
-        <TransferFixedAssetDrawer
+        <TransferFixedAssetModal
           asset={transferring}
           onClose={() => setTransferring(null)}
           onTransferred={() => {
@@ -312,7 +312,7 @@ export default function FixedAssetsPage() {
       ) : null}
 
       {revaluing ? (
-        <RevalueFixedAssetDrawer
+        <RevalueFixedAssetModal
           asset={revaluing}
           onClose={() => setRevaluing(null)}
           onRevalued={() => {
@@ -323,7 +323,7 @@ export default function FixedAssetsPage() {
       ) : null}
 
       {assigning ? (
-        <AssignFixedAssetDrawer
+        <AssignFixedAssetModal
           asset={assigning}
           onClose={() => setAssigning(null)}
           onAssigned={() => {
@@ -334,11 +334,11 @@ export default function FixedAssetsPage() {
       ) : null}
 
       {viewingHistory ? (
-        <DepreciationHistoryDrawer asset={viewingHistory} onClose={() => setViewingHistory(null)} />
+        <DepreciationHistoryModal asset={viewingHistory} onClose={() => setViewingHistory(null)} />
       ) : null}
 
       {payingLease ? (
-        <LeasePaymentDrawer
+        <LeasePaymentModal
           asset={payingLease}
           onClose={() => setPayingLease(null)}
           onPaid={() => setPayingLease(null)}
@@ -346,11 +346,11 @@ export default function FixedAssetsPage() {
       ) : null}
 
       {runningYearEnd ? (
-        <YearEndDepreciationDrawer onClose={() => setRunningYearEnd(false)} onRun={() => assets.reload()} />
+        <YearEndDepreciationModal onClose={() => setRunningYearEnd(false)} onRun={() => assets.reload()} />
       ) : null}
 
       {managingCategories ? (
-        <AssetCategoriesDrawer
+        <AssetCategoriesModal
           onClose={() => {
             setManagingCategories(false);
             categories.reload();
@@ -359,7 +359,7 @@ export default function FixedAssetsPage() {
       ) : null}
 
       {returning ? (
-        <ReturnFixedAssetDrawer
+        <ReturnFixedAssetModal
           asset={returning}
           onClose={() => setReturning(null)}
           onReturned={() => {
@@ -385,12 +385,12 @@ function signedMoney(minor: number): string {
 // Every change to one asset's accumulated depreciation, oldest first, with
 // the running total after each: what it had built up before Plutus, each
 // period posted since, and revaluations, which reset it to zero.
-function DepreciationHistoryDrawer({ asset, onClose }: { asset: FixedAsset; onClose: () => void }) {
+function DepreciationHistoryModal({ asset, onClose }: { asset: FixedAsset; onClose: () => void }) {
   const history = useApiResource(() => fixedAssetsApi.depreciationHistory(asset.id));
   const unexplained = history.data?.unexplained_minor ?? 0;
 
   return (
-    <Drawer title={`Depreciation History — ${asset.asset_tag}`} onClose={onClose}>
+    <Modal title={`Depreciation History — ${asset.asset_tag}`} onClose={onClose}>
       <p className="mb-3 text-[13px] font-bold text-ink">{asset.name}</p>
       <dl className="mb-5 grid grid-cols-3 gap-3">
         {[
@@ -453,11 +453,11 @@ function DepreciationHistoryDrawer({ asset, onClose }: { asset: FixedAsset; onCl
             : `The postings above come to ${formatMoney(-unexplained)} more than this asset's accumulated depreciation.`}
         </p>
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }
 
-function TransferFixedAssetDrawer({
+function TransferFixedAssetModal({
   asset,
   onClose,
   onTransferred,
@@ -491,7 +491,7 @@ function TransferFixedAssetDrawer({
   }
 
   return (
-    <Drawer title={`Transfer ${asset.name}`} onClose={onClose}>
+    <Modal title={`Transfer ${asset.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="toDepartment">To Department</Label>
@@ -527,11 +527,11 @@ function TransferFixedAssetDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function RevalueFixedAssetDrawer({
+function RevalueFixedAssetModal({
   asset,
   onClose,
   onRevalued,
@@ -564,7 +564,7 @@ function RevalueFixedAssetDrawer({
   }
 
   return (
-    <Drawer title={`Revalue ${asset.name}`} onClose={onClose}>
+    <Modal title={`Revalue ${asset.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Current book value: <span className="font-bold text-ink">{formatMoney(asset.book_value_minor)}</span>.
@@ -603,11 +603,11 @@ function RevalueFixedAssetDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function AssignFixedAssetDrawer({
+function AssignFixedAssetModal({
   asset,
   onClose,
   onAssigned,
@@ -636,7 +636,7 @@ function AssignFixedAssetDrawer({
   }
 
   return (
-    <Drawer title={`Assign ${asset.name}`} onClose={onClose}>
+    <Modal title={`Assign ${asset.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="assignEmployee">Employee</Label>
@@ -673,11 +673,11 @@ function AssignFixedAssetDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function ReturnFixedAssetDrawer({
+function ReturnFixedAssetModal({
   asset,
   onClose,
   onReturned,
@@ -713,7 +713,7 @@ function ReturnFixedAssetDrawer({
   }
 
   return (
-    <Drawer title={`Return ${asset.name}`} onClose={onClose}>
+    <Modal title={`Return ${asset.name}`} onClose={onClose}>
       {openAssignment.loading ? <LoadingState /> : null}
       {openAssignment.error ? <ErrorState message={openAssignment.error} /> : null}
       {!openAssignment.loading && !openAssignment.data ? (
@@ -750,11 +750,11 @@ function ReturnFixedAssetDrawer({
           </div>
         </form>
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }
 
-function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewFixedAssetModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { showToast } = useToast();
   const employees = useApiResource(() => employeesApi.list());
   const [name, setName] = useState("");
@@ -848,7 +848,7 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
   }
 
   return (
-    <Drawer title="New Fixed Asset" onClose={onClose}>
+    <Modal title="New Fixed Asset" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="name">Name</Label>
@@ -1100,11 +1100,11 @@ function NewFixedAssetDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           }}
         />
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }
 
-function DisposeFixedAssetDrawer({
+function DisposeFixedAssetModal({
   asset,
   onClose,
   onDisposed,
@@ -1132,7 +1132,7 @@ function DisposeFixedAssetDrawer({
   }
 
   return (
-    <Drawer title={`Dispose ${asset.name}`} onClose={onClose}>
+    <Modal title={`Dispose ${asset.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Current book value: <span className="font-bold text-ink">{formatMoney(asset.book_value_minor)}</span>.
@@ -1157,6 +1157,6 @@ function DisposeFixedAssetDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

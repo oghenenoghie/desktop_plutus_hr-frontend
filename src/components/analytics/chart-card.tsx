@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { BreakdownChart, DonutChart } from "@/components/analytics/charts/breakdown-chart";
 import { TrendChart } from "@/components/analytics/charts/trend-chart";
 import { BreakdownTable, TrendTable } from "@/components/analytics/data-table";
-import { useDrill } from "@/components/analytics/records-drawer";
+import { useDrill } from "@/components/analytics/records-modal";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState } from "@/components/ui/data-state";
 import type { Breakdown, Trend } from "@/lib/analytics/types";

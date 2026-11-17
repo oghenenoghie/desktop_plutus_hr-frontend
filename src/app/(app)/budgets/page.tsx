@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -102,7 +102,7 @@ export default function BudgetsPage() {
       </Card>
 
       {creating ? (
-        <NewBudgetDrawer
+        <NewBudgetModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -111,17 +111,17 @@ export default function BudgetsPage() {
         />
       ) : null}
 
-      {viewing ? <BudgetActualsDrawer budget={viewing} onClose={() => setViewing(null)} /> : null}
+      {viewing ? <BudgetActualsModal budget={viewing} onClose={() => setViewing(null)} /> : null}
     </div>
   );
 }
 
-function BudgetActualsDrawer({ budget, onClose }: { budget: Budget; onClose: () => void }) {
+function BudgetActualsModal({ budget, onClose }: { budget: Budget; onClose: () => void }) {
   const actuals = useApiResource(() => budgetsApi.actuals(budget.id), [budget.id]);
   const data: BudgetVsActual | null = actuals.data;
 
   return (
-    <Drawer title={`${budget.name} — Actuals`} onClose={onClose}>
+    <Modal title={`${budget.name} — Actuals`} onClose={onClose}>
       {actuals.loading ? <LoadingState /> : null}
       {actuals.error ? <ErrorState message={actuals.error} /> : null}
       {data ? (
@@ -165,7 +165,7 @@ function BudgetActualsDrawer({ budget, onClose }: { budget: Budget; onClose: () 
           </div>
         </div>
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -178,7 +178,7 @@ function emptyLine(): DraftLine {
   return { accountCode: "", amount: "" };
 }
 
-function NewBudgetDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewBudgetModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const accounts = useApiResource(() => chartAccountsApi.list());
   const departments = useApiResource(() => departmentsApi.list());
   const { showToast } = useToast();
@@ -230,7 +230,7 @@ function NewBudgetDrawer({ onClose, onCreated }: { onClose: () => void; onCreate
   }
 
   return (
-    <Drawer title="New Budget" onClose={onClose}>
+    <Modal title="New Budget" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="name">Name</Label>
@@ -330,6 +330,6 @@ function NewBudgetDrawer({ onClose, onCreated }: { onClose: () => void; onCreate
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

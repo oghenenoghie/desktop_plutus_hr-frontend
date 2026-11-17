@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -127,7 +127,7 @@ export default function LearningPage() {
       </Card>
 
       {creating ? (
-        <NewCourseDrawer
+        <NewCourseModal
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false);
@@ -139,7 +139,7 @@ export default function LearningPage() {
   );
 }
 
-function NewCourseDrawer({
+function NewCourseModal({
   onClose,
   onCreated,
 }: {
@@ -172,7 +172,7 @@ function NewCourseDrawer({
   }
 
   return (
-    <Drawer title="New Training Course" onClose={onClose}>
+    <Modal title="New Training Course" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="title">Title</Label>
@@ -222,6 +222,6 @@ function NewCourseDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

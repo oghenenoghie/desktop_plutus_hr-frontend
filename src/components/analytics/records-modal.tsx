@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { analyticsApi } from "@/lib/analytics/api";
@@ -45,7 +45,7 @@ export function DrillProvider({
     <DrillContext.Provider value={{ openRecords, canExport }}>
       {children}
       {open ? (
-        <RecordsDrawer
+        <RecordsModal
           dataset={open.dataset}
           title={open.title}
           query={query}
@@ -101,7 +101,7 @@ export function ExportButtons({
   );
 }
 
-function RecordsDrawer({
+function RecordsModal({
   dataset,
   title,
   query,
@@ -120,7 +120,7 @@ function RecordsDrawer({
   const pages = data ? Math.max(Math.ceil(data.total / data.page_size), 1) : 1;
 
   return (
-    <Drawer title={data?.title ?? title} onClose={onClose} size="lg">
+    <Modal title={data?.title ?? title} onClose={onClose} size="xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[12.5px] text-ink-soft">
           {data ? `${data.total.toLocaleString("en-NG")} record${data.total === 1 ? "" : "s"} for the filters on this page` : " "}
@@ -178,6 +178,6 @@ function RecordsDrawer({
           </div>
         </div>
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }

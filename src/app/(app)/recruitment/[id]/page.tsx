@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -139,7 +139,7 @@ export default function JobPostingDetailPage({ params }: { params: Promise<{ id:
           </Card>
 
           {addingCandidate ? (
-            <NewCandidateDrawer
+            <NewCandidateModal
               jobPostingId={id}
               onClose={() => setAddingCandidate(false)}
               onAdded={() => {
@@ -154,7 +154,7 @@ export default function JobPostingDetailPage({ params }: { params: Promise<{ id:
   );
 }
 
-function NewCandidateDrawer({
+function NewCandidateModal({
   jobPostingId,
   onClose,
   onAdded,
@@ -189,7 +189,7 @@ function NewCandidateDrawer({
   }
 
   return (
-    <Drawer title="New Candidate" onClose={onClose}>
+    <Modal title="New Candidate" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="full-name">Full Name</Label>
@@ -233,6 +233,6 @@ function NewCandidateDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -118,7 +118,7 @@ export default function RecurringInvoicesPage() {
       </Card>
 
       {creating ? (
-        <NewRecurringInvoiceDrawer
+        <NewRecurringInvoiceModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -130,7 +130,7 @@ export default function RecurringInvoicesPage() {
   );
 }
 
-function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewRecurringInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const customers = useApiResource(() => customersApi.list());
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
@@ -167,7 +167,7 @@ function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void
   }
 
   return (
-    <Drawer title="New Recurring Customer Invoice Template" onClose={onClose}>
+    <Modal title="New Recurring Customer Invoice Template" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="customer">Customer</Label>
@@ -245,6 +245,6 @@ function NewRecurringInvoiceDrawer({ onClose, onCreated }: { onClose: () => void
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

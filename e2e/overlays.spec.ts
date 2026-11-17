@@ -4,8 +4,8 @@ import { trackPageErrors } from "./support/dialogs";
 import { freshStore, installMockApi } from "./support/mock-api";
 
 // Overlays now share a stack so only the top one answers Escape; one
-// standing alone must still close on it. (A drawer alone is covered at the
-// end of the invoice spec.)
+// standing alone must still close on it. (The invoice form alone is covered at
+// the end of the invoice spec.)
 
 test("a confirmation dialog on its own still cancels on Escape", async ({ context, page }) => {
   const store = freshStore();

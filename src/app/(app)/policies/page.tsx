@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
@@ -61,7 +61,7 @@ export default function PoliciesPage() {
       ) : null}
 
       {creating ? (
-        <PolicyDrawer
+        <PolicyModal
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false);
@@ -71,7 +71,7 @@ export default function PoliciesPage() {
       ) : null}
 
       {editing ? (
-        <PolicyDrawer
+        <PolicyModal
           policy={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -84,7 +84,7 @@ export default function PoliciesPage() {
   );
 }
 
-function PolicyDrawer({
+function PolicyModal({
   policy,
   onClose,
   onSaved,
@@ -125,7 +125,7 @@ function PolicyDrawer({
   }
 
   return (
-    <Drawer title={policy ? "Edit Policy" : "New Policy"} onClose={onClose}>
+    <Modal title={policy ? "Edit Policy" : "New Policy"} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="title">Title</Label>
@@ -174,6 +174,6 @@ function PolicyDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

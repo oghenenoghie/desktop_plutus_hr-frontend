@@ -10,7 +10,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -104,7 +104,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
           />
 
           {creatingLogin ? (
-            <CreateLoginDrawer
+            <CreateLoginModal
               employee={employee.data}
               onClose={() => setCreatingLogin(false)}
               onCreated={(result) => {
@@ -150,7 +150,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   );
 }
 
-function CreateLoginDrawer({
+function CreateLoginModal({
   employee,
   onClose,
   onCreated,
@@ -178,7 +178,7 @@ function CreateLoginDrawer({
   }
 
   return (
-    <Drawer title={`Create Login — ${employee.full_name}`} onClose={onClose}>
+    <Modal title={`Create Login — ${employee.full_name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="login-email">Email</Label>
@@ -212,7 +212,7 @@ function CreateLoginDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -224,7 +224,7 @@ function LoginCredentialsDialog({
   onClose: () => void;
 }) {
   return (
-    <Drawer title="Login Created" onClose={onClose}>
+    <Modal title="Login Created" onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Share these sign-in details with <span className="font-bold text-ink">{login.email}</span> now — they
@@ -244,7 +244,7 @@ function LoginCredentialsDialog({
           <Button onClick={onClose}>Done</Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -469,7 +469,7 @@ function ChecklistTab({ employeeId }: { employeeId: string }) {
       ) : null}
 
       {creating ? (
-        <NewChecklistItemDrawer
+        <NewChecklistItemModal
           employeeId={employeeId}
           onClose={() => setCreating(false)}
           onCreated={() => {
@@ -482,7 +482,7 @@ function ChecklistTab({ employeeId }: { employeeId: string }) {
   );
 }
 
-function NewChecklistItemDrawer({
+function NewChecklistItemModal({
   employeeId,
   onClose,
   onCreated,
@@ -515,7 +515,7 @@ function NewChecklistItemDrawer({
   }
 
   return (
-    <Drawer title="New Checklist Item" onClose={onClose}>
+    <Modal title="New Checklist Item" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="checklistType">Type</Label>
@@ -554,7 +554,7 @@ function NewChecklistItemDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -611,7 +611,7 @@ function ProbationTab({ employeeId }: { employeeId: string }) {
       ) : null}
 
       {creating ? (
-        <NewProbationPeriodDrawer
+        <NewProbationPeriodModal
           employeeId={employeeId}
           onClose={() => setCreating(false)}
           onCreated={() => {
@@ -621,7 +621,7 @@ function ProbationTab({ employeeId }: { employeeId: string }) {
         />
       ) : null}
       {extending ? (
-        <ExtendProbationDrawer
+        <ExtendProbationModal
           period={extending}
           onClose={() => setExtending(null)}
           onExtended={() => {
@@ -631,7 +631,7 @@ function ProbationTab({ employeeId }: { employeeId: string }) {
         />
       ) : null}
       {deciding ? (
-        <DecideProbationDrawer
+        <DecideProbationModal
           period={deciding}
           onClose={() => setDeciding(null)}
           onDecided={() => {
@@ -644,7 +644,7 @@ function ProbationTab({ employeeId }: { employeeId: string }) {
   );
 }
 
-function NewProbationPeriodDrawer({
+function NewProbationPeriodModal({
   employeeId,
   onClose,
   onCreated,
@@ -672,7 +672,7 @@ function NewProbationPeriodDrawer({
   }
 
   return (
-    <Drawer title="New Probation Period" onClose={onClose}>
+    <Modal title="New Probation Period" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="startDate">Start Date</Label>
@@ -691,11 +691,11 @@ function NewProbationPeriodDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function ExtendProbationDrawer({
+function ExtendProbationModal({
   period,
   onClose,
   onExtended,
@@ -723,7 +723,7 @@ function ExtendProbationDrawer({
   }
 
   return (
-    <Drawer title="Extend Probation" onClose={onClose}>
+    <Modal title="Extend Probation" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="newEndDate">New End Date</Label>
@@ -748,11 +748,11 @@ function ExtendProbationDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function DecideProbationDrawer({
+function DecideProbationModal({
   period,
   onClose,
   onDecided,
@@ -780,7 +780,7 @@ function DecideProbationDrawer({
   }
 
   return (
-    <Drawer title="Decide Probation Outcome" onClose={onClose}>
+    <Modal title="Decide Probation Outcome" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="outcome">Outcome</Label>
@@ -802,7 +802,7 @@ function DecideProbationDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -866,7 +866,7 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
       ) : null}
 
       {creating ? (
-        <NewDocumentDrawer
+        <NewDocumentModal
           employeeId={employeeId}
           onClose={() => setCreating(false)}
           onCreated={() => {
@@ -885,7 +885,7 @@ const DOCUMENT_ACCEPT =
   "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
-function NewDocumentDrawer({
+function NewDocumentModal({
   employeeId,
   onClose,
   onCreated,
@@ -946,7 +946,7 @@ function NewDocumentDrawer({
   }
 
   return (
-    <Drawer title="Upload Document" onClose={onClose}>
+    <Modal title="Upload Document" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="documentSource">File</Label>
@@ -1017,6 +1017,6 @@ function NewDocumentDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

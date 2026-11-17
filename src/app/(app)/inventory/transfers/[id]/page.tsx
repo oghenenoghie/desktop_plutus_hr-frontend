@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -235,7 +235,7 @@ export default function StockTransferDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {receiving ? (
-        <ReceiveDrawer
+        <ReceiveModal
           transfer={doc}
           onClose={() => setReceiving(false)}
           onReceived={() => {
@@ -253,7 +253,7 @@ const QUANTITY = /^\d+(\.\d{1,4})?$/;
 
 // Confirms what arrived. Every line must be accounted for; anything short
 // of what was dispatched is written off from transit as a loss, with a reason.
-function ReceiveDrawer({
+function ReceiveModal({
   transfer,
   onClose,
   onReceived,
@@ -302,7 +302,7 @@ function ReceiveDrawer({
   }
 
   return (
-    <Drawer title={`Receive ${transfer.transfer_number}`} onClose={onClose}>
+    <Modal title={`Receive ${transfer.transfer_number}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Enter what arrived at {transfer.to_warehouse_code}, in each item&apos;s base unit. Anything short of what was
@@ -348,6 +348,6 @@ function ReceiveDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

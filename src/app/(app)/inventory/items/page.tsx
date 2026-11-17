@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -243,7 +243,7 @@ export default function InventoryItemsPage() {
         />
       ) : null}
       {editingUnits ? (
-        <ItemUnitsDrawer
+        <ItemUnitsModal
           item={editingUnits}
           units={units.data ?? []}
           onClose={() => setEditingUnits(null)}
@@ -263,7 +263,7 @@ interface ConversionRow {
   factor: string;
 }
 
-function ItemUnitsDrawer({
+function ItemUnitsModal({
   item,
   units,
   onClose,
@@ -307,7 +307,7 @@ function ItemUnitsDrawer({
   }
 
   return (
-    <Drawer title={`Units for ${item.sku}`} onClose={onClose}>
+    <Modal title={`Units for ${item.sku}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Stock is always held in the base unit, <span className="font-bold text-ink">{item.base_unit_code}</span>.
@@ -375,6 +375,6 @@ function ItemUnitsDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

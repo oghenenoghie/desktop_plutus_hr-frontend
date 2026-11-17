@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
@@ -156,7 +156,7 @@ export default function PermissionsPage() {
       {selected ? <MembershipPermissions membershipId={selected.id} role={selected.role} /> : null}
 
       {creating ? (
-        <NewUserDrawer
+        <NewUserModal
           onClose={() => setCreating(false)}
           onCreated={(membership) => {
             setCreating(false);
@@ -229,7 +229,7 @@ function ChangeRole({
 
 function RoleChangedDialog({ result, onClose }: { result: MembershipRoleUpdateOut; onClose: () => void }) {
   return (
-    <Drawer title="Role Updated" onClose={onClose}>
+    <Modal title="Role Updated" onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           <span className="font-bold text-ink">{result.email}</span> is now{" "}
@@ -242,11 +242,11 @@ function RoleChangedDialog({ result, onClose }: { result: MembershipRoleUpdateOu
           <Button onClick={onClose}>Done</Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }
 
-function NewUserDrawer({
+function NewUserModal({
   onClose,
   onCreated,
 }: {
@@ -273,7 +273,7 @@ function NewUserDrawer({
   }
 
   return (
-    <Drawer title="New User" onClose={onClose}>
+    <Modal title="New User" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="new-user-email">Email</Label>
@@ -317,7 +317,7 @@ function NewUserDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -329,7 +329,7 @@ function NewUserCredentialsDialog({
   onClose: () => void;
 }) {
   return (
-    <Drawer title="User Created" onClose={onClose}>
+    <Modal title="User Created" onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Share these sign-in details with <span className="font-bold text-ink">{membership.email}</span> now —
@@ -348,7 +348,7 @@ function NewUserCredentialsDialog({
           <Button onClick={onClose}>Done</Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }
 

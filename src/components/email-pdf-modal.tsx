@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
@@ -13,7 +13,7 @@ import { ApiError } from "@/lib/api/client";
 // field pre-filled with the counterparty's contact_email where one exists,
 // editable/required where it doesn't (financial statements have no
 // natural counterparty to default to).
-export function EmailPdfDrawer({
+export function EmailPdfModal({
   title,
   description,
   defaultTo,
@@ -49,7 +49,7 @@ export function EmailPdfDrawer({
   }
 
   return (
-    <Drawer title={title} onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         {description ? (
           <p className="text-[13px] text-ink-soft">{description}</p>
@@ -73,6 +73,6 @@ export function EmailPdfDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

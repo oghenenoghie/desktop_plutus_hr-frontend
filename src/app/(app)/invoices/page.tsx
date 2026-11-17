@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
+import { EmailPdfModal } from "@/components/email-pdf-modal";
 import { AccountCreateModal } from "@/components/accounting/account-create-modal";
 import { CustomerCreateModal } from "@/components/accounting/customer-create-modal";
 import { PageHeader } from "@/components/layout/page-header";
@@ -16,7 +16,7 @@ import {
   ErrorState,
   LoadingState,
 } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -225,7 +225,7 @@ export default function InvoicesPage() {
       </Card>
 
       {emailingInvoice ? (
-        <EmailPdfDrawer
+        <EmailPdfModal
           title={`Email Customer Invoice ${emailingInvoice.invoice_number}`}
           description={`Sends customer invoice ${emailingInvoice.invoice_number} (${formatMoney(invoiceTotal(emailingInvoice))}) as a PDF attachment.`}
           defaultTo={
@@ -237,7 +237,7 @@ export default function InvoicesPage() {
       ) : null}
 
       {creating ? (
-        <NewInvoiceDrawer
+        <NewInvoiceModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -247,7 +247,7 @@ export default function InvoicesPage() {
       ) : null}
 
       {creditingInvoice ? (
-        <CreditNoteDrawer
+        <CreditNoteModal
           invoice={creditingInvoice}
           onClose={() => setCreditingInvoice(null)}
           onIssued={() => {
@@ -260,7 +260,7 @@ export default function InvoicesPage() {
   );
 }
 
-function CreditNoteDrawer({
+function CreditNoteModal({
   invoice,
   onClose,
   onIssued,
@@ -312,7 +312,7 @@ function CreditNoteDrawer({
   }
 
   return (
-    <Drawer title={`Credit Note — ${invoice.invoice_number}`} onClose={onClose}>
+    <Modal title={`Credit Note — ${invoice.invoice_number}`} onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Invoice total {formatMoney(invoiceTotal(invoice))}, already credited{" "}
@@ -399,11 +399,11 @@ function CreditNoteDrawer({
           </div>
         )}
       </div>
-    </Drawer>
+    </Modal>
   );
 }
 
-function NewInvoiceDrawer({
+function NewInvoiceModal({
   onClose,
   onCreated,
 }: {
@@ -495,7 +495,7 @@ function NewInvoiceDrawer({
   }
 
   return (
-    <Drawer title="New Customer Invoice" onClose={onClose}>
+    <Modal title="New Customer Invoice" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <div className="mb-1 flex items-center justify-between gap-3">
@@ -705,6 +705,6 @@ function NewInvoiceDrawer({
           }}
         />
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }

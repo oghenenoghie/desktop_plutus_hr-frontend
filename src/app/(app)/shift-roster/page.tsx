@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -79,7 +79,7 @@ export default function ShiftRosterPage() {
       ) : null}
 
       {assigning ? (
-        <AssignRosterDrawer
+        <AssignRosterModal
           employeeId={employeeId}
           onClose={() => setAssigning(false)}
           onAssigned={() => {
@@ -92,7 +92,7 @@ export default function ShiftRosterPage() {
   );
 }
 
-function AssignRosterDrawer({
+function AssignRosterModal({
   employeeId,
   onClose,
   onAssigned,
@@ -127,7 +127,7 @@ function AssignRosterDrawer({
   }
 
   return (
-    <Drawer title="Assign Shift" onClose={onClose}>
+    <Modal title="Assign Shift" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="shift">Shift</Label>
@@ -163,6 +163,6 @@ function AssignRosterDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

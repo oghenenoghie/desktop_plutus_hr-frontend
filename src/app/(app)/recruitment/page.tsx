@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/badge";
@@ -167,7 +167,7 @@ export default function RecruitmentPage() {
       </Card>
 
       {creating ? (
-        <NewJobPostingDrawer
+        <NewJobPostingModal
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false);
@@ -179,7 +179,7 @@ export default function RecruitmentPage() {
   );
 }
 
-function NewJobPostingDrawer({
+function NewJobPostingModal({
   onClose,
   onCreated,
 }: {
@@ -213,7 +213,7 @@ function NewJobPostingDrawer({
   }
 
   return (
-    <Drawer title="New Job Posting" onClose={onClose}>
+    <Modal title="New Job Posting" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="title">Title</Label>
@@ -264,6 +264,6 @@ function NewJobPostingDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

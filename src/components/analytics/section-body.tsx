@@ -3,7 +3,7 @@
 import { ListTree } from "lucide-react";
 
 import { MetaPanel } from "@/components/analytics/analytics-shell";
-import { useDrill } from "@/components/analytics/records-drawer";
+import { useDrill } from "@/components/analytics/records-modal";
 import { KpiCard, KpiGrid, KpiSkeleton } from "@/components/analytics/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";

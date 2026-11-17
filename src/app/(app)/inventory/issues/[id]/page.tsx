@@ -8,7 +8,7 @@ import {
   DocumentJournals,
   DocumentMovements,
   Field,
-  ReasonDrawer,
+  ReasonModal,
   errorText,
 } from "@/components/inventory/document-ui";
 import { InventoryError } from "@/components/inventory/inventory-ui";
@@ -246,7 +246,7 @@ export default function StockIssueDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       {reversing ? (
-        <ReasonDrawer
+        <ReasonModal
           title={`Reverse ${doc.issue_number}`}
           explanation="Reversing puts the issued stock back into the warehouse at the value it left at — use it for an issue posted in error or stock returned unused."
           actionLabel="Reverse issue"

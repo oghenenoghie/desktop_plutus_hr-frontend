@@ -174,6 +174,7 @@ export default function StockIssueDetailPage({ params }: { params: Promise<{ id:
               {doc.warehouse_code} — {doc.warehouse_name}
             </Field>
             <Field label="Department">{doc.department_name ?? "—"}</Field>
+            <Field label="Branch">{doc.branch_name ?? "—"}</Field>
             <Field label="Requested by">{doc.requested_by_name ?? "—"}</Field>
             {doc.value_minor !== null ? <Field label="Value issued">{formatMoney(doc.value_minor)}</Field> : null}
             <Field label="Posted">{formatDateTime(doc.posted_at)}</Field>

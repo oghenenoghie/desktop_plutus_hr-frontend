@@ -1413,6 +1413,58 @@ export const MOCK_FIXTURES = {
     },
   ],
   "/fixed-assets/fa-04/assignments": [],
+  "/invoices/vat-options": {
+    country_code: "NG",
+    options: [
+      { treatment: "standard", label: "VAT 7.5%", rate_ppm: 75_000 },
+      { treatment: "exempt", label: "VAT exempt", rate_ppm: 0 },
+      { treatment: "zero_rated", label: "Zero-rated", rate_ppm: 0 },
+      { treatment: "other", label: "Other rate", rate_ppm: null },
+    ],
+  },
+  "/bills/vat-options": {
+    country_code: "NG",
+    options: [
+      { treatment: "standard", label: "VAT 7.5%", rate_ppm: 75_000 },
+      { treatment: "exempt", label: "VAT exempt", rate_ppm: 0 },
+      { treatment: "zero_rated", label: "Zero-rated", rate_ppm: 0 },
+      { treatment: "other", label: "Other rate", rate_ppm: null },
+    ],
+  },
+  "/financial-statements/vat-report": {
+    year: 2026,
+    month: 11,
+    period_start: "2026-11-01",
+    period_end: "2026-11-30",
+    currency: "NGN",
+    country_code: "NG",
+    output_groups: [
+      { label: "VAT 7.5%", treatment: "standard", rate_ppm: 75_000, document_count: 2, net_minor: 2_400_000_00, vat_minor: 180_000_00 },
+      { label: "VAT exempt", treatment: "exempt", rate_ppm: 0, document_count: 1, net_minor: 300_000_00, vat_minor: 0 },
+    ],
+    sales_net_minor: 2_700_000_00,
+    vat_charged_minor: 180_000_00,
+    credit_note_count: 0,
+    credit_note_net_minor: 0,
+    credit_note_vat_minor: 0,
+    output_vat_minor: 180_000_00,
+    input_groups: [
+      { label: "VAT 7.5%", treatment: "standard", rate_ppm: 75_000, document_count: 1, net_minor: 800_000_00, vat_minor: 60_000_00 },
+    ],
+    purchases_net_minor: 800_000_00,
+    input_vat_minor: 60_000_00,
+    net_vat_minor: 120_000_00,
+    position: "payable",
+    draft_invoice_count: 0,
+    draft_bill_count: 0,
+    documents: [
+      { kind: "invoice", id: "inv-01", number: "INV-1001", date: "2026-11-03", party_name: "Zenith Retail Ltd", rate_label: "VAT 7.5%", net_minor: 1_500_000_00, vat_minor: 112_500_00 },
+      { kind: "invoice", id: "inv-02", number: "INV-1002", date: "2026-11-07", party_name: "Lekki Foods", rate_label: "VAT 7.5%", net_minor: 900_000_00, vat_minor: 67_500_00 },
+      { kind: "invoice", id: "inv-03", number: "INV-1003", date: "2026-11-09", party_name: "Kano Clinic", rate_label: "VAT exempt", net_minor: 300_000_00, vat_minor: 0 },
+      { kind: "bill", id: "bill-01", number: "ACME-554", date: "2026-11-05", party_name: "Acme Supplies", rate_label: "VAT 7.5%", net_minor: 800_000_00, vat_minor: 60_000_00 },
+    ],
+    generated_at: "2026-11-17T09:00:00Z",
+  },
   "/financial-statements/balance-sheet": {
     as_of: null,
     assets: [
@@ -1934,6 +1986,7 @@ export const MOCK_FIXTURES = {
     },
   ],
   "/inventory/issues/departments": [{ id: "dept-01", name: "Operations" }],
+  "/inventory/issues/branches": [{ id: "branch-01", name: "Abuja Branch" }],
   "/inventory/issues": [
     {
       id: "iiss-01",
@@ -1943,6 +1996,8 @@ export const MOCK_FIXTURES = {
       warehouse_name: "Ikeja main store",
       department_id: "dept-01",
       department_name: "Operations",
+      branch_id: null,
+      branch_name: null,
       requested_by_employee_id: null,
       requested_by_name: "Adaeze Okafor",
       issue_date: "2026-10-11",

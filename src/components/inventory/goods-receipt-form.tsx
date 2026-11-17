@@ -51,7 +51,8 @@ function draftsFrom(po: PurchaseOrder, receipt?: GoodsReceipt): Record<string, L
   return drafts;
 }
 
-// Records what arrived against an issued purchase order. Stock moves only
+// Records what arrived against a purchase order (approved, issued or partly
+// received; receiving against an approved one issues it). Stock moves only
 // when the receipt is posted, so the main button saves and posts in one go
 // ("Receive into stock"); "Save draft" keeps a receipt that still needs
 // checking out of stock until it's posted from its own page.

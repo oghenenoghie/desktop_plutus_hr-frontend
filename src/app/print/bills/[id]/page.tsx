@@ -67,10 +67,10 @@ export default function PrintBillPage({ params }: { params: Promise<{ id: string
                 <td className={printTd}>{account ? accountLabel(account) : data.expense_account_code}</td>
                 <td className={printTdRight}>{formatMoney(data.amount_minor)}</td>
               </tr>
-              {data.vat_minor > 0 ? (
+              {data.vat_minor > 0 || data.vat_treatment ? (
                 <tr>
                   <td className={printTd} colSpan={2}>
-                    VAT
+                    {data.vat_rate_name ?? "VAT"}
                   </td>
                   <td className={printTdRight}>{formatMoney(data.vat_minor)}</td>
                 </tr>

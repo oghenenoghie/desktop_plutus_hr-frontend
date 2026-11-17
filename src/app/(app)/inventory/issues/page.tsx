@@ -15,7 +15,7 @@ import { stockIssuesApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { canManageInventory, canRequestStock, isRequesterOnly, statusLabel } from "@/lib/inventory";
+import { canManageInventory, canRequestStock, isRequesterOnly, issuedTo, statusLabel } from "@/lib/inventory";
 import type { StockIssueStatus } from "@/lib/types";
 
 const STATUSES: StockIssueStatus[] = [
@@ -77,7 +77,7 @@ export default function StockIssuesPage() {
                 <tr>
                   <Th>Number</Th>
                   <Th>Date</Th>
-                  <Th>Department</Th>
+                  <Th>Issued to</Th>
                   <Th>Requested by</Th>
                   <Th>Purpose</Th>
                   <Th>Warehouse</Th>
@@ -94,7 +94,7 @@ export default function StockIssuesPage() {
                       </Link>
                     </Td>
                     <Td>{formatDate(issue.issue_date)}</Td>
-                    <Td>{issue.department_name ?? "—"}</Td>
+                    <Td>{issuedTo(issue)}</Td>
                     <Td>{issue.requested_by_name ?? "—"}</Td>
                     <Td>{issue.purpose}</Td>
                     <Td>{issue.warehouse_code}</Td>

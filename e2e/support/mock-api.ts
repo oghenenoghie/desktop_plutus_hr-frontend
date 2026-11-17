@@ -265,7 +265,7 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
     }
     if (method === "GET" && path === "/invoices") return json(200, store.invoices);
     if (method === "GET" && path === "/invoices/next-number") return json(200, { invoice_number: "INV-0001" });
-    if (method === "GET" && path === "/invoices/vat-options") {
+    if (method === "GET" && (path === "/invoices/vat-options" || path === "/bills/vat-options")) {
       return json(200, {
         country_code: "NG",
         options: [

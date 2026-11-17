@@ -55,6 +55,7 @@ export interface NavItem {
     | "calendar"
     | "publicHolidays"
     | "balanceSheet"
+    | "vatReport"
     | "security"
     | "inventory"
     | "inventoryItems"
@@ -497,6 +498,12 @@ export const NAV_GROUPS: NavGroup[] = [
             href: "/balance-sheet",
             label: "Balance Sheet",
             icon: "balanceSheet",
+            roles: ["admin", "payroll_manager", "accountant", "auditor"],
+          },
+          {
+            href: "/vat-report",
+            label: "VAT Report",
+            icon: "vatReport",
             roles: ["admin", "payroll_manager", "accountant", "auditor"],
           },
           {

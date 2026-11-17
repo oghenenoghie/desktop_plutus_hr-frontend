@@ -5,6 +5,7 @@ import { Fragment, useState } from "react";
 
 import { ApprovalHistoryPanel } from "@/components/approval-history-panel";
 import { AccountCreateModal } from "@/components/accounting/account-create-modal";
+import { VatFields, useVatChoice, vatBody } from "@/components/accounting/vat-fields";
 import { VendorCreateModal } from "@/components/accounting/vendor-create-modal";
 import { EmailPdfModal } from "@/components/email-pdf-modal";
 import { PageHeader } from "@/components/layout/page-header";
@@ -173,7 +174,7 @@ export default function BillsPage() {
                       {bill.vat_minor > 0 || bill.wht_amount_minor > 0 ? (
                         <div className="text-[11px] text-ink-soft">
                           {bill.vat_minor > 0
-                            ? `VAT ${formatMoney(bill.vat_minor)}`
+                            ? `${bill.vat_rate_name ?? "VAT"} ${formatMoney(bill.vat_minor)}`
                             : ""}
                           {bill.vat_minor > 0 && bill.wht_amount_minor > 0
                             ? " · "
@@ -199,7 +200,7 @@ export default function BillsPage() {
                               confirmMessage={
                                 bill.goods_receipt_id
                                   ? `This clears the goods receipt's accrual, posts any price difference to the expense account, and records ${formatMoney(bill.amount_minor)} as payable to "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
-                                  : `This posts ${formatMoney(bill.amount_minor)} as an expense and a payable against "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
+                                  : `This posts ${formatMoney(bill.amount_minor)} as an expense${bill.vat_minor ? ` and ${formatMoney(bill.vat_minor)} as input VAT to set against VAT owed` : ""}, and ${formatMoney(bill.amount_minor + bill.vat_minor)} as a payable against "${vendorNameById.get(bill.vendor_id) ?? "this vendor"}".`
                               }
                               confirmLabel="Approve"
                             />
@@ -319,7 +320,10 @@ function NewBillModal({
   const [dueDate, setDueDate] = useState("");
   const [expenseAccountCode, setExpenseAccountCode] = useState("");
   const [amount, setAmount] = useState("");
-  const [vat, setVat] = useState("");
+  // The VAT the vendor charged: their country's standard rate first, as on
+  // an invoice. Recorded as input VAT the VAT report sets against output VAT.
+  const vat = useVatChoice(() => billsApi.vatOptions());
+  const netMinor = toMinorUnits(amount);
   const [whtCategory, setWhtCategory] = useState<"" | "goods" | "services">("");
   const [description, setDescription] = useState("");
   const [goodsReceiptId, setGoodsReceiptId] = useState("");
@@ -351,8 +355,8 @@ function NewBillModal({
         bill_date: billDate,
         due_date: dueDate,
         expense_account_code: expenseAccountCode,
-        amount_minor: toMinorUnits(amount),
-        vat_minor: vat ? toMinorUnits(vat) : 0,
+        amount_minor: netMinor,
+        ...vatBody(vat),
         wht_category: whtCategory || null,
         description: description || null,
         goods_receipt_id: goodsReceiptId || null,
@@ -498,7 +502,7 @@ function NewBillModal({
           </Select>
         </div>
         <div>
-          <Label htmlFor="amount">Amount ({currencyLabel()})</Label>
+          <Label htmlFor="amount">Amount before VAT ({currencyLabel()})</Label>
           <Input
             id="amount"
             value={amount}
@@ -507,31 +511,26 @@ function NewBillModal({
             required
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="vat">VAT ({currencyLabel()})</Label>
-            <Input
-              id="vat"
-              value={vat}
-              onChange={(event) => setVat(event.target.value)}
-              inputMode="decimal"
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <Label htmlFor="whtCategory">WHT Category</Label>
-            <Select
-              id="whtCategory"
-              value={whtCategory}
-              onChange={(event) =>
-                setWhtCategory(event.target.value as "" | "goods" | "services")
-              }
-            >
-              <option value="">None</option>
-              <option value="goods">Goods</option>
-              <option value="services">Services</option>
-            </Select>
-          </div>
+        <VatFields
+          choice={vat}
+          netMinor={netMinor}
+          totalLabel="Bill total"
+          otherHint="For a vendor charging another country's VAT or a special rate. The name is printed on the bill."
+        />
+        <div>
+          <Label htmlFor="whtCategory">WHT Category</Label>
+          <Select
+            id="whtCategory"
+            value={whtCategory}
+            onChange={(event) =>
+              setWhtCategory(event.target.value as "" | "goods" | "services")
+            }
+          >
+            <option value="">None</option>
+            <option value="goods">Goods</option>
+            <option value="services">Services</option>
+          </Select>
+          <p className="mt-1 text-[11px] text-ink-soft">Withholding tax is worked out on the amount before VAT.</p>
         </div>
         <div>
           <Label htmlFor="description">Description</Label>

@@ -134,3 +134,9 @@ export function todayInLagos(): string {
 export function isValidQuantityInput(value: string): boolean {
   return /^\d+(\.\d{1,4})?$/.test(value.trim()) && Number(value) > 0;
 }
+
+// Who a stock issue went to, as a list shows it: "Finance · Abuja Branch",
+// either one alone, or a dash.
+export function issuedTo(issue: { department_name: string | null; branch_name: string | null }): string {
+  return [issue.department_name, issue.branch_name].filter(Boolean).join(" · ") || "—";
+}

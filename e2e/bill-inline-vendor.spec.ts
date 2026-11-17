@@ -17,7 +17,6 @@ const BILL_FIELDS = {
   "#billNumber": "VB-77",
   "#billDate": "2026-11-01",
   "#dueDate": "2026-12-01",
-  "#vat": "37.5",
   "#description": "Stationery delivery",
 };
 
@@ -35,6 +34,8 @@ test.beforeEach(async ({ context, page }) => {
   for (const [selector, value] of Object.entries(BILL_FIELDS)) await page.fill(selector, value);
   await page.selectOption("#expenseAccount", "5000");
   await page.selectOption("#whtCategory", "goods");
+  // VAT is chosen from the same dropdown as an invoice's.
+  await page.selectOption("#vat", "standard");
 });
 
 test.afterEach(() => errors.expectNone());
@@ -59,6 +60,7 @@ test("a new vendor is selected, the goods receipt cleared, and the bill saves wi
   await expect(page.locator("#amount")).toHaveValue("500");
   await expect(page.locator("#expenseAccount")).toHaveValue("5000");
   await expect(page.locator("#whtCategory")).toHaveValue("goods");
+  await expect(page.locator("#vat")).toHaveValue("standard");
 
   await page.getByRole("button", { name: "Create Vendor Bill" }).click();
   await expect(billForm(page)).toBeHidden();
@@ -71,7 +73,9 @@ test("a new vendor is selected, the goods receipt cleared, and the bill saves wi
     due_date: "2026-12-01",
     expense_account_code: "5000",
     amount_minor: 50000,
-    vat_minor: 3750,
+    vat_treatment: "standard",
+    vat_rate_name: null,
+    vat_rate_ppm: null,
     wht_category: "goods",
     description: "Stationery delivery",
     goods_receipt_id: null,

@@ -121,6 +121,8 @@ import type {
   Invoice,
   InvoiceCreateBody,
   VatOptions,
+  VatReport,
+  IssueBranch,
   IssueDepartment,
   JobGrade,
   JobGradeCreateBody,
@@ -672,6 +674,7 @@ export const billsApi = {
       method: "POST",
       body: { to: to || null },
     }),
+  vatOptions: () => apiFetch<VatOptions>("/bills/vat-options"),
 };
 
 // --- customers ---
@@ -711,6 +714,18 @@ export const invoicesApi = {
 // --- financial statements ---
 
 export const financialStatementsApi = {
+  // month as "YYYY-MM"; the API defaults to this month.
+  vatReport: (month: string) => {
+    const [year, mm] = month.split("-");
+    return apiFetch<VatReport>(`/financial-statements/vat-report?year=${Number(year)}&month=${Number(mm)}`);
+  },
+  downloadVatReportPdf: (month: string) => {
+    const [year, mm] = month.split("-");
+    return downloadAuthenticatedFile(
+      `/financial-statements/vat-report/pdf?year=${Number(year)}&month=${Number(mm)}`,
+      `vat-report-${month}.pdf`,
+    );
+  },
   balanceSheet: (asOf?: string) => {
     const qs = asOf ? `?as_of=${asOf}` : "";
     return apiFetch<BalanceSheet>(`/financial-statements/balance-sheet${qs}`);
@@ -1841,6 +1856,7 @@ export const goodsReceiptsApi = {
 export const stockIssuesApi = {
   ...documentActions<StockIssue>("/inventory/issues"),
   departments: () => apiFetch<IssueDepartment[]>("/inventory/issues/departments"),
+  branches: () => apiFetch<IssueBranch[]>("/inventory/issues/branches"),
   list: (params?: { status?: StockIssueStatus | ""; warehouseId?: string }) =>
     apiFetch<StockIssue[]>(
       withQuery("/inventory/issues", { status: params?.status, warehouse_id: params?.warehouseId }),

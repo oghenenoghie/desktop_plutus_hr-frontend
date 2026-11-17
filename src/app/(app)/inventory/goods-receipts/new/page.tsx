@@ -7,16 +7,21 @@ import { Suspense } from "react";
 import { GoodsReceiptForm } from "@/components/inventory/goods-receipt-form";
 import { InventoryError } from "@/components/inventory/inventory-ui";
 import { PageHeader } from "@/components/layout/page-header";
-import { StatusBadge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, LoadingState } from "@/components/ui/data-state";
-import { Table, Td, Th, Thead } from "@/components/ui/table";
+import { Label } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { purchaseOrdersApi } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import { canManageInventory } from "@/lib/inventory";
+import { canManageInventory, statusLabel } from "@/lib/inventory";
+import type { PurchaseOrder, PurchaseOrderStatus } from "@/lib/types";
+
+// Orders whose goods can still arrive: approved (the first delivery issues
+// the order on the way), issued, or partly received.
+const PENDING: PurchaseOrderStatus[] = ["approved", "issued", "partially_received"];
 
 export default function NewGoodsReceiptPage() {
   return (
@@ -27,15 +32,70 @@ export default function NewGoodsReceiptPage() {
 }
 
 function NewGoodsReceipt() {
-  const poId = useSearchParams().get("po");
+  const router = useRouter();
+  const poId = useSearchParams().get("po") ?? "";
   return (
     <div>
       <PageHeader
         title="Receive Goods"
-        subtitle="Receive into stock adds the accepted goods to stock on hand now. Save a draft instead if the delivery still needs checking."
+        subtitle="Select the purchase order the goods arrived against. Receive into stock adds the accepted goods to stock on hand now; save a draft instead if the delivery still needs checking."
       />
-      {poId ? <ReceiveAgainst poId={poId} /> : <ChooseOrder />}
+      <div className="flex flex-col gap-6">
+        <ChooseOrder
+          selected={poId}
+          onSelect={(id) =>
+            router.replace(id ? `/inventory/goods-receipts/new?po=${id}` : "/inventory/goods-receipts/new")
+          }
+        />
+        {poId ? <ReceiveAgainst key={poId} poId={poId} /> : null}
+      </div>
     </div>
+  );
+}
+
+function orderLabel(order: PurchaseOrder): string {
+  const expected = order.expected_date ? ` · expected ${formatDate(order.expected_date)}` : "";
+  return `${order.po_number} · ${order.vendor_name} · ${statusLabel(order.status)}${expected}`;
+}
+
+// The dropdown of every purchase order still waiting for goods.
+function ChooseOrder({ selected, onSelect }: { selected: string; onSelect: (id: string) => void }) {
+  const { user } = useAuth();
+  const pending = useApiResource(() =>
+    Promise.all(PENDING.map((status) => purchaseOrdersApi.list({ status }))).then((lists) =>
+      lists.flat().sort((a, b) => a.po_number.localeCompare(b.po_number)),
+    ),
+  );
+  if (pending.loading) return <LoadingState />;
+  if (pending.error) return <InventoryError message={pending.error} canManage={canManageInventory(user?.role)} />;
+  const orders = pending.data ?? [];
+  return (
+    <Card>
+      <CardHeader
+        title="Purchase order"
+        subtitle="Every approved order whose goods haven't all arrived is listed"
+      />
+      {orders.length === 0 && !selected ? (
+        <div className="pb-6 text-center">
+          <EmptyState label="No purchase orders are waiting for goods. Approve a purchase order first, then receive its goods here." />
+          <Link href="/inventory/purchase-orders" className="text-[13px] font-bold text-primary hover:underline">
+            Go to Purchase Orders
+          </Link>
+        </div>
+      ) : (
+        <div className="max-w-xl">
+          <Label htmlFor="receipt-po">Select purchase order</Label>
+          <Select id="receipt-po" value={selected} onChange={(event) => onSelect(event.target.value)}>
+            <option value="">Select purchase order</option>
+            {orders.map((order) => (
+              <option key={order.id} value={order.id}>
+                {orderLabel(order)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -47,6 +107,15 @@ function ReceiveAgainst({ poId }: { poId: string }) {
   if (order.loading) return <LoadingState />;
   if (order.error) return <InventoryError message={order.error} canManage={canManageInventory(user?.role)} />;
   if (!order.data) return null;
+  if (!PENDING.includes(order.data.status)) {
+    return (
+      <Card>
+        <EmptyState
+          label={`${order.data.po_number} is ${statusLabel(order.data.status).toLowerCase()}: there's nothing to receive against it.`}
+        />
+      </Card>
+    );
+  }
   return (
     <GoodsReceiptForm
       po={order.data}
@@ -61,53 +130,5 @@ function ReceiveAgainst({ poId }: { poId: string }) {
         router.push(`/inventory/goods-receipts/${saved.id}`);
       }}
     />
-  );
-}
-
-// Without ?po=, list the orders that can still be received against.
-function ChooseOrder() {
-  const { user } = useAuth();
-  const issued = useApiResource(() => purchaseOrdersApi.list({ status: "issued" }));
-  const partial = useApiResource(() => purchaseOrdersApi.list({ status: "partially_received" }));
-  if (issued.loading || partial.loading) return <LoadingState />;
-  const error = issued.error ?? partial.error;
-  if (error) return <InventoryError message={error} canManage={canManageInventory(user?.role)} />;
-  const orders = [...(issued.data ?? []), ...(partial.data ?? [])].sort((a, b) =>
-    a.po_number.localeCompare(b.po_number),
-  );
-  return (
-    <Card>
-      <CardHeader title="Choose the purchase order" subtitle="Only issued orders with something still to receive are listed" />
-      {orders.length === 0 ? (
-        <EmptyState label="No issued purchase orders are waiting for delivery." />
-      ) : (
-        <Table>
-          <Thead>
-            <tr>
-              <Th>Order</Th>
-              <Th>Vendor</Th>
-              <Th>Expected</Th>
-              <Th>Status</Th>
-            </tr>
-          </Thead>
-          <tbody>
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <Td>
-                  <Link href={`/inventory/goods-receipts/new?po=${order.id}`} className="font-bold text-primary hover:underline">
-                    {order.po_number}
-                  </Link>
-                </Td>
-                <Td>{order.vendor_name}</Td>
-                <Td>{formatDate(order.expected_date)}</Td>
-                <Td>
-                  <StatusBadge status={order.status} />
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-    </Card>
   );
 }

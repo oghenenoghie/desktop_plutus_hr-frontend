@@ -64,7 +64,9 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
   }
 
   const nothingReceived = (po.lines ?? []).every((line) => Number(line.received_quantity_base) === 0);
-  const receivable = po.status === "issued" || po.status === "partially_received";
+  // An approved order can be received straight away: the first delivery
+  // issues it on the way.
+  const receivable = ["approved", "issued", "partially_received"].includes(po.status);
 
   return (
     <div>
@@ -100,7 +102,10 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                 </>
               ) : null}
               {po.status === "approved" ? (
-                <Button onClick={() => act(`${po.po_number} issued to the vendor`, () => purchaseOrdersApi.issue(po.id))}>
+                <Button
+                  variant="secondary"
+                  onClick={() => act(`${po.po_number} issued to the vendor`, () => purchaseOrdersApi.issue(po.id))}
+                >
                   Issue to vendor
                 </Button>
               ) : null}

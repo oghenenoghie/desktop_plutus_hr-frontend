@@ -1322,7 +1322,13 @@ export interface Bill {
   due_date: string;
   expense_account_code: string;
   amount_minor: number;
+  // How VAT applies, as on an invoice (absent from an older server, and
+  // null on a bill whose VAT was typed in as an amount).
+  vat_treatment?: VatTreatment | null;
+  vat_rate_name?: string | null;
+  vat_rate_ppm?: number;
   vat_minor: number;
+  total_minor?: number; // amount plus VAT
   wht_category: WhtCategoryCode | null;
   wht_amount_minor: number;
   net_payable_minor: number;
@@ -1341,6 +1347,9 @@ export interface BillCreateBody {
   due_date: string;
   expense_account_code: string;
   amount_minor: number;
+  vat_treatment?: VatTreatment | null;
+  vat_rate_name?: string | null;
+  vat_rate_ppm?: number | null;
   vat_minor?: number;
   wht_category?: WhtCategoryCode | null;
   description?: string | null;
@@ -1414,6 +1423,54 @@ export interface VatOption {
 export interface VatOptions {
   country_code: string;
   options: VatOption[];
+}
+
+// GET /financial-statements/vat-report: a month's output VAT (customer
+// invoices sent, less credit notes) against input VAT (vendor bills
+// approved), and the net owed or carried forward.
+export interface VatReportGroup {
+  label: string;
+  treatment: VatTreatment | null;
+  rate_ppm: number;
+  document_count: number;
+  net_minor: number;
+  vat_minor: number;
+}
+
+export interface VatReportDocument {
+  kind: "invoice" | "credit_note" | "bill";
+  id: string;
+  number: string;
+  date: string;
+  party_name: string;
+  rate_label: string;
+  net_minor: number; // negative on a credit note
+  vat_minor: number;
+}
+
+export interface VatReport {
+  year: number;
+  month: number;
+  period_start: string;
+  period_end: string;
+  currency: string;
+  country_code: string;
+  output_groups: VatReportGroup[];
+  sales_net_minor: number;
+  vat_charged_minor: number;
+  credit_note_count: number;
+  credit_note_net_minor: number;
+  credit_note_vat_minor: number;
+  output_vat_minor: number;
+  input_groups: VatReportGroup[];
+  purchases_net_minor: number;
+  input_vat_minor: number;
+  net_vat_minor: number;
+  position: "payable" | "refundable" | "nil";
+  draft_invoice_count: number;
+  draft_bill_count: number;
+  documents: VatReportDocument[];
+  generated_at: string;
 }
 
 export interface InvoiceCreateBody {
@@ -3248,6 +3305,7 @@ export interface StockLine {
 export interface StockIssueBody {
   warehouse_id: string;
   department_id?: string | null;
+  branch_id?: string | null;
   requested_by_employee_id?: string | null;
   issue_date: string;
   purpose: string;
@@ -3263,6 +3321,8 @@ export interface StockIssue {
   warehouse_name: string;
   department_id: string | null;
   department_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
   requested_by_employee_id: string | null;
   requested_by_name: string | null;
   issue_date: string;
@@ -3282,6 +3342,11 @@ export interface StockIssue {
 }
 
 export interface IssueDepartment {
+  id: string;
+  name: string;
+}
+
+export interface IssueBranch {
   id: string;
   name: string;
 }

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { EmailPdfModal } from "@/components/email-pdf-modal";
 import { AccountCreateModal } from "@/components/accounting/account-create-modal";
 import { CustomerCreateModal } from "@/components/accounting/customer-create-modal";
+import { VatFields, useVatChoice, vatBody } from "@/components/accounting/vat-fields";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { withCreated } from "@/lib/records";
-import type { ChartAccount, Customer, Invoice, VatTreatment } from "@/lib/types";
+import type { ChartAccount, Customer, Invoice } from "@/lib/types";
 
 // What the customer owes: net plus VAT (an older server sends only the net).
 function invoiceTotal(invoice: Invoice): number {
@@ -429,24 +430,10 @@ function NewInvoiceModal({
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [postNow, setPostNow] = useState(true);
-  // VAT: the options for this organisation's country, the standard rate
-  // first. "" until chosen means the first option.
-  const vatOptions = useApiResource(() => invoicesApi.vatOptions());
+  // VAT: the options for this organisation's country, the standard rate first.
+  const vat = useVatChoice(() => invoicesApi.vatOptions());
   const organisation = useApiResource(() => organisationApi.get());
-  const [vatTreatment, setVatTreatment] = useState<VatTreatment | "">("");
-  const [otherRateName, setOtherRateName] = useState("");
-  const [otherRatePercent, setOtherRatePercent] = useState("");
-  const chosenVat = vatTreatment || vatOptions.data?.options[0]?.treatment || "";
-  const chosenOption = vatOptions.data?.options.find((option) => option.treatment === chosenVat);
-  const ratePpm =
-    chosenVat === "other"
-      ? otherRatePercent.trim() === ""
-        ? null
-        : Math.round(Number(otherRatePercent) * 10_000)
-      : (chosenOption?.rate_ppm ?? 0);
   const netMinor = toMinorUnits(amount);
-  // A preview only: the server works out the VAT (half up) and stores it.
-  const vatMinor = ratePpm === null ? 0 : Math.floor((netMinor * ratePpm + 500_000) / 1_000_000);
   const [submitting, setSubmitting] = useState(false);
 
   const revenueAccounts = withCreated(accounts.data, createdAccounts)
@@ -465,9 +452,7 @@ function NewInvoiceModal({
         revenue_account_code: revenueAccountCode,
         amount_minor: netMinor,
         description: description || null,
-        vat_treatment: chosenVat || null,
-        vat_rate_name: chosenVat === "other" ? otherRateName.trim() : null,
-        vat_rate_ppm: chosenVat === "other" ? ratePpm : null,
+        ...vatBody(vat),
       });
       if (postNow) {
         try {
@@ -587,63 +572,12 @@ function NewInvoiceModal({
             required
           />
         </div>
-        <div>
-          <Label htmlFor="vat">VAT</Label>
-          <Select
-            id="vat"
-            value={chosenVat}
-            onChange={(event) => setVatTreatment(event.target.value as VatTreatment)}
-            required
-          >
-            {(vatOptions.data?.options ?? []).map((option) => (
-              <option key={option.treatment} value={option.treatment}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          {vatOptions.error ? <p className="mt-1 text-[11px] text-bad">{vatOptions.error}</p> : null}
-        </div>
-        {chosenVat === "other" ? (
-          <div className="grid grid-cols-[1fr_120px] gap-3">
-            <div>
-              <Label htmlFor="vatRateName">Rate name</Label>
-              <Input
-                id="vatRateName"
-                value={otherRateName}
-                onChange={(event) => setOtherRateName(event.target.value)}
-                placeholder="Ghana VAT 15%"
-                maxLength={64}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="vatRatePercent">Rate (%)</Label>
-              <Input
-                id="vatRatePercent"
-                value={otherRatePercent}
-                onChange={(event) => setOtherRatePercent(event.target.value)}
-                inputMode="decimal"
-                placeholder="15"
-                required
-              />
-            </div>
-            <p className="col-span-2 -mt-1 text-[11px] text-ink-soft">
-              For a customer taxed under another country&apos;s rules. The name is printed on the invoice.
-            </p>
-          </div>
-        ) : null}
-        {netMinor > 0 ? (
-          <dl className="grid grid-cols-[1fr_auto] gap-y-1 rounded-panel border border-border bg-bg px-3 py-2 text-[13px]">
-            <dt className="text-ink-soft">Amount before VAT</dt>
-            <dd className="text-right font-bold">{formatMoney(netMinor)}</dd>
-            <dt className="text-ink-soft">
-              {chosenVat === "other" ? otherRateName.trim() || "VAT" : (chosenOption?.label ?? "VAT")}
-            </dt>
-            <dd className="text-right font-bold">{formatMoney(vatMinor)}</dd>
-            <dt className="font-extrabold">Total due</dt>
-            <dd className="text-right font-extrabold">{formatMoney(netMinor + vatMinor)}</dd>
-          </dl>
-        ) : null}
+        <VatFields
+          choice={vat}
+          netMinor={netMinor}
+          totalLabel="Total due"
+          otherHint="For a customer taxed under another country's rules. The name is printed on the invoice."
+        />
         {organisation.data && !organisation.data.company_tin ? (
           <p className="rounded-panel border border-warn bg-warn-tint px-3 py-2 text-[12px] text-warn-ink">
             Your company&apos;s TIN isn&apos;t set, so it can&apos;t be printed on the invoice.{" "}

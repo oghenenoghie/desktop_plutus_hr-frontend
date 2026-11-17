@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -261,7 +261,7 @@ export default function ContractorsPage() {
       </Card>
 
       {creating ? (
-        <NewContractorDrawer
+        <NewContractorModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -271,7 +271,7 @@ export default function ContractorsPage() {
       ) : null}
 
       {recordingFor ? (
-        <RecordPaymentDrawer
+        <RecordPaymentModal
           contractor={recordingFor}
           onClose={() => setRecordingFor(null)}
           onRecorded={() => {
@@ -284,7 +284,7 @@ export default function ContractorsPage() {
       ) : null}
 
       {creatingInvoiceFor ? (
-        <NewInvoiceDrawer
+        <NewInvoiceModal
           contractor={creatingInvoiceFor}
           onClose={() => setCreatingInvoiceFor(null)}
           onCreated={() => {
@@ -297,7 +297,7 @@ export default function ContractorsPage() {
       ) : null}
 
       {payingInvoice ? (
-        <PayInvoiceDrawer
+        <PayInvoiceModal
           contractor={payingInvoice.contractor}
           invoice={payingInvoice.invoice}
           onClose={() => setPayingInvoice(null)}
@@ -313,7 +313,7 @@ export default function ContractorsPage() {
   );
 }
 
-function NewContractorDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewContractorModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { showToast } = useToast();
   const [name, setName] = useState("");
   const [tin, setTin] = useState("");
@@ -349,7 +349,7 @@ function NewContractorDrawer({ onClose, onCreated }: { onClose: () => void; onCr
   }
 
   return (
-    <Drawer title="New Contractor" onClose={onClose}>
+    <Modal title="New Contractor" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="name">Name</Label>
@@ -416,11 +416,11 @@ function NewContractorDrawer({ onClose, onCreated }: { onClose: () => void; onCr
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function RecordPaymentDrawer({
+function RecordPaymentModal({
   contractor,
   onClose,
   onRecorded,
@@ -453,7 +453,7 @@ function RecordPaymentDrawer({
   }
 
   return (
-    <Drawer title={`Record Payment — ${contractor.name}`} onClose={onClose}>
+    <Modal title={`Record Payment — ${contractor.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="category">Service Category</Label>
@@ -496,11 +496,11 @@ function RecordPaymentDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function NewInvoiceDrawer({
+function NewInvoiceModal({
   contractor,
   onClose,
   onCreated,
@@ -537,7 +537,7 @@ function NewInvoiceDrawer({
   }
 
   return (
-    <Drawer title={`New Invoice — ${contractor.name}`} onClose={onClose}>
+    <Modal title={`New Invoice — ${contractor.name}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="invoice-number">Invoice Number</Label>
@@ -591,11 +591,11 @@ function NewInvoiceDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function PayInvoiceDrawer({
+function PayInvoiceModal({
   contractor,
   invoice,
   onClose,
@@ -625,7 +625,7 @@ function PayInvoiceDrawer({
   }
 
   return (
-    <Drawer title={`Pay Invoice ${invoice.invoice_number}`} onClose={onClose}>
+    <Modal title={`Pay Invoice ${invoice.invoice_number}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Paying withholds tax at source on {formatMoney(invoice.amount_minor)} and posts the ledger
@@ -662,6 +662,6 @@ function PayInvoiceDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

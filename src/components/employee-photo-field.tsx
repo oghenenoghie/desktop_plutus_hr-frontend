@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 // Shared by the new-employee form (upload deferred until the employee
-// exists) and the edit drawer (upload immediate) — both just hand this a
+// exists) and the edit page (upload immediate) — both just hand this a
 // name to render initials from, an optional current photo, and callbacks.
 export function EmployeePhotoField({
   name,

@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -86,7 +86,7 @@ function ByBankAccountTab() {
       {selectedAccount ? <ReconciliationView bankAccount={selectedAccount} /> : null}
 
       {creatingAccount ? (
-        <NewBankAccountDrawer
+        <NewBankAccountModal
           onClose={() => setCreatingAccount(false)}
           onCreated={(account) => {
             setCreatingAccount(false);
@@ -198,7 +198,7 @@ function ReconciliationView({ bankAccount }: { bankAccount: CompanyBankAccount }
       ) : null}
 
       {addingLine ? (
-        <NewStatementLineDrawer
+        <NewStatementLineModal
           bankAccount={bankAccount}
           onClose={() => setAddingLine(false)}
           onCreated={() => {
@@ -209,7 +209,7 @@ function ReconciliationView({ bankAccount }: { bankAccount: CompanyBankAccount }
       ) : null}
 
       {matching ? (
-        <MatchDrawer
+        <MatchModal
           bankAccount={bankAccount}
           line={matching}
           candidates={summary.data?.unmatched_ledger_entries ?? []}
@@ -245,7 +245,7 @@ function StatTile({
   );
 }
 
-function NewBankAccountDrawer({
+function NewBankAccountModal({
   onClose,
   onCreated,
 }: {
@@ -282,7 +282,7 @@ function NewBankAccountDrawer({
   }
 
   return (
-    <Drawer title="New Bank Account" onClose={onClose}>
+    <Modal title="New Bank Account" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="bankName">Bank Name</Label>
@@ -331,11 +331,11 @@ function NewBankAccountDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function NewStatementLineDrawer({
+function NewStatementLineModal({
   bankAccount,
   onClose,
   onCreated,
@@ -369,7 +369,7 @@ function NewStatementLineDrawer({
   }
 
   return (
-    <Drawer title="New Statement Line" onClose={onClose}>
+    <Modal title="New Statement Line" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="statementDate">Statement Date</Label>
@@ -417,11 +417,11 @@ function NewStatementLineDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function MatchDrawer({
+function MatchModal({
   bankAccount,
   line,
   candidates,
@@ -454,7 +454,7 @@ function MatchDrawer({
   }
 
   return (
-    <Drawer title={`Match "${line.description}"`} onClose={onClose}>
+    <Modal title={`Match "${line.description}"`} onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Statement amount: <span className="font-bold text-ink">{formatMoney(line.amount_minor)}</span>.
@@ -487,7 +487,7 @@ function MatchDrawer({
           </Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -591,7 +591,7 @@ function ByLedgerAccountTab() {
       ) : null}
 
       {addingLine ? (
-        <ImportLedgerStatementLinesDrawer
+        <ImportLedgerStatementLinesModal
           accountCode={accountCode}
           onClose={() => setAddingLine(false)}
           onImported={() => {
@@ -602,7 +602,7 @@ function ByLedgerAccountTab() {
       ) : null}
 
       {matching ? (
-        <LedgerMatchDrawer
+        <LedgerMatchModal
           line={matching}
           candidates={status.data?.unmatched_ledger_entries ?? []}
           onClose={() => setMatching(null)}
@@ -617,7 +617,7 @@ function ByLedgerAccountTab() {
   );
 }
 
-function ImportLedgerStatementLinesDrawer({
+function ImportLedgerStatementLinesModal({
   accountCode,
   onClose,
   onImported,
@@ -653,7 +653,7 @@ function ImportLedgerStatementLinesDrawer({
   }
 
   return (
-    <Drawer title="Import Statement Line" onClose={onClose}>
+    <Modal title="Import Statement Line" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="transactionDate">Transaction Date</Label>
@@ -697,11 +697,11 @@ function ImportLedgerStatementLinesDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function LedgerMatchDrawer({
+function LedgerMatchModal({
   line,
   candidates,
   onClose,
@@ -730,7 +730,7 @@ function LedgerMatchDrawer({
   }
 
   return (
-    <Drawer title={`Match "${line.description}"`} onClose={onClose}>
+    <Modal title={`Match "${line.description}"`} onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Statement amount: <span className="font-bold text-ink">{formatMoney(line.amount_minor)}</span>.
@@ -763,6 +763,6 @@ function LedgerMatchDrawer({
           </Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }

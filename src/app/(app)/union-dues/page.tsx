@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -100,7 +100,7 @@ export default function UnionDuesPage() {
       </Card>
 
       {assigning && employeeId ? (
-        <AssignMembershipDrawer
+        <AssignMembershipModal
           employeeId={employeeId}
           onClose={() => setAssigning(false)}
           onAssigned={() => {
@@ -141,7 +141,7 @@ function TerminateButton({
   );
 }
 
-function AssignMembershipDrawer({
+function AssignMembershipModal({
   employeeId,
   onClose,
   onAssigned,
@@ -176,7 +176,7 @@ function AssignMembershipDrawer({
   }
 
   return (
-    <Drawer title="Assign Union Membership" onClose={onClose}>
+    <Modal title="Assign Union Membership" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="union-name">Union Name</Label>
@@ -227,6 +227,6 @@ function AssignMembershipDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

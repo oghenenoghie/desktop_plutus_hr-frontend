@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -118,7 +118,7 @@ export default function RecurringBillsPage() {
       </Card>
 
       {creating ? (
-        <NewRecurringBillDrawer
+        <NewRecurringBillModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -130,7 +130,7 @@ export default function RecurringBillsPage() {
   );
 }
 
-function NewRecurringBillDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewRecurringBillModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const vendors = useApiResource(() => vendorsApi.list());
   const accounts = useApiResource(() => chartAccountsApi.list());
   const { showToast } = useToast();
@@ -167,7 +167,7 @@ function NewRecurringBillDrawer({ onClose, onCreated }: { onClose: () => void; o
   }
 
   return (
-    <Drawer title="New Recurring Vendor Bill Template" onClose={onClose}>
+    <Modal title="New Recurring Vendor Bill Template" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="vendor">Vendor</Label>
@@ -245,6 +245,6 @@ function NewRecurringBillDrawer({ onClose, onCreated }: { onClose: () => void; o
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

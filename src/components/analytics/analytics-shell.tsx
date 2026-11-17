@@ -7,7 +7,7 @@ import { Suspense } from "react";
 
 import { FilterBar, type FilterKey } from "@/components/analytics/filter-bar";
 import { KpiGrid, KpiSkeleton } from "@/components/analytics/kpi-card";
-import { DrillProvider, ExportButtons } from "@/components/analytics/records-drawer";
+import { DrillProvider, ExportButtons } from "@/components/analytics/records-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";

@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -463,7 +463,7 @@ function AddFoundLine({
   }
 
   return (
-    <Drawer title="Add found item" onClose={onClose}>
+    <Modal title="Add found item" onClose={onClose}>
       {items.loading ? <LoadingState /> : null}
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
         <div>
@@ -503,6 +503,6 @@ function AddFoundLine({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

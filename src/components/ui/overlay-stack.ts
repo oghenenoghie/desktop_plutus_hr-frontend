@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-// Every open Drawer, Modal and ConfirmDialog registers here while it's
-// mounted, in the order they opened. They all listen for Escape on
-// `document`, so without this a modal opened over a drawer (e.g. "New
-// Customer" from an invoice) would close both on one keypress and throw
-// away what was typed into the drawer. Only the overlay on top acts.
+// Every open Modal and ConfirmDialog registers here while it's mounted, in
+// the order they opened. They all listen for Escape on `document`, so
+// without this a modal opened over another (e.g. "New Customer" from an
+// invoice) would close both on one keypress and throw away what was typed
+// into the one underneath. Only the overlay on top acts.
 const stack: object[] = [];
 
 // Returns a stable `isTop()` for use inside event handlers.

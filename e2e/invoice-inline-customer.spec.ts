@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { expectModalContract, isOnTop, trackPageErrors } from "./support/dialogs";
 import { freshStore, installMockApi, writesTo, type MockStore } from "./support/mock-api";
 
-// Customer → invoice: "+ New Customer" inside the New Customer Invoice drawer.
+// Customer → invoice: "+ New Customer" inside the New Customer Invoice form.
 
 const INVOICE_FIELDS = {
   "#invoiceNumber": "INV-9001",
@@ -22,14 +22,14 @@ test.beforeEach(async ({ context, page }) => {
   errors = trackPageErrors(page);
   await page.goto("/invoices");
   await page.getByRole("button", { name: "New Customer Invoice" }).click();
-  await expect(drawer(page)).toBeVisible();
+  await expect(invoiceForm(page)).toBeVisible();
   for (const [selector, value] of Object.entries(INVOICE_FIELDS)) await page.fill(selector, value);
   await page.selectOption("#revenueAccount", "4000");
 });
 
 test.afterEach(() => errors.expectNone());
 
-const drawer = (page: Page) => page.getByRole("dialog", { name: "New Customer Invoice" });
+const invoiceForm = (page: Page) => page.getByRole("dialog", { name: "New Customer Invoice" });
 const customerModal = (page: Page) => page.getByRole("dialog", { name: "New Customer", exact: true });
 const openCustomerModal = (page: Page) => page.getByRole("button", { name: "+ New Customer" }).click();
 
@@ -38,8 +38,8 @@ async function expectInvoiceUntouched(page: Page) {
   await expect(page.locator("#revenueAccount")).toHaveValue("4000");
 }
 
-test("the customer modal behaves as a modal on top of the invoice drawer", async ({ page }) => {
-  await expectModalContract(page, { open: () => openCustomerModal(page), name: "New Customer", parent: drawer(page) });
+test("the customer modal behaves as a modal on top of the invoice form", async ({ page }) => {
+  await expectModalContract(page, { open: () => openCustomerModal(page), name: "New Customer", parent: invoiceForm(page) });
   await expectInvoiceUntouched(page);
 
   await test.step("a backdrop click closes the modal only", async () => {
@@ -47,7 +47,7 @@ test("the customer modal behaves as a modal on top of the invoice drawer", async
     await expect(customerModal(page)).toBeVisible();
     await page.mouse.click(8, 8);
     await expect(customerModal(page)).toBeHidden();
-    await expect(drawer(page)).toBeVisible();
+    await expect(invoiceForm(page)).toBeVisible();
   });
 
   await test.step("the close button returns focus to '+ New Customer'", async () => {
@@ -67,10 +67,10 @@ test("the customer modal behaves as a modal on top of the invoice drawer", async
     await expectInvoiceUntouched(page);
   });
 
-  await test.step("with nothing above it, Escape still closes the drawer", async () => {
+  await test.step("with nothing above it, Escape still closes the invoice form", async () => {
     await page.locator("#invoiceNumber").focus();
     await page.keyboard.press("Escape");
-    await expect(drawer(page)).toBeHidden();
+    await expect(invoiceForm(page)).toBeHidden();
   });
 });
 
@@ -128,7 +128,7 @@ test("a new customer is selected and the invoice saves with it", async ({ page }
   });
 
   await page.getByRole("button", { name: "Create Customer Invoice" }).click();
-  await expect(drawer(page)).toBeHidden();
+  await expect(invoiceForm(page)).toBeHidden();
   const invoices = writesTo(store, "POST", "/invoices");
   expect(invoices).toHaveLength(1);
   // Posted to the books straight away, unless "Post to the books now" is unticked.

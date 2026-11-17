@@ -6,7 +6,7 @@ import { Fragment, useState } from "react";
 import { ApprovalHistoryPanel } from "@/components/approval-history-panel";
 import { AccountCreateModal } from "@/components/accounting/account-create-modal";
 import { VendorCreateModal } from "@/components/accounting/vendor-create-modal";
-import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
+import { EmailPdfModal } from "@/components/email-pdf-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import {
   ErrorState,
   LoadingState,
 } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/badge";
@@ -274,7 +274,7 @@ export default function BillsPage() {
       </Card>
 
       {emailingBill ? (
-        <EmailPdfDrawer
+        <EmailPdfModal
           title={`Email Vendor Bill ${emailingBill.bill_number}`}
           description={`Sends vendor bill ${emailingBill.bill_number} (${formatMoney(emailingBill.amount_minor)}) as a PDF attachment.`}
           defaultTo={vendorById.get(emailingBill.vendor_id)?.contact_email}
@@ -284,7 +284,7 @@ export default function BillsPage() {
       ) : null}
 
       {creating ? (
-        <NewBillDrawer
+        <NewBillModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -296,7 +296,7 @@ export default function BillsPage() {
   );
 }
 
-function NewBillDrawer({
+function NewBillModal({
   onClose,
   onCreated,
 }: {
@@ -388,7 +388,7 @@ function NewBillDrawer({
   }
 
   return (
-    <Drawer title="New Vendor Bill" onClose={onClose}>
+    <Modal title="New Vendor Bill" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <div className="mb-1 flex items-center justify-between gap-3">
@@ -589,6 +589,6 @@ function NewBillDrawer({
           }}
         />
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -75,7 +75,7 @@ function TemplatesTab() {
       ) : null}
 
       {creating ? (
-        <NewTemplateDrawer
+        <NewTemplateModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -87,7 +87,7 @@ function TemplatesTab() {
   );
 }
 
-function NewTemplateDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewTemplateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { showToast } = useToast();
   const [documentType, setDocumentType] = useState<DocumentType>("offer_letter");
   const [name, setName] = useState("");
@@ -108,7 +108,7 @@ function NewTemplateDrawer({ onClose, onCreated }: { onClose: () => void; onCrea
   }
 
   return (
-    <Drawer title="New Document Template" onClose={onClose}>
+    <Modal title="New Document Template" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="documentType">Document Type</Label>
@@ -147,7 +147,7 @@ function NewTemplateDrawer({ onClose, onCreated }: { onClose: () => void; onCrea
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 

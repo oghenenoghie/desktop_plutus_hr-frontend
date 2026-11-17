@@ -9,7 +9,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -28,6 +28,8 @@ export default function EmployeesPage() {
   const canManageMasking = user?.role === "admin" || user?.role === "payroll_manager";
   const employees = useApiResource(() => employeesApi.list());
   const [bankAccountFor, setBankAccountFor] = useState<Employee | null>(null);
+  const [search, setSearch] = useState("");
+  const [lifecycleFilter, setLifecycleFilter] = useState("all");
   const [bulkImporting, setBulkImporting] = useState(false);
   const { showToast } = useToast();
   const departments = useApiResource(() => departmentsApi.list());
@@ -36,6 +38,25 @@ export default function EmployeesPage() {
   const jobGradesById = new Map((jobGrades.data ?? []).map((jobGrade) => [jobGrade.id, jobGrade]));
   const shifts = useApiResource(() => shiftsApi.list());
   const shiftsById = new Map((shifts.data ?? []).map((shift) => [shift.id, shift]));
+
+  const employeeRows = employees.data ?? [];
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+  const filteredEmployees = employeeRows.filter((employee) => {
+    const matchesSearch =
+      !normalizedSearch ||
+      [
+        employee.full_name,
+        employee.employee_number,
+        employee.job_title ?? "",
+        employee.state_of_residence,
+        employee.tin ?? "",
+      ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
+    const matchesLifecycle =
+      lifecycleFilter === "all" || employee.lifecycle_state === lifecycleFilter;
+    return matchesSearch && matchesLifecycle;
+  });
+  const activeCount = employeeRows.filter((employee) => employee.lifecycle_state === "active").length;
+  const missingTinCount = employeeRows.filter((employee) => !employee.tin).length;
 
   async function toggleMasking(employee: Employee) {
     try {
@@ -61,13 +82,71 @@ export default function EmployeesPage() {
         }
       />
 
+      <section aria-label="Employee directory overview" className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-panel border border-border bg-surface px-4 py-3">
+          <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Total employees</div>
+          <div className="mt-1 text-2xl font-extrabold tabular-nums">{employees.loading ? "—" : employeeRows.length.toLocaleString("en-NG")}</div>
+          <div className="mt-1 text-xs text-ink-soft">Records in this directory</div>
+        </div>
+        <div className="rounded-panel border border-border bg-surface px-4 py-3">
+          <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Active employees</div>
+          <div className="mt-1 text-2xl font-extrabold tabular-nums">{employees.loading ? "—" : activeCount.toLocaleString("en-NG")}</div>
+          <div className="mt-1 text-xs text-ink-soft">Currently marked active</div>
+        </div>
+        <div className="rounded-panel border border-border bg-surface px-4 py-3">
+          <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Missing TIN</div>
+          <div className="mt-1 text-2xl font-extrabold tabular-nums">{employees.loading ? "—" : missingTinCount.toLocaleString("en-NG")}</div>
+          <div className="mt-1 text-xs text-ink-soft">Records needing tax identification</div>
+        </div>
+      </section>
+
       <Card>
+        <div className="mb-4 flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
+          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-[minmax(220px,1fr)_190px]">
+            <div>
+              <Label htmlFor="employee-search">Search employees</Label>
+              <Input
+                id="employee-search"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name, staff ID, job title, TIN or state"
+              />
+            </div>
+            <div>
+              <Label htmlFor="employee-status-filter">Employment status</Label>
+              <Select
+                id="employee-status-filter"
+                value={lifecycleFilter}
+                onChange={(event) => setLifecycleFilter(event.target.value)}
+              >
+                <option value="all">All statuses</option>
+                {[...new Set(employeeRows.map((employee) => employee.lifecycle_state))]
+                  .sort()
+                  .map((status) => (
+                    <option key={status} value={status}>{titleCase(status)}</option>
+                  ))}
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-xs text-ink-soft" aria-live="polite">
+            <span>{filteredEmployees.length.toLocaleString("en-NG")} of {employeeRows.length.toLocaleString("en-NG")} employees</span>
+            {search || lifecycleFilter !== "all" ? (
+              <Button size="md" variant="secondary" onClick={() => { setSearch(""); setLifecycleFilter("all"); }}>
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
+        </div>
         {employees.loading ? <LoadingState /> : null}
         {employees.error ? <ErrorState message={employees.error} /> : null}
-        {employees.data && employees.data.length === 0 ? (
-          <EmptyState label="No employees on record yet." />
+        {employees.data && employeeRows.length === 0 ? (
+          <EmptyState label="No employees on record yet. Add an employee or import your directory to get started." />
         ) : null}
-        {employees.data && employees.data.length > 0 ? (
+        {employees.data && employeeRows.length > 0 && filteredEmployees.length === 0 ? (
+          <EmptyState label="No employees match these filters. Try another search or clear the filters." />
+        ) : null}
+        {employees.data && filteredEmployees.length > 0 ? (
           <Table>
             <Thead>
               <tr>
@@ -84,7 +163,7 @@ export default function EmployeesPage() {
               </tr>
             </Thead>
             <tbody>
-              {employees.data.map((employee) => {
+              {filteredEmployees.map((employee) => {
                 const { basic_minor, housing_minor, transport_minor, other_earnings_minor } = employee;
                 const grossMinor =
                   basic_minor === null ||
@@ -176,11 +255,11 @@ export default function EmployeesPage() {
       </Card>
 
       {bankAccountFor ? (
-        <BankAccountDrawer employee={bankAccountFor} onClose={() => setBankAccountFor(null)} />
+        <BankAccountModal employee={bankAccountFor} onClose={() => setBankAccountFor(null)} />
       ) : null}
 
       {bulkImporting ? (
-        <BulkImportDrawer
+        <BulkImportModal
           onClose={() => setBulkImporting(false)}
           onImported={() => employees.reload()}
         />
@@ -189,7 +268,7 @@ export default function EmployeesPage() {
   );
 }
 
-function BulkImportDrawer({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+function BulkImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
   const { showToast } = useToast();
   const [csvContent, setCsvContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -213,7 +292,7 @@ function BulkImportDrawer({ onClose, onImported }: { onClose: () => void; onImpo
   }
 
   return (
-    <Drawer title="Bulk Import Employees" onClose={onClose}>
+    <Modal title="Bulk Import Employees" onClose={onClose}>
       {result ? (
         <div className="flex flex-1 flex-col gap-4">
           <p className="text-[13px]">
@@ -284,11 +363,11 @@ function BulkImportDrawer({ onClose, onImported }: { onClose: () => void; onImpo
           </div>
         </form>
       )}
-    </Drawer>
+    </Modal>
   );
 }
 
-function BankAccountDrawer({ employee, onClose }: { employee: Employee; onClose: () => void }) {
+function BankAccountModal({ employee, onClose }: { employee: Employee; onClose: () => void }) {
   const existing = useApiResource(() => employeesApi.getBankAccount(employee.id), [employee.id]);
   const { showToast } = useToast();
   const [bankChoice, setBankChoice] = useState("");
@@ -331,7 +410,7 @@ function BankAccountDrawer({ employee, onClose }: { employee: Employee; onClose:
   }
 
   return (
-    <Drawer title={`Bank Account — ${employee.full_name}`} onClose={onClose}>
+    <Modal title={`Bank Account — ${employee.full_name}`} onClose={onClose}>
       {existing.loading ? (
         <LoadingState />
       ) : (
@@ -394,6 +473,6 @@ function BankAccountDrawer({ employee, onClose }: { employee: Employee; onClose:
           </div>
         </form>
       )}
-    </Drawer>
+    </Modal>
   );
 }

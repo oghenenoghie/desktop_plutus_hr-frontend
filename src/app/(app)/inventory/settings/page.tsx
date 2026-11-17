@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -353,7 +353,7 @@ function UnitsCard({ canManage }: { canManage: boolean }) {
         </Table>
       ) : null}
       {editing ? (
-        <UnitDrawer
+        <UnitModal
           unit={editing === "new" ? undefined : editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -366,7 +366,7 @@ function UnitsCard({ canManage }: { canManage: boolean }) {
   );
 }
 
-function UnitDrawer({
+function UnitModal({
   unit,
   onClose,
   onSaved,
@@ -405,7 +405,7 @@ function UnitDrawer({
   }
 
   return (
-    <Drawer title={unit ? `Edit ${unit.code}` : "New Unit"} onClose={onClose}>
+    <Modal title={unit ? `Edit ${unit.code}` : "New Unit"} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         {!unit ? (
           <div>
@@ -469,7 +469,7 @@ function UnitDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -527,7 +527,7 @@ function CategoriesCard({ canManage }: { canManage: boolean }) {
         </Table>
       ) : null}
       {editing ? (
-        <CategoryDrawer
+        <CategoryModal
           category={editing === "new" ? undefined : editing}
           categories={categories.data ?? []}
           onClose={() => setEditing(null)}
@@ -541,7 +541,7 @@ function CategoriesCard({ canManage }: { canManage: boolean }) {
   );
 }
 
-function CategoryDrawer({
+function CategoryModal({
   category,
   categories,
   onClose,
@@ -593,7 +593,7 @@ function CategoryDrawer({
   const parents = categories.filter((option) => option.is_active && option.id !== category?.id);
 
   return (
-    <Drawer title={category ? "Edit Category" : "New Category"} onClose={onClose}>
+    <Modal title={category ? "Edit Category" : "New Category"} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="category-name">Name</Label>
@@ -664,6 +664,6 @@ function CategoryDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
@@ -65,10 +65,19 @@ const ROLE_CHANGE_OPTIONS: Role[] = [...ROLES, "employee"];
 export default function PermissionsPage() {
   const memberships = useApiResource(() => membershipsApi.list());
   const [membershipId, setMembershipId] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<MembershipCreateOut | null>(null);
   const [roleChanged, setRoleChanged] = useState<MembershipRoleUpdateOut | null>(null);
-  const selected = (memberships.data ?? []).find((m) => m.id === membershipId) ?? null;
+  const memberList = memberships.data ?? [];
+  const roleCount = new Set(memberList.map((membership) => membership.role)).size;
+  const filteredMembers = useMemo(() => {
+    const term = memberSearch.trim().toLocaleLowerCase();
+    return memberList.filter((membership) =>
+      !term || membership.email.toLocaleLowerCase().includes(term) || ROLE_LABELS[membership.role].toLocaleLowerCase().includes(term),
+    );
+  }, [memberList, memberSearch]);
+  const selected = memberList.find((m) => m.id === membershipId) ?? null;
 
   return (
     <div>
@@ -78,20 +87,57 @@ export default function PermissionsPage() {
         action={<Button onClick={() => setCreating(true)}>New User</Button>}
       />
 
+      <section aria-label="Access management overview" className="mb-4 grid gap-3 sm:grid-cols-2">
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Workspace members</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{memberList.length}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">Accounts available for access review</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Roles in use</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink">{roleCount}</p>
+          <p className="mt-1 text-[12px] text-ink-soft">Distinct assigned role types</p>
+        </Card>
+      </section>
+
       <Card className="mb-6">
         {memberships.loading ? <LoadingState /> : null}
         {memberships.error ? <ErrorState message={memberships.error} /> : null}
-        {memberships.data && memberships.data.length > 0 ? (
-          <div>
+        {memberships.data && memberList.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <Label htmlFor="member-search">Find a member</Label>
+                <Input
+                  id="member-search"
+                  value={memberSearch}
+                  onChange={(event) => {
+                    setMemberSearch(event.target.value);
+                    setMembershipId("");
+                  }}
+                  placeholder="Search by email or role"
+                  aria-label="Search workspace members by email or role"
+                />
+              </div>
+              <span className="whitespace-nowrap text-[12px] font-bold text-ink-soft" aria-live="polite">
+                {filteredMembers.length} of {memberList.length} members
+              </span>
+            </div>
             <Select id="membership" value={membershipId} onChange={(event) => setMembershipId(event.target.value)}>
               <option value="">Select a member</option>
-              {memberships.data.map((membership) => (
+              {filteredMembers.map((membership) => (
                 <option key={membership.id} value={membership.id}>
                   {membership.email} · {ROLE_LABELS[membership.role]}
                 </option>
               ))}
             </Select>
+            {filteredMembers.length === 0 ? (
+              <EmptyState label="No members match your search. Try another email or role." />
+            ) : null}
           </div>
+        ) : null}
+        {memberships.data && memberList.length === 0 ? (
+          <EmptyState label="No workspace members are available for access management." />
         ) : null}
       </Card>
 
@@ -110,7 +156,7 @@ export default function PermissionsPage() {
       {selected ? <MembershipPermissions membershipId={selected.id} role={selected.role} /> : null}
 
       {creating ? (
-        <NewUserDrawer
+        <NewUserModal
           onClose={() => setCreating(false)}
           onCreated={(membership) => {
             setCreating(false);
@@ -183,7 +229,7 @@ function ChangeRole({
 
 function RoleChangedDialog({ result, onClose }: { result: MembershipRoleUpdateOut; onClose: () => void }) {
   return (
-    <Drawer title="Role Updated" onClose={onClose}>
+    <Modal title="Role Updated" onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           <span className="font-bold text-ink">{result.email}</span> is now{" "}
@@ -196,11 +242,11 @@ function RoleChangedDialog({ result, onClose }: { result: MembershipRoleUpdateOu
           <Button onClick={onClose}>Done</Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }
 
-function NewUserDrawer({
+function NewUserModal({
   onClose,
   onCreated,
 }: {
@@ -227,7 +273,7 @@ function NewUserDrawer({
   }
 
   return (
-    <Drawer title="New User" onClose={onClose}>
+    <Modal title="New User" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="new-user-email">Email</Label>
@@ -271,7 +317,7 @@ function NewUserDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -283,7 +329,7 @@ function NewUserCredentialsDialog({
   onClose: () => void;
 }) {
   return (
-    <Drawer title="User Created" onClose={onClose}>
+    <Modal title="User Created" onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Share these sign-in details with <span className="font-bold text-ink">{membership.email}</span> now —
@@ -302,7 +348,7 @@ function NewUserCredentialsDialog({
           <Button onClick={onClose}>Done</Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }
 

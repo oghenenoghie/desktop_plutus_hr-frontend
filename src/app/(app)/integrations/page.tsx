@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -86,7 +86,7 @@ export default function IntegrationsPage() {
       </Card>
 
       {creating ? (
-        <NewApiKeyDrawer
+        <NewApiKeyModal
           onClose={() => setCreating(false)}
           onCreated={(created) => {
             setCreating(false);
@@ -96,12 +96,12 @@ export default function IntegrationsPage() {
         />
       ) : null}
 
-      {revealed ? <RevealKeyDrawer apiKey={revealed} onClose={() => setRevealed(null)} /> : null}
+      {revealed ? <RevealKeyModal apiKey={revealed} onClose={() => setRevealed(null)} /> : null}
     </div>
   );
 }
 
-function NewApiKeyDrawer({
+function NewApiKeyModal({
   onClose,
   onCreated,
 }: {
@@ -125,7 +125,7 @@ function NewApiKeyDrawer({
   }
 
   return (
-    <Drawer title="New API Key" onClose={onClose}>
+    <Modal title="New API Key" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="name">Name</Label>
@@ -146,11 +146,11 @@ function NewApiKeyDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function RevealKeyDrawer({ apiKey, onClose }: { apiKey: ApiKeyCreated; onClose: () => void }) {
+function RevealKeyModal({ apiKey, onClose }: { apiKey: ApiKeyCreated; onClose: () => void }) {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
 
@@ -165,7 +165,7 @@ function RevealKeyDrawer({ apiKey, onClose }: { apiKey: ApiKeyCreated; onClose: 
   }
 
   return (
-    <Drawer title="API Key Created" onClose={onClose}>
+    <Modal title="API Key Created" onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <Card>
           <p className="text-[12px] font-bold text-bad">
@@ -184,6 +184,6 @@ function RevealKeyDrawer({ apiKey, onClose }: { apiKey: ApiKeyCreated; onClose: 
           </Button>
         </div>
       </div>
-    </Drawer>
+    </Modal>
   );
 }

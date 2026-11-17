@@ -7,7 +7,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -149,7 +149,7 @@ export default function TrainingCourseDetailPage({
           </Card>
 
           {enrolling ? (
-            <EnrollEmployeeDrawer
+            <EnrollEmployeeModal
               courseId={id}
               onClose={() => setEnrolling(false)}
               onEnrolled={() => {
@@ -265,7 +265,7 @@ function QuizCard({ courseId }: { courseId: string }) {
       {quiz ? <QuizDetail quiz={quiz} /> : null}
 
       {creatingQuiz ? (
-        <NewQuizDrawer
+        <NewQuizModal
           courseId={courseId}
           onClose={() => setCreatingQuiz(false)}
           onCreated={() => {
@@ -278,7 +278,7 @@ function QuizCard({ courseId }: { courseId: string }) {
   );
 }
 
-function NewQuizDrawer({
+function NewQuizModal({
   courseId,
   onClose,
   onCreated,
@@ -305,7 +305,7 @@ function NewQuizDrawer({
   }
 
   return (
-    <Drawer title="New Quiz" onClose={onClose}>
+    <Modal title="New Quiz" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="quizTitle">Title</Label>
@@ -332,7 +332,7 @@ function NewQuizDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -414,7 +414,7 @@ function QuizDetail({ quiz }: { quiz: Quiz }) {
       ) : null}
 
       {addingQuestion ? (
-        <NewQuestionDrawer
+        <NewQuestionModal
           quizId={quiz.id}
           onClose={() => setAddingQuestion(false)}
           onCreated={() => {
@@ -427,7 +427,7 @@ function QuizDetail({ quiz }: { quiz: Quiz }) {
   );
 }
 
-function NewQuestionDrawer({
+function NewQuestionModal({
   quizId,
   onClose,
   onCreated,
@@ -464,7 +464,7 @@ function NewQuestionDrawer({
   }
 
   return (
-    <Drawer title="New Question" onClose={onClose}>
+    <Modal title="New Question" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="questionText">Question</Label>
@@ -510,11 +510,11 @@ function NewQuestionDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-function EnrollEmployeeDrawer({
+function EnrollEmployeeModal({
   courseId,
   onClose,
   onEnrolled,
@@ -546,7 +546,7 @@ function EnrollEmployeeDrawer({
   }
 
   return (
-    <Drawer title="Enroll Employee" onClose={onClose}>
+    <Modal title="Enroll Employee" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="employee">Employee</Label>
@@ -583,6 +583,6 @@ function EnrollEmployeeDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

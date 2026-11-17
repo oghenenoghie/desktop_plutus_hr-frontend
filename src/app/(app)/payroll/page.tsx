@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { TaxSettingsNotice } from "@/components/tax-settings-notice";
@@ -17,9 +18,24 @@ import { payRunStatusLabel } from "@/lib/pay-runs";
 export default function PayrollPage() {
   const router = useRouter();
   const payRuns = useApiResource(() => payRunsApi.list());
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const runs = payRuns.data ?? [];
+  const filteredRuns = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return runs.filter((run) => {
+      const matchesSearch = !query ||
+        [run.frequency, run.period_start, run.period_end, payRunStatusLabel(run)]
+          .some((value) => String(value).toLocaleLowerCase().includes(query));
+      return matchesSearch && (statusFilter === "all" || (statusFilter === "awaiting_payment" ? run.status === "locked" && !run.disbursed_at : run.status === statusFilter));
+    });
+  }, [runs, search, statusFilter]);
+  const draftCount = runs.filter((run) => run.status === "draft").length;
+  const reviewCount = runs.filter((run) => run.status === "validated").length;
+  const unpaidCount = runs.filter((run) => run.status === "locked" && !run.disbursed_at).length;
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Payroll Runs"
         subtitle="Multi-frequency runs with full audit trail"
@@ -28,13 +44,70 @@ export default function PayrollPage() {
 
       <TaxSettingsNotice />
 
+      <section aria-labelledby="payroll-workflow-overview" className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="payroll-workflow-overview" className="text-sm font-bold text-ink">Run workflow</h2>
+            <p className="mt-0.5 text-xs text-ink-soft">Track each run from draft through validation, posting and payment.</p>
+          </div>
+          <span className="text-xs text-ink-soft" aria-live="polite">{runs.length.toLocaleString("en-NG")} total runs</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          { label: "Draft runs", value: draftCount, note: "Awaiting validation" },
+          { label: "Ready to post", value: reviewCount, note: "Validated runs" },
+          { label: "Awaiting payment", value: unpaidCount, note: "Posted, not marked paid" },
+        ].map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            aria-pressed={statusFilter === (item.label === "Draft runs" ? "draft" : item.label === "Ready to post" ? "validated" : "awaiting_payment")}
+            onClick={() => setStatusFilter((current) => {
+              const next = item.label === "Draft runs" ? "draft" : item.label === "Ready to post" ? "validated" : "awaiting_payment";
+              return current === next ? "all" : next;
+            })}
+            className={`rounded-panel border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${statusFilter === (item.label === "Draft runs" ? "draft" : item.label === "Ready to post" ? "validated" : "awaiting_payment") ? "border-primary bg-primary/5" : "border-border bg-surface hover:border-primary/40"}`}
+          >
+            <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">{item.label}</div>
+            <div className="mt-1 text-2xl font-extrabold tabular-nums">{payRuns.loading ? "—" : item.value.toLocaleString("en-NG")}</div>
+            <div className="mt-1 text-xs text-ink-soft">{item.note}</div>
+          </button>
+        ))}
+        </div>
+      </section>
+
       <Card>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <div>
+            <h2 className="text-sm font-bold text-ink">Pay run register</h2>
+            <p className="mt-0.5 text-xs text-ink-soft">Search, review and open a payroll cycle.</p>
+          </div>
+          {(search || statusFilter !== "all") ? <Button size="sm" variant="ghost" onClick={() => { setSearch(""); setStatusFilter("all"); }}>Clear filters</Button> : null}
+        </div>
+        <div className="mb-4 grid grid-cols-1 gap-3 border-b border-border pb-4 sm:grid-cols-[minmax(220px,1fr)_190px]">
+          <div>
+            <label htmlFor="payroll-search" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Find a pay run</label>
+            <input id="payroll-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search frequency, period or status" className="w-full rounded-panel border border-border bg-surface px-[13px] py-[11px] text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-primary" />
+          </div>
+          <div>
+            <label htmlFor="payroll-status" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">Run status</label>
+            <select id="payroll-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full rounded-panel border border-border bg-surface px-[13px] py-[11px] text-[13px] text-ink outline-none focus:border-primary">
+              <option value="all">All statuses</option>
+              <option value="awaiting_payment">Awaiting payment</option>
+              {[...new Set(runs.map((run) => run.status))].sort().map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}
+            </select>
+          </div>
+          <p className="text-xs text-ink-soft sm:col-span-2" aria-live="polite">Showing {filteredRuns.length.toLocaleString("en-NG")} of {runs.length.toLocaleString("en-NG")} pay runs</p>
+        </div>
         {payRuns.loading ? <LoadingState /> : null}
         {payRuns.error ? <ErrorState message={payRuns.error} /> : null}
-        {payRuns.data && payRuns.data.length === 0 ? (
-          <EmptyState label="No pay runs have been created yet." />
+        {payRuns.data && runs.length === 0 ? (
+          <EmptyState label="No pay runs have been created yet. Create a run to begin the payroll workflow." />
         ) : null}
-        {payRuns.data && payRuns.data.length > 0 ? (
+        {payRuns.data && runs.length > 0 && filteredRuns.length === 0 ? (
+          <EmptyState label="No pay runs match these filters. Try another search or select all statuses." />
+        ) : null}
+        {payRuns.data && filteredRuns.length > 0 ? (
           <Table>
             <Thead>
               <tr>
@@ -49,7 +122,7 @@ export default function PayrollPage() {
               </tr>
             </Thead>
             <tbody>
-              {payRuns.data.map((run) => (
+              {filteredRuns.map((run) => (
                 <tr key={run.id}>
                   <Td>
                     {formatDate(run.period_start)} – {formatDate(run.period_end)}

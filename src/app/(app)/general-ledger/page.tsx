@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -23,15 +24,28 @@ export default function GeneralLedgerPage() {
   const trialBalance = useApiResource(() => generalLedgerApi.trialBalance());
   const departments = useApiResource(() => departmentsApi.list());
   const [departmentFilter, setDepartmentFilter] = useState("");
+  const [entrySearch, setEntrySearch] = useState("");
   const entries = useApiResource(
     () => generalLedgerApi.entries({ departmentId: departmentFilter || undefined }),
     [departmentFilter],
   );
   const departmentsById = new Map((departments.data ?? []).map((department) => [department.id, department]));
   const [posting, setPosting] = useState(false);
+  const ledgerRows = entries.data ?? [];
+  const query = entrySearch.trim().toLocaleLowerCase();
+  const filteredEntries = ledgerRows.filter((entry) => {
+    const departmentName = entry.department_id ? departmentsById.get(entry.department_id)?.name ?? "" : "";
+    return !query || [entry.description ?? "", entry.account_name ?? "", entry.account, departmentName]
+      .some((value) => value.toLocaleLowerCase().includes(query));
+  });
+  const debitTotal = (trialBalance.data ?? []).reduce((sum, line) => sum + line.total_debit_minor, 0);
+  const creditTotal = (trialBalance.data ?? []).reduce((sum, line) => sum + line.total_credit_minor, 0);
+  const balanceDifference = Math.abs(debitTotal - creditTotal);
+  const hasTrialBalance = Boolean(trialBalance.data?.length);
+  const isBalanced = hasTrialBalance && balanceDifference === 0;
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="General Ledger"
         subtitle="Every double-entry posting from payroll, WHT, and manual journal entries"
@@ -45,8 +59,33 @@ export default function GeneralLedgerPage() {
         }
       />
 
-      <Card className="mb-6">
-        <CardHeader title="Trial Balance" />
+      <section aria-labelledby="ledger-position-heading" className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="ledger-position-heading" className="text-sm font-bold text-ink">Ledger position</h2>
+            <p className="mt-0.5 text-xs text-ink-soft">Control totals from the current trial balance.</p>
+          </div>
+          <Badge tone={trialBalance.loading || trialBalance.error || !hasTrialBalance ? "neutral" : isBalanced ? "good" : "bad"}>
+            {trialBalance.loading ? "Checking balance" : trialBalance.error ? "Balance unavailable" : !hasTrialBalance ? "No ledger activity" : isBalanced ? "Debits equal credits" : "Review imbalance"}
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          { label: "Total debits", value: debitTotal },
+          { label: "Total credits", value: creditTotal },
+          { label: "Difference", value: balanceDifference },
+        ].map((item) => (
+          <div key={item.label} className="rounded-panel border border-border bg-surface px-4 py-3">
+            <div className="text-[11px] font-bold uppercase tracking-[0.03em] text-ink-soft">{item.label}</div>
+            <div className="mt-1 text-xl font-extrabold tabular-nums">{trialBalance.loading ? "—" : formatMoney(item.value)}</div>
+            <div className="mt-1 text-xs text-ink-soft">{item.label === "Difference" ? (isBalanced ? "Debits and credits agree" : hasTrialBalance ? "Review the trial balance" : "No balances to compare") : "Across the current trial balance"}</div>
+          </div>
+        ))}
+        </div>
+      </section>
+
+      <Card>
+        <CardHeader title="Trial Balance" subtitle="Account-level debit and credit totals from the ledger" />
         {trialBalance.loading ? <LoadingState /> : null}
         {trialBalance.error ? <ErrorState message={trialBalance.error} /> : null}
         {trialBalance.data && trialBalance.data.length === 0 ? (
@@ -83,27 +122,33 @@ export default function GeneralLedgerPage() {
           title="Ledger Entries"
           subtitle="Filter by cost centre to see one department's share of payroll postings"
           action={
-            <div className="w-56">
-              <Select
-                value={departmentFilter}
-                onChange={(event) => setDepartmentFilter(event.target.value)}
-              >
-                <option value="">All departments</option>
-                {(departments.data ?? []).map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </Select>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <div className="w-full sm:w-64">
+                <Input aria-label="Search ledger entries" type="search" value={entrySearch} onChange={(event) => setEntrySearch(event.target.value)} placeholder="Search description or account" />
+              </div>
+              <div className="w-full sm:w-56">
+                <Select aria-label="Filter ledger entries by department" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                  <option value="">All departments</option>
+                  {(departments.data ?? []).map((department) => (
+                    <option key={department.id} value={department.id}>{department.name}</option>
+                  ))}
+                </Select>
+              </div>
+              {(entrySearch || departmentFilter) ? (
+                <Button size="sm" variant="ghost" onClick={() => { setEntrySearch(""); setDepartmentFilter(""); }}>Clear filters</Button>
+              ) : null}
             </div>
           }
         />
         {entries.loading ? <LoadingState /> : null}
         {entries.error ? <ErrorState message={entries.error} /> : null}
-        {entries.data && entries.data.length === 0 ? (
-          <EmptyState label="No ledger entries yet." />
+        {entries.data && ledgerRows.length === 0 ? (
+          <EmptyState label="No ledger entries for this department yet." />
         ) : null}
-        {entries.data && entries.data.length > 0 ? (
+        {entries.data && ledgerRows.length > 0 && filteredEntries.length === 0 ? (
+          <EmptyState label="No entries match this search. Try another term or clear the search." />
+        ) : null}
+        {entries.data && filteredEntries.length > 0 ? (
           <Table>
             <Thead>
               <tr>
@@ -116,7 +161,7 @@ export default function GeneralLedgerPage() {
               </tr>
             </Thead>
             <tbody>
-              {entries.data.map((entry) => (
+              {filteredEntries.map((entry) => (
                 <tr key={entry.id}>
                   <Td>{formatDateTime(entry.created_at)}</Td>
                   <Td>{entry.description ?? "—"}</Td>
@@ -129,10 +174,13 @@ export default function GeneralLedgerPage() {
             </tbody>
           </Table>
         ) : null}
+        {entries.data && filteredEntries.length > 0 ? (
+          <p className="mt-3 text-xs text-ink-soft" aria-live="polite">Showing <span className="font-semibold tabular-nums text-ink">{filteredEntries.length.toLocaleString("en-NG")}</span> of {ledgerRows.length.toLocaleString("en-NG")} entries</p>
+        ) : null}
       </Card>
 
       {posting ? (
-        <NewJournalEntryDrawer
+        <NewJournalEntryModal
           onClose={() => setPosting(false)}
           onPosted={() => {
             setPosting(false);
@@ -155,7 +203,7 @@ function emptyLine(): DraftLine {
   return { accountCode: "", side: "debit", amount: "" };
 }
 
-function NewJournalEntryDrawer({
+function NewJournalEntryModal({
   onClose,
   onPosted,
 }: {
@@ -215,7 +263,7 @@ function NewJournalEntryDrawer({
   }
 
   return (
-    <Drawer title="New Journal Entry" onClose={onClose}>
+    <Modal title="New Journal Entry" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="description">Description</Label>
@@ -303,6 +351,6 @@ function NewJournalEntryDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

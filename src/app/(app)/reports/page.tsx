@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
+import { EmailPdfModal } from "@/components/email-pdf-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   ErrorState,
   LoadingState,
 } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -169,7 +169,7 @@ function StatutoryLiabilitiesTab() {
       </Card>
 
       {remitting ? (
-        <RemitDrawer
+        <RemitModal
           liability={remitting}
           onClose={() => setRemitting(null)}
           onRemitted={() => {
@@ -182,7 +182,7 @@ function StatutoryLiabilitiesTab() {
   );
 }
 
-function RemitDrawer({
+function RemitModal({
   liability,
   onClose,
   onRemitted,
@@ -214,7 +214,7 @@ function RemitDrawer({
   }
 
   return (
-    <Drawer title="Mark as Remitted" onClose={onClose}>
+    <Modal title="Mark as Remitted" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           {liabilityLabel(liability)} for{" "}
@@ -241,7 +241,7 @@ function RemitDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
@@ -421,7 +421,7 @@ function VendorStatementTab() {
       ) : null}
 
       {emailing && vendor ? (
-        <EmailPdfDrawer
+        <EmailPdfModal
           title={`Email Statement — ${vendor.name}`}
           description="Sends this vendor's statement of account as a PDF attachment."
           defaultTo={vendor.contact_email}
@@ -543,7 +543,7 @@ function CustomerStatementTab() {
       ) : null}
 
       {emailing && customer ? (
-        <EmailPdfDrawer
+        <EmailPdfModal
           title={`Email Statement — ${customer.name}`}
           description="Sends this customer's statement of account as a PDF attachment."
           defaultTo={customer.contact_email}

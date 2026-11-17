@@ -45,12 +45,12 @@ test.beforeEach(async ({ context, page }) => {
 test.afterEach(() => errors.expectNone());
 
 const tiles = (page: Page) => page.getByRole("region", { name: "Fixed asset totals" }).locator(":scope > *");
-const newAssetDrawer = (page: Page) => page.getByRole("dialog", { name: "New Fixed Asset" });
+const newAssetForm = (page: Page) => page.getByRole("dialog", { name: "New Fixed Asset" });
 
 async function startNewAsset(page: Page, tag: string) {
   await page.goto("/fixed-assets");
   await page.getByRole("button", { name: "New Fixed Asset" }).click();
-  await expect(newAssetDrawer(page)).toBeVisible();
+  await expect(newAssetForm(page)).toBeVisible();
   await page.fill("#name", "Forklift");
   await page.fill("#assetTag", tag);
   await page.fill("#acquisitionDate", "2023-03-01");
@@ -79,7 +79,7 @@ test("an asset already owned comes on with the depreciation it had built up", as
   await expect(page.locator("#openingFunding")).toBeVisible();
 
   // More than cost less salvage value is refused before anything is sent.
-  const create = newAssetDrawer(page).getByRole("button", { name: "Create Asset" });
+  const create = newAssetForm(page).getByRole("button", { name: "Create Asset" });
   await page.fill("#openingDepreciation", "760000");
   await expect(page.locator("#openingDepreciationHint")).toHaveText(
     "Can't be more than cost less salvage value (₦750,000).",
@@ -93,7 +93,7 @@ test("an asset already owned comes on with the depreciation it had built up", as
   );
   await expect(create).toBeEnabled();
   await create.click();
-  await expect(newAssetDrawer(page)).toBeHidden();
+  await expect(newAssetForm(page)).toBeHidden();
 
   const writes = writesTo(store, "POST", "/fixed-assets");
   expect(writes).toHaveLength(1);
@@ -121,8 +121,8 @@ test("switching back to bought now drops the opening depreciation", async ({ pag
   await page.selectOption("#acquisitionSource", "purchase");
   await expect(page.locator("#openingDepreciation")).toHaveCount(0);
 
-  await newAssetDrawer(page).getByRole("button", { name: "Create Asset" }).click();
-  await expect(newAssetDrawer(page)).toBeHidden();
+  await newAssetForm(page).getByRole("button", { name: "Create Asset" }).click();
+  await expect(newAssetForm(page)).toBeHidden();
   expect(writesTo(store, "POST", "/fixed-assets")[0].body).toMatchObject({
     asset_tag: "FA-011",
     opening_balance: false,
@@ -173,21 +173,21 @@ test("an asset's history lists each change with the running total", async ({ pag
   };
   await page.goto("/fixed-assets");
   await page.getByRole("button", { name: "History of FA-001" }).click();
-  const drawer = page.getByRole("dialog", { name: "Depreciation History — FA-001" });
-  await expect(drawer).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Depreciation History — FA-001" });
+  await expect(dialog).toBeVisible();
 
-  const rows = drawer.locator("tbody tr");
+  const rows = dialog.locator("tbody tr");
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(0)).toContainText(/Opening balance\s*Built up before Plutus.*\+₦200,000\s*₦200,000$/);
   await expect(rows.nth(1)).toContainText(/Depreciation\s*\+₦150,000\s*₦350,000$/);
   await expect(rows.nth(2)).toContainText(/Revaluation\s*Revalued: market appraisal\s*−₦350,000\s*₦0$/);
   await expect(rows.nth(3)).toContainText(/Depreciation\s*\+₦250,000\s*₦250,000$/);
-  await expect(drawer.getByRole("note")).toContainText(
+  await expect(dialog.getByRole("note")).toContainText(
     "₦50,000 of this asset's accumulated depreciation was recorded without a posting this history can trace",
   );
 
   await page.keyboard.press("Escape");
-  await expect(drawer).toBeHidden();
+  await expect(dialog).toBeHidden();
 });
 
 test("a disposed asset's history is still available", async ({ page }) => {
@@ -195,10 +195,10 @@ test("a disposed asset's history is still available", async ({ page }) => {
   const row = page.getByRole("row", { name: /FA-003/ });
   await expect(row.getByRole("button", { name: "Depreciate" })).toHaveCount(0);
   await row.getByRole("button", { name: "History of FA-003" }).click();
-  const drawer = page.getByRole("dialog", { name: "Depreciation History — FA-003" });
-  await expect(drawer).toContainText("No depreciation recorded for this asset yet.");
-  await expect(drawer).toContainText("its cost and accumulated depreciation were taken off the books");
-  await expect(drawer.getByRole("note")).toHaveCount(0);
+  const dialog = page.getByRole("dialog", { name: "Depreciation History — FA-003" });
+  await expect(dialog).toContainText("No depreciation recorded for this asset yet.");
+  await expect(dialog).toContainText("its cost and accumulated depreciation were taken off the books");
+  await expect(dialog.getByRole("note")).toHaveCount(0);
 });
 
 test("the balance sheet is vertical: fixed assets at cost less depreciation, then current assets, then capital", async ({ page }) => {
@@ -248,7 +248,7 @@ test("a leased asset takes its category's method and goes on the leased register
   await page.fill("#leaseTerm", "36");
 
   // A category made from the form fills in its usual depreciation.
-  await newAssetDrawer(page).getByRole("button", { name: "+ New Category" }).click();
+  await newAssetForm(page).getByRole("button", { name: "+ New Category" }).click();
   const modal = page.getByRole("dialog", { name: "New Asset Category" });
   await modal.locator("#new-category-name").fill("Leased Vehicles");
   await modal.locator("#new-category-method").selectOption("reducing_balance");
@@ -258,8 +258,8 @@ test("a leased asset takes its category's method and goes on the leased register
   await expect(page.locator("#depreciationMethod")).toHaveValue("reducing_balance");
   await expect(page.locator("#depreciationRate")).toHaveValue("25");
 
-  await newAssetDrawer(page).getByRole("button", { name: "Create Asset" }).click();
-  await expect(newAssetDrawer(page)).toBeHidden();
+  await newAssetForm(page).getByRole("button", { name: "Create Asset" }).click();
+  await expect(newAssetForm(page)).toBeHidden();
   expect(writesTo(store, "POST", "/fixed-assets")[0].body).toMatchObject({
     asset_tag: "LEASE-1",
     acquisition_type: "leased",
@@ -300,10 +300,10 @@ test("the year-end run reports each asset's charge and the ones already done", a
   };
   await page.goto("/fixed-assets");
   await page.getByRole("button", { name: "Year-End Depreciation" }).click();
-  const drawer = page.getByRole("dialog", { name: "Year-End Depreciation" });
-  await drawer.locator("#yearEndYear").fill("2026");
-  await drawer.getByRole("button", { name: "Run for 2026" }).click();
-  const result = drawer.getByLabel("Year-end depreciation result");
+  const dialog = page.getByRole("dialog", { name: "Year-End Depreciation" });
+  await dialog.locator("#yearEndYear").fill("2026");
+  await dialog.getByRole("button", { name: "Run for 2026" }).click();
+  const result = dialog.getByLabel("Year-end depreciation result");
   await expect(result).toContainText("₦187,500 charged for 2026 across 1 asset.");
   await expect(result).toContainText("FA-001");
   await expect(result).toContainText("Reducing balance");

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { type StatementRow, StatementTable, sectionRows } from "@/components/accounting/statement-table";
-import { EmailPdfDrawer } from "@/components/email-pdf-drawer";
+import { EmailPdfModal } from "@/components/email-pdf-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -142,7 +142,7 @@ export default function FinancialStatementsPage() {
       </Card>
 
       {emailingIncomeStatement ? (
-        <EmailPdfDrawer
+        <EmailPdfModal
           title="Email Income Statement"
           description="No default recipient exists for an internal financial statement — enter the address to send it to."
           onClose={() => setEmailingIncomeStatement(false)}

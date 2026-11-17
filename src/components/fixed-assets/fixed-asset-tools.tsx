@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Drawer } from "@/components/ui/drawer";
 import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -142,11 +141,11 @@ export function AssetCategoryModal({
   );
 }
 
-export function AssetCategoriesDrawer({ onClose }: { onClose: () => void }) {
+export function AssetCategoriesModal({ onClose }: { onClose: () => void }) {
   const categories = useApiResource(() => fixedAssetsApi.categories());
   const [creating, setCreating] = useState(false);
   return (
-    <Drawer title="Asset Categories" onClose={onClose}>
+    <Modal title="Asset Categories" onClose={onClose}>
       <div className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Your own classes of asset, with the depreciation each usually takes. A new asset in a category starts from these
@@ -193,11 +192,11 @@ export function AssetCategoriesDrawer({ onClose }: { onClose: () => void }) {
           }}
         />
       ) : null}
-    </Drawer>
+    </Modal>
   );
 }
 
-export function YearEndDepreciationDrawer({ onClose, onRun }: { onClose: () => void; onRun: () => void }) {
+export function YearEndDepreciationModal({ onClose, onRun }: { onClose: () => void; onRun: () => void }) {
   const { showToast } = useToast();
   const [year, setYear] = useState(() => String(new Date().getFullYear()));
   const [running, setRunning] = useState(false);
@@ -218,7 +217,7 @@ export function YearEndDepreciationDrawer({ onClose, onRun }: { onClose: () => v
   }
 
   return (
-    <Drawer title="Year-End Depreciation" onClose={onClose}>
+    <Modal title="Year-End Depreciation" onClose={onClose}>
       <form onSubmit={run} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Charges each active asset&apos;s depreciation for the year by its own method: straight line, reducing balance (the
@@ -285,11 +284,11 @@ export function YearEndDepreciationDrawer({ onClose, onRun }: { onClose: () => v
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 
-export function LeasePaymentDrawer({
+export function LeasePaymentModal({
   asset,
   onClose,
   onPaid,
@@ -318,7 +317,7 @@ export function LeasePaymentDrawer({
   }
 
   return (
-    <Drawer title={`Lease Payment — ${asset.asset_tag}`} onClose={onClose}>
+    <Modal title={`Lease Payment — ${asset.asset_tag}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Reduces the lease liability and pays from Cash and Bank.
@@ -341,6 +340,6 @@ export function LeasePaymentDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

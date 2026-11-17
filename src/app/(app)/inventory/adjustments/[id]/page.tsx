@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Label, Textarea } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -285,7 +285,7 @@ export default function StockAdjustmentDetailPage({ params }: { params: Promise<
       </div>
 
       {reversing ? (
-        <ReverseDrawer
+        <ReverseModal
           adjustment={data}
           onClose={() => setReversing(false)}
           onReversed={() => {
@@ -307,7 +307,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ReverseDrawer({
+function ReverseModal({
   adjustment,
   onClose,
   onReversed,
@@ -334,7 +334,7 @@ function ReverseDrawer({
   }
 
   return (
-    <Drawer title={`Reverse ${adjustment.adjustment_number}`} onClose={onClose}>
+    <Modal title={`Reverse ${adjustment.adjustment_number}`} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">
           Reversal writes compensating stock movements dated today. The original movements stay in the
@@ -362,6 +362,6 @@ function ReverseDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

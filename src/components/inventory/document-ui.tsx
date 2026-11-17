@@ -6,7 +6,7 @@ import { ApprovalHistoryPanel } from "@/components/approval-history-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api/client";
@@ -206,10 +206,10 @@ export function DocumentJournals({
   );
 }
 
-// A drawer asking for the reason behind a consequential action (reverse,
+// A modal asking for the reason behind a consequential action (reverse,
 // cancel, close). The reason is recorded on the document and in the audit
 // trail.
-export function ReasonDrawer({
+export function ReasonModal({
   title,
   explanation,
   actionLabel,
@@ -236,7 +236,7 @@ export function ReasonDrawer({
   }
 
   return (
-    <Drawer title={title} onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <p className="text-[13px] text-ink-soft">{explanation}</p>
         <div>
@@ -259,7 +259,7 @@ export function ReasonDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }
 

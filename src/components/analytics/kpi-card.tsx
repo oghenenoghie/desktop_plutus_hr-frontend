@@ -4,7 +4,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight, ListTree } from "lucide-react
 import Link from "next/link";
 
 import { InfoTip } from "@/components/analytics/chart-card";
-import { useDrill } from "@/components/analytics/records-drawer";
+import { useDrill } from "@/components/analytics/records-modal";
 import { Card } from "@/components/ui/card";
 import { formatChangePct, formatValue } from "@/lib/analytics/format";
 import type { Metric } from "@/lib/analytics/types";

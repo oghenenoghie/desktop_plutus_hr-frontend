@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -70,7 +70,7 @@ export default function JobGradesPage() {
       </Card>
 
       {creating ? (
-        <JobGradeDrawer
+        <JobGradeModal
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false);
@@ -80,7 +80,7 @@ export default function JobGradesPage() {
       ) : null}
 
       {editing ? (
-        <JobGradeDrawer
+        <JobGradeModal
           jobGrade={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -93,7 +93,7 @@ export default function JobGradesPage() {
   );
 }
 
-function JobGradeDrawer({
+function JobGradeModal({
   jobGrade,
   onClose,
   onSaved,
@@ -138,7 +138,7 @@ function JobGradeDrawer({
   }
 
   return (
-    <Drawer title={jobGrade ? "Edit Job Grade" : "New Job Grade"} onClose={onClose}>
+    <Modal title={jobGrade ? "Edit Job Grade" : "New Job Grade"} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="name">Name</Label>
@@ -189,6 +189,6 @@ function JobGradeDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

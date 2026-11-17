@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/badge";
@@ -80,7 +80,7 @@ export default function PerformancePage() {
       </Card>
 
       {creating ? (
-        <NewReviewDrawer
+        <NewReviewModal
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false);
@@ -92,7 +92,7 @@ export default function PerformancePage() {
   );
 }
 
-function NewReviewDrawer({
+function NewReviewModal({
   onClose,
   onCreated,
 }: {
@@ -126,7 +126,7 @@ function NewReviewDrawer({
   }
 
   return (
-    <Drawer title="New Performance Review" onClose={onClose}>
+    <Modal title="New Performance Review" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="employee">Employee</Label>
@@ -182,6 +182,6 @@ function NewReviewDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

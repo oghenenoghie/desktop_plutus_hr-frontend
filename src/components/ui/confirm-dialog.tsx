@@ -27,7 +27,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  // Opened from a drawer or modal, Escape cancels this confirmation only.
+  // Opened from a modal, Escape cancels this confirmation only.
   const isTop = useOverlayLayer();
 
   useEffect(() => {

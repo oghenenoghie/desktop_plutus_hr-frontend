@@ -3,13 +3,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { expectModalContract, trackPageErrors } from "./support/dialogs";
 import { freshStore, installMockApi, writesTo, type MockStore } from "./support/mock-api";
 
-// Vendor → bill: "+ New Vendor" inside the New Vendor Bill drawer, where the
+// Vendor → bill: "+ New Vendor" inside the New Vendor Bill form, where the
 // vendor also decides which goods receipts the bill can be linked to.
 
 let store: MockStore;
 let errors: ReturnType<typeof trackPageErrors>;
 
-const drawer = (page: Page) => page.getByRole("dialog", { name: "New Vendor Bill" });
+const billForm = (page: Page) => page.getByRole("dialog", { name: "New Vendor Bill" });
 const vendorModal = (page: Page) => page.getByRole("dialog", { name: "New Vendor", exact: true });
 const openVendorModal = (page: Page) => page.getByRole("button", { name: "+ New Vendor" }).click();
 
@@ -27,7 +27,7 @@ test.beforeEach(async ({ context, page }) => {
   errors = trackPageErrors(page);
   await page.goto("/bills");
   await page.getByRole("button", { name: "New Vendor Bill" }).click();
-  await expect(drawer(page)).toBeVisible();
+  await expect(billForm(page)).toBeVisible();
   // An existing vendor with a goods receipt to link, which fills the amount.
   await page.selectOption("#vendor", "v1");
   await page.selectOption("#goodsReceipt", "g1");
@@ -39,8 +39,8 @@ test.beforeEach(async ({ context, page }) => {
 
 test.afterEach(() => errors.expectNone());
 
-test("the vendor modal behaves as a modal on top of the bill drawer", async ({ page }) => {
-  await expectModalContract(page, { open: () => openVendorModal(page), name: "New Vendor", parent: drawer(page) });
+test("the vendor modal behaves as a modal on top of the bill form", async ({ page }) => {
+  await expectModalContract(page, { open: () => openVendorModal(page), name: "New Vendor", parent: billForm(page) });
   await expect(page.locator("#billNumber")).toHaveValue("VB-77");
   await expect(page.locator("#goodsReceipt")).toHaveValue("g1");
 });
@@ -61,7 +61,7 @@ test("a new vendor is selected, the goods receipt cleared, and the bill saves wi
   await expect(page.locator("#whtCategory")).toHaveValue("goods");
 
   await page.getByRole("button", { name: "Create Vendor Bill" }).click();
-  await expect(drawer(page)).toBeHidden();
+  await expect(billForm(page)).toBeHidden();
   const bills = writesTo(store, "POST", "/bills");
   expect(bills).toHaveLength(1);
   expect(bills[0].body).toEqual({

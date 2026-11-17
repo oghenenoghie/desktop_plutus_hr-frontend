@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -80,7 +80,7 @@ export default function ShiftsPage() {
       </Card>
 
       {creating ? (
-        <ShiftDrawer
+        <ShiftModal
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false);
@@ -90,7 +90,7 @@ export default function ShiftsPage() {
       ) : null}
 
       {editing ? (
-        <ShiftDrawer
+        <ShiftModal
           shift={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -103,7 +103,7 @@ export default function ShiftsPage() {
   );
 }
 
-function ShiftDrawer({
+function ShiftModal({
   shift,
   onClose,
   onSaved,
@@ -138,7 +138,7 @@ function ShiftDrawer({
   }
 
   return (
-    <Drawer title={shift ? "Edit Shift" : "New Shift"} onClose={onClose}>
+    <Modal title={shift ? "Edit Shift" : "New Shift"} onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="name">Name</Label>
@@ -182,6 +182,6 @@ function ShiftDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

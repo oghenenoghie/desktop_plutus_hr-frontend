@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import { ApprovalCard, Field, ReasonDrawer, errorText } from "@/components/inventory/document-ui";
+import { ApprovalCard, Field, ReasonModal, errorText } from "@/components/inventory/document-ui";
 import { InventoryError } from "@/components/inventory/inventory-ui";
 import { PurchaseOrderForm } from "@/components/inventory/purchase-order-form";
 import { PageHeader } from "@/components/layout/page-header";
@@ -251,7 +251,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {asking ? (
-        <ReasonDrawer
+        <ReasonModal
           title={asking === "cancel" ? `Cancel ${po.po_number}` : `Close ${po.po_number}`}
           explanation={
             asking === "cancel"

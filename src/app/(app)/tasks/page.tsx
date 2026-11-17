@@ -7,7 +7,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -127,7 +127,7 @@ export default function TasksPage() {
       </Card>
 
       {creating ? (
-        <NewTaskDrawer
+        <NewTaskModal
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -139,7 +139,7 @@ export default function TasksPage() {
   );
 }
 
-function NewTaskDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewTaskModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user } = useAuth();
   const { showToast } = useToast();
   // Assigning a task to someone else requires looking up the org's other
@@ -177,7 +177,7 @@ function NewTaskDrawer({ onClose, onCreated }: { onClose: () => void; onCreated:
   }
 
   return (
-    <Drawer title="New Task" onClose={onClose}>
+    <Modal title="New Task" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div>
           <Label htmlFor="task-title">Title</Label>
@@ -245,6 +245,6 @@ function NewTaskDrawer({ onClose, onCreated }: { onClose: () => void; onCreated:
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   );
 }

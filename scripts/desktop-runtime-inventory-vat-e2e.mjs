@@ -53,13 +53,13 @@ async function openingStock(itemId, warehouseId, quantity) {
   await call(`/inventory/adjustments/${adjustment.id}/post`, { method: "POST" });
 }
 
-async function approvedOrder(vendorId, warehouseId, itemId, quantity, label) {
+async function approvedOrder(vendorId, warehouseId, itemId, quantity, label, unitPriceMinor = 1000) {
   const order = await call("/inventory/purchase-orders", {
     method: "POST", expected: [201],
     body: {
       vendor_id: vendorId, warehouse_id: warehouseId, order_date: today,
       vendor_reference: `E2E-${label}-${suffix}`,
-      lines: [{ item_id: itemId, quantity: String(quantity), unit_price_minor: 1000 }],
+      lines: [{ item_id: itemId, quantity: String(quantity), unit_price_minor: unitPriceMinor }],
     },
   });
   await call(`/inventory/purchase-orders/${order.id}/submit`, { method: "POST" });
@@ -139,7 +139,7 @@ async function main() {
   // 3 existing + two partial deliveries (4 + 3) = 10.
   const itemA = await createItem(`E2E-A-${suffix}`, "E2E paper rolls", pcs.id);
   await openingStock(itemA, warehouse.id, 3);
-  const orderA = await approvedOrder(vendor.id, warehouse.id, itemA, 7, "A");
+  const orderA = await approvedOrder(vendor.id, warehouse.id, itemA, 7, "A", 2500000);
   const receiptA1 = await receive(orderA, warehouse.id, 4, `A1-${suffix}`);
   const receiptA2 = await receive(orderA, warehouse.id, 3, `A2-${suffix}`);
   assert.equal(await stock(itemA), 10, "3 existing + 4 + 3 received must equal 10");

@@ -288,7 +288,7 @@ export function PurchaseOrderForm({
               </div>
               <div className="text-right text-[13px]">
                 <div className="text-ink-soft">
-                  Net {formatMoney(subtotal)} · Tax {formatMoney(tax)}
+                  Net {formatMoney(subtotal)} · Tax estimate {formatMoney(tax)}
                 </div>
                 <div className="font-extrabold text-ink">Total {formatMoney(subtotal + tax)}</div>
               </div>

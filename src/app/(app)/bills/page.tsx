@@ -422,7 +422,7 @@ function NewBillModal({
         </div>
         {vendorId && !receipts.error && linkable.length > 0 ? (
           <div>
-            <Label htmlFor="goodsReceipt">Goods receipt</Label>
+            <Label htmlFor="goodsReceipt">Goods receipt (if this bill covers received stock)</Label>
             <Select
               id="goodsReceipt"
               value={goodsReceiptId}
@@ -511,12 +511,17 @@ function NewBillModal({
             required
           />
         </div>
-        <VatFields
-          choice={vat}
-          netMinor={netMinor}
-          totalLabel="Bill total"
-          otherHint="For a vendor charging another country's VAT or a special rate. The name is printed on the bill."
-        />
+        <div className="flex flex-col gap-1">
+          <VatFields
+            choice={vat}
+            netMinor={netMinor}
+            totalLabel="Bill total"
+            otherHint="For a vendor charging another country's VAT or a special rate. The name is printed on the bill."
+          />
+          <p className="text-[11px] text-ink-soft">
+            Enter the VAT shown on the supplier's invoice here. Goods receipts do not record VAT; link this bill to its goods receipt above when it covers stock already received.
+          </p>
+        </div>
         <div>
           <Label htmlFor="whtCategory">WHT Category</Label>
           <Select

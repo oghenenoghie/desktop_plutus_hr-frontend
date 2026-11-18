@@ -88,15 +88,24 @@ jobs:
       - name: Exercise real Electron and local database workflows
         run: node scripts/desktop-runtime-inventory-vat-e2e.mjs
 
-      - name: Capture desktop runtime logs
+      - name: Copy desktop runtime diagnostics
+        if: always()
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:APPDATA "plutus-hr-system-frontend"
+          $destination = Join-Path $env:RUNNER_TEMP "plutus-diagnostics"
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          foreach ($name in "startup.log","backend.log","frontend.log") {
+            $file = Join-Path $source $name
+            if (Test-Path $file) { Copy-Item $file $destination }
+          }
+
+      - name: Upload desktop runtime diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: desktop-runtime-e2e-diagnostics
-          path: |
-            ${{ env.APPDATA }}\\plutus-hr-system-frontend\\startup.log
-            ${{ env.APPDATA }}\\plutus-hr-system-frontend\\backend.log
-            ${{ env.APPDATA }}\\plutus-hr-system-frontend\\frontend.log
+          path: ${{ runner.temp }}/plutus-diagnostics/
           if-no-files-found: warn
           retention-days: 14
 

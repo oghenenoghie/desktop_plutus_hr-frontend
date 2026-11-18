@@ -51,14 +51,14 @@ jobs:
       - name: Install and launch the packaged app
         shell: pwsh
         run: |
-          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\\Programs"
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs"
           Add-MpPreference -ExclusionPath "$env:APPDATA"
           $installer = Get-ChildItem installer -Filter *.exe | Select-Object -First 1
           if (-not $installer) { throw "Windows installer artifact did not contain an .exe" }
           $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "Installer exited with $($install.ExitCode)" }
 
-          $exe = Get-ChildItem "$env:LOCALAPPDATA\\Programs" -Recurse -Filter "Plutus Technologies.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter "Plutus Technologies.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) { throw "Installed Plutus Technologies.exe was not found" }
 
           # The NSIS installer may auto-launch the app. Stop that ordinary

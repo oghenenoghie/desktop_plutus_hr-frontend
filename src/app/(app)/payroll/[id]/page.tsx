@@ -430,8 +430,9 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                   onClick={() => handleDownload(slip)}
                                   disabled={downloadingId === slip.id}
                                 >
-                                  {downloadingId === slip.id ? "Downloading…" : "PDF"}
-                                </Button>
+                                    {downloadingId === slip.id ? "Downloading…" : "PDF"}
+                                  </Button>
+                                </>
                               ) : null}
                             </div>
                           </Td>

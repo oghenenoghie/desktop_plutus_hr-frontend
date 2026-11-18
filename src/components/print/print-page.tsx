@@ -67,7 +67,10 @@ function PrintBody({
     if (!ready || printed.current) return;
     printed.current = true;
     // After the browser has laid the document out.
-    const timer = window.setTimeout(() => window.print(), 300);
+    const timer = window.setTimeout(() => {
+      window.focus();
+      window.print();
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [ready]);
 
@@ -77,7 +80,13 @@ function PrintBody({
         <Button variant="secondary" onClick={() => router.back()}>
           Back
         </Button>
-        <Button onClick={() => window.print()} disabled={!ready}>
+        <Button
+          onClick={() => {
+            window.focus();
+            window.print();
+          }}
+          disabled={!ready}
+        >
           Print
         </Button>
       </div>

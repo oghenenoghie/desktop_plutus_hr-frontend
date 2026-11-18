@@ -61,9 +61,14 @@ jobs:
           $exe = Get-ChildItem "$env:LOCALAPPDATA\\Programs" -Recurse -Filter "Plutus Technologies.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) { throw "Installed Plutus Technologies.exe was not found" }
 
+          # The NSIS installer may auto-launch the app. Stop that ordinary
+          # instance first so the test process can own the CDP port.
+          Get-Process -Name "Plutus Technologies" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+
           # Chromium's remote debugging endpoint is bound to loopback by
           # Electron. It is enabled only for this disposable CI process.
-          $env:PLUTUS_E2E = "1"
           $proc = Start-Process -FilePath $exe.FullName -ArgumentList @('--remote-debugging-port=47823','--remote-allow-origins=*') -PassThru
           $deadline = (Get-Date).AddMinutes(6)
           $backendOk = $false

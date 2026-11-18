@@ -163,5 +163,8 @@ export async function downloadAuthenticatedFile(path: string, filename: string):
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Mobile browsers and embedded Chromium shells may consume the blob URL
+  // after the click handler returns. Immediate revocation can cancel a PDF
+  // before the browser has handed it to the download manager.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

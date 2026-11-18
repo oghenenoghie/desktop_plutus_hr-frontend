@@ -424,12 +424,16 @@ export default function PayRunDetailPage({ params }: { params: Promise<{ id: str
                                 {expandedId === slip.id ? "Hide working" : "Show working"}
                               </Button>
                               {posted ? (
-                                <Button
-                                  size="md"
-                                  variant="secondary"
-                                  onClick={() => handleDownload(slip)}
-                                  disabled={downloadingId === slip.id}
-                                >
+                                <>
+                                  <Link href={`/print/pay-runs/${id}/payslips/${slip.id}`}>
+                                    <Button size="md" variant="secondary">Print</Button>
+                                  </Link>
+                                  <Button
+                                    size="md"
+                                    variant="secondary"
+                                    onClick={() => handleDownload(slip)}
+                                    disabled={downloadingId === slip.id}
+                                  >
                                     {downloadingId === slip.id ? "Downloading…" : "PDF"}
                                   </Button>
                                 </>

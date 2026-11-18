@@ -1,0 +1,103 @@
+name: Desktop runtime E2E
+
+# Run only after the desktop packaging workflow has produced its Windows
+# installer. This exercises the installed Electron renderer, its local
+# FastAPI service and its persistent embedded PostgreSQL database.
+on:
+  workflow_run:
+    workflows: ["Build desktop app"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Successful Build desktop app workflow run ID containing the Windows installer artifact"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  installed-runtime:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out E2E harness
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Playwright harness
+        run: npm ci
+
+      - name: Download packaged Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: plutus-desktop-windows-latest
+          path: installer
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
+
+      - name: Install and launch the packaged app
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\\Programs"
+          Add-MpPreference -ExclusionPath "$env:APPDATA"
+          $installer = Get-ChildItem installer -Filter *.exe | Select-Object -First 1
+          if (-not $installer) { throw "Windows installer artifact did not contain an .exe" }
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Installer exited with $($install.ExitCode)" }
+
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\\Programs" -Recurse -Filter "Plutus Technologies.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "Installed Plutus Technologies.exe was not found" }
+
+          # Chromium's remote debugging endpoint is bound to loopback by
+          # Electron. It is enabled only for this disposable CI process.
+          $env:PLUTUS_E2E = "1"
+          $proc = Start-Process -FilePath $exe.FullName -ArgumentList @('--remote-debugging-port=47823','--remote-allow-origins=*') -PassThru
+          $deadline = (Get-Date).AddMinutes(6)
+          $backendOk = $false
+          $frontendOk = $false
+          $cdpOk = $false
+          while ((Get-Date) -lt $deadline -and (-not $backendOk -or -not $frontendOk -or -not $cdpOk)) {
+            try { $r = Invoke-WebRequest 'http://127.0.0.1:47821/api/v1/health' -UseBasicParsing -TimeoutSec 3; $backendOk = ($r.StatusCode -eq 200) } catch {}
+            try { $r = Invoke-WebRequest 'http://127.0.0.1:47822/login' -UseBasicParsing -TimeoutSec 3; $frontendOk = ($r.StatusCode -eq 200) } catch {}
+            try { $r = Invoke-RestMethod 'http://127.0.0.1:47823/json/version' -TimeoutSec 3; $cdpOk = [bool]$r.webSocketDebuggerUrl } catch {}
+            if (-not $backendOk -or -not $frontendOk -or -not $cdpOk) { Start-Sleep -Seconds 3 }
+          }
+          if (-not $backendOk) { throw "Packaged backend health check failed" }
+          if (-not $frontendOk) { throw "Packaged frontend health check failed" }
+          if (-not $cdpOk) { throw "Electron remote debugging endpoint did not become available" }
+          Write-Host "Installed Electron app, backend, frontend and renderer debugging endpoint are healthy."
+
+      - name: Exercise real Electron and local database workflows
+        run: node scripts/desktop-runtime-inventory-vat-e2e.mjs
+
+      - name: Capture desktop runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-runtime-e2e-diagnostics
+          path: |
+            ${{ env.APPDATA }}\\plutus-hr-system-frontend\\startup.log
+            ${{ env.APPDATA }}\\plutus-hr-system-frontend\\backend.log
+            ${{ env.APPDATA }}\\plutus-hr-system-frontend\\frontend.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop installed app processes
+        if: always()
+        shell: pwsh
+        run: |
+          Get-Process -Name "Plutus Technologies","plutus-backend","postgres" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue

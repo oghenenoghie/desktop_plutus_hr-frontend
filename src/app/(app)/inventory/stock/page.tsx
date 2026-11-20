@@ -22,7 +22,7 @@ export default function StockOnHandPage() {
   const [warehouseId, setWarehouseId] = useState("");
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
-  const [includeZero, setIncludeZero] = useState(false);
+  const [includeZero, setIncludeZero] = useState(true);
 
   const stock = useApiResource(
     () => inventoryApi.stock({ warehouseId, q: query, includeZero }),
@@ -80,8 +80,8 @@ export default function StockOnHandPage() {
                 value={includeZero ? "all" : "nonzero"}
                 onChange={(event) => setIncludeZero(event.target.value === "all")}
               >
-                <option value="nonzero">Items in stock</option>
-                <option value="all">Include zero balances</option>
+                <option value="all">All tracked items</option>
+                <option value="nonzero">Items in stock only</option>
               </Select>
             </div>
           </form>

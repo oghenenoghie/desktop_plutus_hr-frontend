@@ -7,7 +7,7 @@ import { chromium } from "@playwright/test";
 const API = "http://127.0.0.1:47821/api/v1";
 const suffix = randomUUID().slice(0, 8);
 const today = new Date().toISOString().slice(0, 10);
-const email = `desktop-e2e-${suffix}@example.test`;
+const email = `desktop-e2e-${suffix}@example.com`;
 const password = `Desktop-E2E-${randomUUID()}-Aa9!`;
 let token;
 

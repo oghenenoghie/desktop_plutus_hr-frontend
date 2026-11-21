@@ -12,6 +12,11 @@ on:
         description: "How many times fresh-install-windows installs and uninstalls the Windows build"
         required: false
         default: "3"
+      publish_release:
+        description: "Publish the installers as a GitHub Release after all build and Windows installer checks pass"
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       - "desktop-v*"
@@ -998,7 +1003,7 @@ jobs:
   # version-free artifactName values.
   release:
     needs: [build, upgrade-test-windows, fresh-install-windows, admin-app-test-windows]
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/desktop-v')
+    if: startsWith(github.ref, 'refs/tags/desktop-v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
     runs-on: ubuntu-latest
     permissions:
       contents: write

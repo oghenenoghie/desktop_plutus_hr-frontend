@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/data-state";
@@ -10,9 +9,8 @@ import { AuthGate } from "@/lib/auth/auth-gate";
 import type { Role } from "@/lib/types";
 
 // A document laid out for paper (an invoice, a bill, a payroll register),
-// outside the app's sidebar and top bar. The browser's own print dialog
-// opens once the document has loaded, the same in a browser and in Plutus
-// Desktop; Back and Print stay on screen and never print.
+// outside the app's sidebar and top bar. This page is the document preview;
+// printing only starts when the user explicitly chooses Print / Save as PDF.
 export function PrintPage({
   title,
   subtitle,
@@ -61,18 +59,6 @@ function PrintBody({
 }) {
   const router = useRouter();
   const { user } = useAuth();
-  const printed = useRef(false);
-
-  useEffect(() => {
-    if (!ready || printed.current) return;
-    printed.current = true;
-    // After the browser has laid the document out.
-    const timer = window.setTimeout(() => {
-      window.focus();
-      window.print();
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [ready]);
 
   return (
     <div className="min-h-screen bg-surface print:bg-white">
@@ -80,15 +66,20 @@ function PrintBody({
         <Button variant="secondary" onClick={() => router.back()}>
           Back
         </Button>
-        <Button
-          onClick={() => {
-            window.focus();
-            window.print();
-          }}
-          disabled={!ready}
-        >
-          Print
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <p className="text-right text-xs text-ink-soft">
+            Preview the document below. Printing starts only when you choose this action.
+          </p>
+          <Button
+            onClick={() => {
+              window.focus();
+              window.print();
+            }}
+            disabled={!ready}
+          >
+            Print / Save as PDF
+          </Button>
+        </div>
       </div>
       <main className="mx-auto max-w-[900px] px-6 py-8 text-ink print:max-w-none print:px-0 print:py-0">
         <header className="mb-6 flex items-start justify-between gap-6 border-b-2 border-ink pb-4">

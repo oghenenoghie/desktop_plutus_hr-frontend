@@ -7,7 +7,7 @@ import { chromium } from "@playwright/test";
 const API = "http://127.0.0.1:47821/api/v1";
 const suffix = randomUUID().slice(0, 8);
 const today = new Date().toISOString().slice(0, 10);
-const email = `desktop-e2e-${suffix}@gmail.com`;
+const email = `desktop-e2e-${suffix}@example.com`;
 const password = `Desktop-E2E-${randomUUID()}-Aa9!`;
 let token;
 
@@ -135,7 +135,7 @@ async function main() {
     await page.locator("#password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 30_000 });
-    await page.getByText("Plutus Technologies").first().waitFor();
+    await page.getByRole("heading", { name: /Welcome back/ }).waitFor({ state: "visible", timeout: 30_000 });
     console.log("Electron renderer login passed.");
   } finally {
     await browser.close();

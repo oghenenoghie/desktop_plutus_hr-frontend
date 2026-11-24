@@ -32,6 +32,31 @@ async function stock(itemId) {
   return Number(rows.find((row) => row.warehouse_code === "MAIN")?.quantity ?? 0);
 }
 
+async function verifyElectronStockRow(sku, expectedQuantity) {
+  const browser = await chromium.connectOverCDP("http://127.0.0.1:47823");
+  try {
+    const context = browser.contexts()[0];
+    assert.ok(context, "Electron should expose its renderer context");
+    const page = context.pages()[0];
+    assert.ok(page, "Electron should have an application window");
+    await page.goto("http://127.0.0.1:47822/inventory/stock");
+    const row = page.getByRole("row", { name: new RegExp(sku) });
+    await row.waitFor({ state: "visible", timeout: 30_000 });
+    const quantityCell = row.getByRole("cell").nth(3);
+    const rendered = await quantityCell.innerText();
+    assert.ok(rendered.includes(String(expectedQuantity)),
+      `Stock row ${sku} should show quantity ${expectedQuantity}; got: ${rendered}`);
+    if (expectedQuantity === 0) {
+      assert.match(rendered, /Out/, "Zero-stock item should display the Out indicator");
+    } else {
+      assert.doesNotMatch(rendered, /Out/, "Positive-stock item must not display Out");
+    }
+    console.log(`Electron Stock on Hand rendered ${sku} at quantity ${expectedQuantity}.`);
+  } finally {
+    await browser.close();
+  }
+}
+
 async function createItem(sku, name, unitId) {
   const item = await call("/inventory/items", {
     method: "POST", expected: [201],
@@ -146,6 +171,16 @@ async function main() {
   const finalOrderA = await call(`/inventory/purchase-orders/${orderA.id}`);
   assert.equal(finalOrderA.status, "received");
   assert.equal(finalOrderA.receipts.length, 2);
+
+  // A newly registered tracked item must appear in Stock on Hand at zero
+  // before any receipt, and then update after a real posted goods receipt.
+  const itemZero = await createItem(`E2E-ZERO-${suffix}`, "E2E zero-stock item", pcs.id);
+  assert.equal(await stock(itemZero), 0, "new tracked item must appear at zero stock");
+  await verifyElectronStockRow(`E2E-ZERO-${suffix}`, 0);
+  const zeroOrder = await approvedOrder(vendor.id, warehouse.id, itemZero, 5, "ZERO");
+  await receive(zeroOrder, warehouse.id, 5, `ZERO-${suffix}`);
+  assert.equal(await stock(itemZero), 5, "posted receipt must increase zero stock to five");
+  await verifyElectronStockRow(`E2E-ZERO-${suffix}`, 5);
 
   // 1 existing + 5 received = 6.
   const itemB = await createItem(`E2E-B-${suffix}`, "E2E staplers", pcs.id);

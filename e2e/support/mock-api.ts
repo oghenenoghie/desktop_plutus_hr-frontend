@@ -7,6 +7,7 @@ import type {
   FixedAsset,
   FixedAssetDepreciationHistory,
   InventoryItem,
+  InventoryStockRow,
   Role,
   StatementLine,
   StatementSection,
@@ -287,6 +288,26 @@ export async function installMockApi(context: BrowserContext, store: MockStore):
     if (method === "GET" && path === "/inventory/units") return json(200, UNITS);
     if (method === "GET" && path === "/inventory/categories") return json(200, CATEGORIES);
     if (method === "GET" && path === "/inventory/warehouses") return json(200, WAREHOUSES);
+
+    if (method === "GET" && path === "/inventory/stock") {
+      const includeZero = url.searchParams.get("include_zero") === "true";
+      const rows: InventoryStockRow[] = store.items
+        .filter((item) => item.is_active && item.item_type === "stock")
+        .filter((item) => includeZero || Number(item.quantity_on_hand) !== 0)
+        .map((item) => ({
+          item_id: item.id,
+          sku: item.sku,
+          item_name: item.name,
+          base_unit_code: item.base_unit_code,
+          warehouse_id: "w1",
+          warehouse_code: "MAIN",
+          warehouse_name: "Main Store",
+          quantity: item.quantity_on_hand,
+          reorder_level: item.reorder_level,
+          value_minor: item.value_minor,
+        }));
+      return json(200, rows);
+    }
 
     if (path === "/inventory/items") {
       if (method === "GET") return json(200, store.items);

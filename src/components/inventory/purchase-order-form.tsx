@@ -222,7 +222,7 @@ export function PurchaseOrderForm({
         <Card>
           <CardHeader
             title="Lines"
-            subtitle="Prices are per unit; discount and tax are amounts for the whole line. Stock is valued at the price after discount — tax is settled on the vendor's bill."
+            subtitle="Prices are per unit; discount and tax estimate are amounts for the whole line. This tax is for purchase-order costing only, not the supplier's VAT return amount. Record the actual VAT from the supplier invoice on the Vendor Bill; goods receipt records quantities only."
           />
           <div className="flex flex-col gap-3">
             {lines.map((line, index) => {
@@ -266,7 +266,7 @@ export function PurchaseOrderForm({
                     <Input id={`po-discount-${line.key}`} inputMode="decimal" value={line.discount} onChange={(e) => update(line.key, { discount: e.target.value })} placeholder="0" />
                   </div>
                   <div>
-                    <Label htmlFor={`po-tax-${line.key}`}>Tax ({currencyLabel()})</Label>
+                    <Label htmlFor={`po-tax-${line.key}`}>Tax estimate ({currencyLabel()})</Label>
                     <Input id={`po-tax-${line.key}`} inputMode="decimal" value={line.tax} onChange={(e) => update(line.key, { tax: e.target.value })} placeholder="0" />
                   </div>
                   <Button type="button" variant="secondary" aria-label={`Remove line ${index + 1}`} disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((other) => other.key !== line.key))}>
@@ -288,7 +288,7 @@ export function PurchaseOrderForm({
               </div>
               <div className="text-right text-[13px]">
                 <div className="text-ink-soft">
-                  Net {formatMoney(subtotal)} · Tax {formatMoney(tax)}
+                  Net {formatMoney(subtotal)} · Tax estimate {formatMoney(tax)}
                 </div>
                 <div className="font-extrabold text-ink">Total {formatMoney(subtotal + tax)}</div>
               </div>

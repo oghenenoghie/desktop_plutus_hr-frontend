@@ -38,7 +38,7 @@ function NewGoodsReceipt() {
     <div>
       <PageHeader
         title="Receive Goods"
-        subtitle="Select the purchase order the goods arrived against. Receive into stock adds the accepted goods to stock on hand now; save a draft instead if the delivery still needs checking."
+        subtitle="Select the purchase order the goods arrived against. Receive into stock adds accepted quantities to stock on hand. Do not enter VAT here: record the supplier invoice and its VAT under Vendor Bills after checking the delivery."
       />
       <div className="flex flex-col gap-6">
         <ChooseOrder

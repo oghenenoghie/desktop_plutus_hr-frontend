@@ -4,6 +4,11 @@ name: Desktop runtime E2E
 # installer. This exercises the installed Electron renderer, its local
 # FastAPI service and its persistent embedded PostgreSQL database.
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/desktop-runtime-inventory-vat-e2e.mjs"
+      - ".github/workflows/desktop-runtime-e2e.yml"
   workflow_run:
     workflows: ["Build desktop app"]
     types: [completed]
@@ -23,7 +28,8 @@ jobs:
   installed-runtime:
     if: >-
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request'
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
@@ -39,6 +45,24 @@ jobs:
       - name: Install Playwright harness
         run: npm ci
 
+      - name: Find latest successful desktop build for pull requests
+        if: github.event_name == 'pull_request'
+        id: latest-build
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $uri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/workflows/build-desktop.yml/runs?branch=main&status=success&per_page=1"
+          $response = Invoke-RestMethod -Uri $uri -Headers $headers
+          $runId = $response.workflow_runs | Select-Object -First 1 -ExpandProperty id
+          if (-not $runId) { throw "No successful main-branch desktop build is available for runtime testing." }
+          "run_id=$runId" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Download packaged Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -46,7 +70,7 @@ jobs:
           path: installer
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
+          run-id: ${{ github.event.workflow_run.id || inputs.run_id || steps.latest-build.outputs.run_id }}
 
       - name: Install and launch the packaged app
         shell: pwsh

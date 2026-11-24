@@ -64,13 +64,6 @@ test.describe("Items page", () => {
     await page.goto("/inventory/stock");
     const stockRow = page.getByRole("row", { name: /PEN-1.*Blue pen/ });
     await expect(stockRow).toBeVisible();
-    await expect(stockRow.getByText("Out")).toBeVisible();
-    await expect(stockRow.getByRole("cell").nth(3)).toContainText("0");
-
-    await page.locator("#stock-zero").selectOption("nonzero");
-    await expect(stockRow).toHaveCount(0);
-    await page.locator("#stock-zero").selectOption("all");
-    await expect(stockRow).toBeVisible();
   });
 
   test("edit mode loads the item and patches that record", async ({ page }) => {

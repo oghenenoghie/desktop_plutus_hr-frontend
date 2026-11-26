@@ -81,7 +81,7 @@ function PrintBody({
           </Button>
         </div>
       </div>
-      <main className="mx-auto max-w-[900px] px-6 py-8 text-ink print:max-w-none print:px-0 print:py-0">
+      <main aria-label="Document preview" className="mx-auto max-w-[900px] px-6 py-8 text-ink print:max-w-none print:px-0 print:py-0">
         <header className="mb-6 flex items-start justify-between gap-6 border-b-2 border-ink pb-4">
           <div>
             <p className="text-[18px] font-extrabold">{user?.org_name ?? ""}</p>

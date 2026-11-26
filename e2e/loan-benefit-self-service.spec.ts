@@ -9,6 +9,43 @@ test("an employee can submit a loan request and a benefit application", async ({
   const applications: Record<string, unknown>[] = [];
 
   await installMockApi(context, store);
+  await context.route("**/api/v1/employees/me", async (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "employee-1",
+        org_id: "o1",
+        account_id: "acc1",
+        employee_number: "EMP-001",
+        full_name: "Test Employee",
+        state_of_residence: "Lagos",
+        employment_type: "permanent",
+        lifecycle_state: "active",
+        lifecycle_stage: "active",
+        date_of_joining: "2025-01-01",
+        contract_end_date: null,
+        job_title: "Analyst",
+        photo_url: null,
+        photo_thumbnail_url: null,
+        manager_id: null,
+        department_id: null,
+        branch_id: null,
+        job_grade_id: null,
+        shift_id: null,
+        tin: null,
+        basic_minor: 30000000,
+        housing_minor: 10000000,
+        transport_minor: 5000000,
+        other_earnings_minor: 0,
+        annual_rent_paid_minor: null,
+        pay_frequency: "monthly",
+        annual_leave_entitlement_days: 20,
+        salary_masked: false,
+        created_at: "2025-01-01T00:00:00Z",
+      }),
+    }),
+  );
   await context.route("**/api/v1/loans/me", async (route) => {
     if (route.request().method() === "POST") {
       const body = route.request().postDataJSON() as Record<string, unknown>;

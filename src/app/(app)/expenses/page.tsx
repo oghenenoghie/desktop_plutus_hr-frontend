@@ -14,7 +14,8 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { approvalInstancesApi, expensesApi } from "@/lib/api/endpoints";
-import { formatDate, formatMoney } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useApiResource } from "@/lib/hooks";
 import type { ApprovalInstance, Expense, ExpenseCreateBody, ExpenseStatus } from "@/lib/types";
 
@@ -24,7 +25,9 @@ const NEXT_ACTION: Partial<Record<ExpenseStatus, { label: string; run: (id: stri
 };
 
 export default function ExpensesPage() {
-  const expenses = useApiResource(() => expensesApi.list());
+  const { user } = useAuth();
+  const canViewAll = ["admin", "payroll_manager", "accountant", "manager", "auditor"].includes(user?.role ?? "");
+  const expenses = useApiResource(() => canViewAll ? expensesApi.list() : expensesApi.mine(), [canViewAll]);
   const { showToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [category, setCategory] = useState("");
@@ -56,7 +59,7 @@ export default function ExpensesPage() {
     const body: ExpenseCreateBody = {
       category: category.trim(),
       description: description.trim(),
-      amount_minor: Math.round(amountValue * 100),
+      amount_minor: toMinorUnits(amount),
       expense_date: expenseDate,
       receipt_url: receiptUrl.trim() || null,
     };
@@ -100,7 +103,7 @@ export default function ExpensesPage() {
 
   return (
     <div>
-      <PageHeader title="Expense Reimbursement" subtitle="Claims, approvals and taxable/non-taxable handling" />
+      <PageHeader title="Expense Reimbursement" subtitle={canViewAll ? "Claims, approvals and taxable/non-taxable handling" : "Submit and track your expense claims"} />
 
       <Card>
         {expenses.loading ? <LoadingState /> : null}
@@ -135,7 +138,7 @@ export default function ExpensesPage() {
                       </Td>
                       <Td align="right">
                         <div className="flex justify-end gap-2">
-                          {expense.status === "pending" ? (
+                          {canViewAll && expense.status === "pending" ? (
                             <ConfirmActionButton
                               action={() => act(expensesApi.reject, expense.id, "Expense claim rejected")}
                               label="Reject"
@@ -144,7 +147,7 @@ export default function ExpensesPage() {
                               confirmLabel="Reject"
                             />
                           ) : null}
-                          {next ? (
+                          {canViewAll && next ? (
                             <ConfirmActionButton
                               action={() =>
                                 act(
@@ -160,7 +163,7 @@ export default function ExpensesPage() {
                               confirmLabel={next.label}
                             />
                           ) : null}
-                          <Button size="md" variant="secondary" onClick={() => toggleHistory(expense.id)}>
+                          {canViewAll ? <Button size="md" variant="secondary" onClick={() => toggleHistory(expense.id)}>
                             {expandedId === expense.id ? "Hide" : "History"}
                           </Button>
                         </div>

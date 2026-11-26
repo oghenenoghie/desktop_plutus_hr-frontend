@@ -47,9 +47,9 @@ async function verifyElectronStockRow(sku, expectedQuantity) {
     assert.ok(rendered.includes(String(expectedQuantity)),
       `Stock row ${sku} should show quantity ${expectedQuantity}; got: ${rendered}`);
     if (expectedQuantity === 0) {
-      assert.match(rendered, /Out/, "Zero-stock item should display the Out indicator");
+      assert.match(rendered, /\bOUT\b/i, "Zero-stock item should display the Out indicator");
     } else {
-      assert.doesNotMatch(rendered, /Out/, "Positive-stock item must not display Out");
+      assert.doesNotMatch(rendered, /\bOUT\b/i, "Positive-stock item must not display Out");
     }
     console.log(`Electron Stock on Hand rendered ${sku} at quantity ${expectedQuantity}.`);
   } finally {
@@ -78,6 +78,42 @@ async function openingStock(itemId, warehouseId, quantity) {
   await call(`/inventory/adjustments/${adjustment.id}/post`, { method: "POST" });
 }
 
+async function waitForPurchaseOrder(id) {
+  // The request-scoped DB session can finish committing during dependency
+  // teardown; wait briefly for the created row to be readable before changing
+  // its state in this real installed-app test.
+  const deadline = Date.now() + 3_000;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      const order = await call(`/inventory/purchase-orders/${id}`);
+      assert.equal(order.id, id);
+      return order;
+    } catch (error) {
+      if (!String(error?.message ?? error).includes("got 404")) throw error;
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  throw new Error(`Purchase order ${id} did not become readable after creation: ${lastError?.message ?? "404"}`);
+}
+
+async function waitForPurchaseOrderStatus(id, expectedStatus) {
+  // The request-scoped DB session may finish committing during dependency
+  // teardown. Do not start receiving until the approved state is readable
+  // through a fresh request, not just returned by the approval response.
+  const deadline = Date.now() + 3_000;
+  let lastStatus = "unreadable";
+  while (Date.now() < deadline) {
+    const order = await call(`/inventory/purchase-orders/${id}`);
+    assert.equal(order.id, id);
+    if (order.status === expectedStatus) return order;
+    lastStatus = order.status;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Purchase order ${id} did not reach ${expectedStatus}; last status was ${lastStatus}`);
+}
+
 async function approvedOrder(vendorId, warehouseId, itemId, quantity, label, unitPriceMinor = 1000) {
   const order = await call("/inventory/purchase-orders", {
     method: "POST", expected: [201],
@@ -87,12 +123,14 @@ async function approvedOrder(vendorId, warehouseId, itemId, quantity, label, uni
       lines: [{ item_id: itemId, quantity: String(quantity), unit_price_minor: unitPriceMinor }],
     },
   });
+  const visibleOrder = await waitForPurchaseOrder(order.id);
+  assert.equal(visibleOrder.status, "draft");
   await call(`/inventory/purchase-orders/${order.id}/submit`, { method: "POST" });
-  const approved = await call(`/inventory/purchase-orders/${order.id}/approve`, {
+  const approvalResponse = await call(`/inventory/purchase-orders/${order.id}/approve`, {
     method: "POST", body: {},
   });
-  assert.equal(approved.status, "approved");
-  return approved;
+  assert.equal(approvalResponse.status, "approved");
+  return waitForPurchaseOrderStatus(order.id, "approved");
 }
 
 async function receive(order, warehouseId, quantity, reference) {

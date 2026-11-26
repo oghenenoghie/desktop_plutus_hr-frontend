@@ -125,7 +125,7 @@ test("an employee can submit a loan request and a benefit application", async ({
   await page.getByRole("button", { name: "Submit Application" }).click();
   await expect(page.getByText("Benefit application submitted for approval.")).toBeVisible();
   await expect(page.getByText("Health Cover")).toBeVisible();
-  await expect(page.getByText("pending").first()).toBeVisible();
+  await expect(page.getByText(/pending/i).first()).toBeVisible();
 
   expect(loanWrites).toHaveLength(1);
   expect(loanWrites[0]).toMatchObject({

@@ -36,7 +36,7 @@ export type LeaveType =
   | "unpaid";
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ExpenseStatus = "pending" | "approved" | "rejected" | "reimbursed";
-export type LoanStatus = "active" | "paid_off" | "cancelled";
+export type LoanStatus = "pending" | "active" | "paid_off" | "cancelled" | "rejected";
 export type OvertimeStatus = "pending" | "approved" | "rejected" | "paid";
 export type BenefitFrequency = "one_time" | "monthly" | "annual";
 export type LiabilityScheme =
@@ -932,10 +932,19 @@ export interface Expense {
 
 // --- loans ---
 
+export interface LoanCreateBody {
+  principal_minor: number;
+  num_installments: number;
+  start_date: string;
+  interest_rate_bps?: number;
+}
+
 export interface Loan {
   id: string;
   employee_id: string;
   principal_minor: number;
+  interest_rate_bps?: number;
+  total_repayable_minor?: number;
   num_installments: number;
   installment_minor: number;
   start_date: string;
@@ -967,6 +976,39 @@ export interface OvertimeCreateBody {
 }
 
 // --- benefits ---
+
+export type BenefitApplicationStatus = "pending" | "approved" | "rejected";
+
+export interface BenefitPlan {
+  id: string;
+  name: string;
+  frequency: BenefitFrequency;
+  description: string | null;
+  default_employee_cost_minor: number;
+  employer_cost_minor: number;
+  created_at: string;
+}
+
+export interface BenefitApplicationCreateBody {
+  plan_id: string;
+  requested_effective_date: string;
+  note?: string | null;
+}
+
+export interface BenefitApplication {
+  id: string;
+  employee_id: string;
+  plan_id: string;
+  requested_effective_date: string;
+  note: string | null;
+  status: BenefitApplicationStatus;
+  decision_note: string | null;
+  benefit_id: string | null;
+  reviewed_by_account_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface BenefitCreateBody {
   name: string;

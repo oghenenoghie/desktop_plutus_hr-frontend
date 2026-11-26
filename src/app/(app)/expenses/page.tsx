@@ -27,6 +27,7 @@ const NEXT_ACTION: Partial<Record<ExpenseStatus, { label: string; run: (id: stri
 export default function ExpensesPage() {
   const { user } = useAuth();
   const canViewAll = ["admin", "payroll_manager", "accountant", "manager", "auditor"].includes(user?.role ?? "");
+  const canManageExpenses = ["admin", "payroll_manager", "accountant"].includes(user?.role ?? "");
   const expenses = useApiResource(() => canViewAll ? expensesApi.list() : expensesApi.mine(), [canViewAll]);
   const { showToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -150,7 +151,7 @@ export default function ExpensesPage() {
                       </Td>
                       <Td align="right">
                         <div className="flex justify-end gap-2">
-                          {canViewAll && expense.status === "pending" ? (
+                          {canManageExpenses && expense.status === "pending" ? (
                             <ConfirmActionButton
                               action={() => act(expensesApi.reject, expense.id, "Expense claim rejected")}
                               label="Reject"
@@ -159,7 +160,7 @@ export default function ExpensesPage() {
                               confirmLabel="Reject"
                             />
                           ) : null}
-                          {canViewAll && next ? (
+                          {canManageExpenses && next ? (
                             <ConfirmActionButton
                               action={() =>
                                 act(

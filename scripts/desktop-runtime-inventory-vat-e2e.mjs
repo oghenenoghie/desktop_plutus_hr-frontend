@@ -47,9 +47,9 @@ async function verifyElectronStockRow(sku, expectedQuantity) {
     assert.ok(rendered.includes(String(expectedQuantity)),
       `Stock row ${sku} should show quantity ${expectedQuantity}; got: ${rendered}`);
     if (expectedQuantity === 0) {
-      assert.match(rendered, /Out/, "Zero-stock item should display the Out indicator");
+      assert.match(rendered, /\bOUT\b/i, "Zero-stock item should display the Out indicator");
     } else {
-      assert.doesNotMatch(rendered, /Out/, "Positive-stock item must not display Out");
+      assert.doesNotMatch(rendered, /\bOUT\b/i, "Positive-stock item must not display Out");
     }
     console.log(`Electron Stock on Hand rendered ${sku} at quantity ${expectedQuantity}.`);
   } finally {

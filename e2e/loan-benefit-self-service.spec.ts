@@ -214,6 +214,7 @@ test("a manager can approve a pending loan and a pending benefit application", a
   await page.goto("/loans");
   await page.getByRole("button", { name: "Approve" }).first().click();
   await expect(page.getByText("Loan approved.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel" })).toBeVisible();
   await page.getByRole("button", { name: "Reject" }).last().click();
   await page.getByRole("dialog").getByRole("button", { name: "Reject Loan" }).click();
   await expect(page.getByText("Loan rejected.")).toBeVisible();

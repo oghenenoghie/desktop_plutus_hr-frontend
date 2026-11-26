@@ -14,7 +14,7 @@ import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { approvalInstancesApi, expensesApi } from "@/lib/api/endpoints";
-import { currencyLabel, formatDate, formatMoney, toMinorUnits } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useApiResource } from "@/lib/hooks";
 import type { ApprovalInstance, Expense, ExpenseCreateBody, ExpenseStatus } from "@/lib/types";
@@ -52,14 +52,15 @@ export default function ExpensesPage() {
   async function submitExpense(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const amountValue = Number(amount);
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    const amountMinor = toMinorUnits(amount);
+    if (!Number.isFinite(amountValue) || amountMinor <= 0) {
       showToast("Enter a valid expense amount greater than zero.", "bad");
       return;
     }
     const body: ExpenseCreateBody = {
       category: category.trim(),
       description: description.trim(),
-      amount_minor: toMinorUnits(amount),
+      amount_minor: amountMinor,
       expense_date: expenseDate,
       receipt_url: receiptUrl.trim() || null,
     };
@@ -109,7 +110,7 @@ export default function ExpensesPage() {
         <form onSubmit={submitExpense} className="grid gap-4 md:grid-cols-2">
           <div><Label htmlFor="expense-category">Category</Label><Input id="expense-category" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="e.g. Transport" required maxLength={64} /></div>
           <div><Label htmlFor="expense-date">Expense date</Label><Input id="expense-date" type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} required /></div>
-          <div><Label htmlFor="expense-amount">Amount ({currencyLabel()})</Label><Input id="expense-amount" type="number" min="0.01" step="any" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={`Amount in ${currencyLabel()}`} required /></div>
+          <div><Label htmlFor="expense-amount">Amount ({currencyLabel()})</Label><Input id="expense-amount" type="number" min={fromMinorUnits(1)} step={fromMinorUnits(1)} value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={`Amount in ${currencyLabel()}`} required /></div>
           <div><Label htmlFor="expense-receipt">Receipt URL (optional)</Label><Input id="expense-receipt" type="url" value={receiptUrl} onChange={(event) => setReceiptUrl(event.target.value)} placeholder="https://" /></div>
           <div className="md:col-span-2"><Label htmlFor="expense-description">Description</Label><Textarea id="expense-description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explain what the expense was for" required maxLength={500} /></div>
           <div className="md:col-span-2"><Button type="submit" disabled={submitting || !category.trim() || !description.trim() || !expenseDate || !amount}>{submitting ? "Submitting…" : "Submit expense claim"}</Button></div>

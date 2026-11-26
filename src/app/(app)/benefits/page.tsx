@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { EmployeePicker } from "@/components/employee-picker";
+import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { StatusBadge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -25,10 +27,27 @@ export default function BenefitsPage() {
   const [endingId, setEndingId] = useState<string | null>(null);
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [ending, setEnding] = useState(false);
+  const applications = useApiResource(() => benefitsApi.applications());
   const benefits = useApiResource(
     () => (employeeId ? benefitsApi.forEmployee(employeeId) : Promise.resolve([])),
     [employeeId],
   );
+
+  async function decideApplication(applicationId: string, decision: "approve" | "reject") {
+    try {
+      if (decision === "approve") {
+        await benefitsApi.approveApplication(applicationId);
+        showToast("Benefit application approved and enrolment created.", "good");
+      } else {
+        await benefitsApi.rejectApplication(applicationId);
+        showToast("Benefit application rejected.", "good");
+      }
+      applications.reload();
+      benefits.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+    }
+  }
 
   async function submitEnd(benefitId: string) {
     setEnding(true);
@@ -51,6 +70,58 @@ export default function BenefitsPage() {
         subtitle="Plan enrollment and employer cost per employee"
         action={employeeId ? <Button onClick={() => setAdding(true)}>Add Benefit</Button> : undefined}
       />
+
+      <Card className="mb-6">
+        <CardHeader
+          title="Benefit Applications"
+          subtitle="Review employee requests. Enrolment is created only after final approval."
+        />
+        {applications.loading ? <LoadingState /> : null}
+        {applications.error ? <ErrorState message={applications.error} /> : null}
+        {applications.data && applications.data.length === 0 ? (
+          <EmptyState label="No benefit applications to review." />
+        ) : null}
+        {applications.data && applications.data.length > 0 ? (
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Employee</Th>
+                <Th>Plan reference</Th>
+                <Th>Requested effective date</Th>
+                <Th>Status</Th>
+                <Th align="right">Actions</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {applications.data.map((application) => (
+                <tr key={application.id}>
+                  <Td>{application.employee_id.slice(0, 8)}</Td>
+                  <Td>{application.plan_id.slice(0, 8)}</Td>
+                  <Td>{formatDate(application.requested_effective_date)}</Td>
+                  <Td><StatusBadge status={application.status} /></Td>
+                  <Td align="right">
+                    {application.status === "pending" ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="md" onClick={() => decideApplication(application.id, "approve")}>
+                          Approve
+                        </Button>
+                        <ConfirmActionButton
+                          action={() => decideApplication(application.id, "reject")}
+                          label="Reject"
+                          tone="danger"
+                          confirmTitle="Reject this benefit application?"
+                          confirmMessage="No benefit enrolment or payroll deduction will be created."
+                          confirmLabel="Reject Application"
+                        />
+                      </div>
+                    ) : <span className="text-xs text-ink-soft">—</span>}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : null}
+      </Card>
 
       <Card className="mb-6">
         <Label htmlFor="employee">Employee</Label>

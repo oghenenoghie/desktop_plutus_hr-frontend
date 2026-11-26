@@ -105,6 +105,17 @@ export default function ExpensesPage() {
     <div>
       <PageHeader title="Expense Reimbursement" subtitle={canViewAll ? "Claims, approvals and taxable/non-taxable handling" : "Submit and track your expense claims"} />
 
+      <Card className="mb-5">
+        <form onSubmit={submitExpense} className="grid gap-4 md:grid-cols-2">
+          <div><Label htmlFor="expense-category">Category</Label><Input id="expense-category" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="e.g. Transport" required maxLength={64} /></div>
+          <div><Label htmlFor="expense-date">Expense date</Label><Input id="expense-date" type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} required /></div>
+          <div><Label htmlFor="expense-amount">Amount ({currencyLabel()})</Label><Input id="expense-amount" type="number" min="0.01" step="any" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={`Amount in ${currencyLabel()}`} required /></div>
+          <div><Label htmlFor="expense-receipt">Receipt URL (optional)</Label><Input id="expense-receipt" type="url" value={receiptUrl} onChange={(event) => setReceiptUrl(event.target.value)} placeholder="https://" /></div>
+          <div className="md:col-span-2"><Label htmlFor="expense-description">Description</Label><Textarea id="expense-description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explain what the expense was for" required maxLength={500} /></div>
+          <div className="md:col-span-2"><Button type="submit" disabled={submitting || !category.trim() || !description.trim() || !expenseDate || !amount}>{submitting ? "Submitting…" : "Submit expense claim"}</Button></div>
+        </form>
+      </Card>
+
       <Card>
         {expenses.loading ? <LoadingState /> : null}
         {expenses.error ? <ErrorState message={expenses.error} /> : null}
@@ -163,9 +174,11 @@ export default function ExpensesPage() {
                               confirmLabel={next.label}
                             />
                           ) : null}
-                          {canViewAll ? <Button size="md" variant="secondary" onClick={() => toggleHistory(expense.id)}>
-                            {expandedId === expense.id ? "Hide" : "History"}
-                          </Button>
+                          {canViewAll ? (
+                            <Button size="md" variant="secondary" onClick={() => toggleHistory(expense.id)}>
+                              {expandedId === expense.id ? "Hide" : "History"}
+                            </Button>
+                          ) : null}
                         </div>
                       </Td>
                     </tr>

@@ -78,6 +78,26 @@ async function openingStock(itemId, warehouseId, quantity) {
   await call(`/inventory/adjustments/${adjustment.id}/post`, { method: "POST" });
 }
 
+async function waitForPurchaseOrder(id) {
+  // The request-scoped DB session can finish committing during dependency
+  // teardown; wait briefly for the created row to be readable before changing
+  // its state in this real installed-app test.
+  const deadline = Date.now() + 3_000;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      const order = await call(`/inventory/purchase-orders/${id}`);
+      assert.equal(order.id, id);
+      return order;
+    } catch (error) {
+      if (!String(error?.message ?? error).includes("got 404")) throw error;
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  throw new Error(`Purchase order ${id} did not become readable after creation: ${lastError?.message ?? "404"}`);
+}
+
 async function approvedOrder(vendorId, warehouseId, itemId, quantity, label, unitPriceMinor = 1000) {
   const order = await call("/inventory/purchase-orders", {
     method: "POST", expected: [201],
@@ -87,6 +107,8 @@ async function approvedOrder(vendorId, warehouseId, itemId, quantity, label, uni
       lines: [{ item_id: itemId, quantity: String(quantity), unit_price_minor: unitPriceMinor }],
     },
   });
+  const visibleOrder = await waitForPurchaseOrder(order.id);
+  assert.equal(visibleOrder.status, "draft");
   await call(`/inventory/purchase-orders/${order.id}/submit`, { method: "POST" });
   const approved = await call(`/inventory/purchase-orders/${order.id}/approve`, {
     method: "POST", body: {},

@@ -18,79 +18,20 @@ export function Badge({ tone = "neutral", children }: { tone?: Tone; children: R
 }
 
 const STATUS_TONE: Record<string, Tone> = {
-  // pay runs
-  locked: "good",
-  validated: "warn",
-  draft: "neutral",
-  reversed: "bad",
-  completed: "good",
-  failed: "bad",
-  // leave / expenses
-  approved: "good",
-  pending: "warn",
-  rejected: "bad",
-  cancelled: "neutral",
-  reimbursed: "good",
-  // loans
-  active: "good",
-  paid_off: "good",
-  // statutory liabilities
-  filed: "warn",
-  remitted: "good",
-  // lifecycle
-  suspended: "warn",
-  terminated: "bad",
-  onboarding: "warn",
-  // probation periods
-  confirmed: "good",
-  // checklist items
-  done: "good",
-  // generated documents
-  sent_for_signature: "warn",
-  signed: "good",
-  // subscriptions
-  past_due: "warn",
-  canceled: "bad",
-  // recruitment: job postings
-  open: "good",
-  closed: "neutral",
-  // recruitment: candidates
-  applied: "neutral",
-  interviewing: "warn",
-  offered: "warn",
-  hired: "good",
-  // performance reviews
-  submitted: "warn",
-  acknowledged: "good",
-  // training enrollments
-  enrolled: "neutral",
-  in_progress: "warn",
-  // company assets
-  available: "good",
-  assigned: "warn",
-  maintenance: "warn",
-  retired: "neutral",
-  // bills / invoices
-  paid: "good",
-  void: "bad",
-  sent: "warn",
-  // fixed assets
-  disposed: "neutral",
-  // tasks
-  todo: "neutral",
-  // inventory documents
-  pending_approval: "warn",
-  posted: "good",
-  issued: "warn",
-  partially_received: "warn",
-  received: "good",
-  in_transit: "warn",
-  counting: "warn",
+  locked: "good", validated: "warn", draft: "neutral", reversed: "bad", completed: "good", failed: "bad",
+  approved: "good", pending: "warn", rejected: "bad", cancelled: "neutral", reimbursed: "good",
+  active: "good", paid_off: "good", filed: "warn", remitted: "good", suspended: "warn", terminated: "bad",
+  onboarding: "warn", confirmed: "good", done: "good", sent_for_signature: "warn", signed: "good",
+  past_due: "warn", canceled: "bad", open: "good", closed: "neutral", applied: "neutral",
+  interviewing: "warn", offered: "warn", hired: "good", submitted: "warn", acknowledged: "good",
+  enrolled: "neutral", in_progress: "warn", available: "good", assigned: "warn", maintenance: "warn",
+  retired: "neutral", paid: "good", void: "bad", sent: "warn", disposed: "neutral",
+  todo: "neutral", pending_approval: "warn", posted: "good", issued: "warn", partially_received: "warn",
+  received: "good", in_transit: "warn", counting: "warn",
 };
 
-// `label` replaces the status's own name where a screen calls it something
-// else (a locked pay run is "posted"); the tone still follows the status.
-export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const tone = STATUS_TONE[status] ?? "neutral";
-  return <Badge tone={tone}>{(label ?? status).replace(/_/g, " ")}</Badge>;
+export function StatusBadge({ status, label }: { status?: string | null; label?: string }) {
+  const safeStatus = status || "unknown";
+  const tone = STATUS_TONE[safeStatus] ?? "neutral";
+  return <Badge tone={tone}>{(label ?? safeStatus).replace(/_/g, " ")}</Badge>;
 }

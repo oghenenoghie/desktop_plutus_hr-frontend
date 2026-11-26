@@ -914,7 +914,7 @@ export interface ExpenseCreateBody {
   amount_minor: number;
   expense_date: string;
   receipt_url?: string | null;
-  payment_method?: "reimbursement" | "company_card" | "direct_payment";
+  payment_method?: "reimbursement" | "direct_payment";
 }
 
 export interface Expense {

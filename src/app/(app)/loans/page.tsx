@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -19,6 +20,22 @@ export default function LoansPage() {
   async function cancel(loanId: string) {
     try {
       await loansApi.cancel(loanId);
+      showToast("Loan cancelled.", "good");
+      loans.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+    }
+  }
+
+  async function decide(loanId: string, decision: "approve" | "reject") {
+    try {
+      if (decision === "approve") {
+        await loansApi.approve(loanId);
+        showToast("Loan approved.", "good");
+      } else {
+        await loansApi.reject(loanId);
+        showToast("Loan rejected.", "good");
+      }
       loans.reload();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
@@ -58,7 +75,21 @@ export default function LoansPage() {
                     <StatusBadge status={loan.status} />
                   </Td>
                   <Td align="right">
-                    {loan.status === "active" ? (
+                    {loan.status === "pending" ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="md" onClick={() => decide(loan.id, "approve")}>
+                          Approve
+                        </Button>
+                        <ConfirmActionButton
+                          action={() => decide(loan.id, "reject")}
+                          label="Reject"
+                          tone="danger"
+                          confirmTitle="Reject this loan request?"
+                          confirmMessage="The employee will not receive this loan and no payroll deductions will be created."
+                          confirmLabel="Reject Loan"
+                        />
+                      </div>
+                    ) : loan.status === "active" ? (
                       <ConfirmActionButton
                         action={() => cancel(loan.id)}
                         label="Cancel"

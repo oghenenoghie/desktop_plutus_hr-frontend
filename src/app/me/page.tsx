@@ -32,7 +32,7 @@ import {
   trainingEnrollmentsApi,
   unionMembershipsApi,
 } from "@/lib/api/endpoints";
-import { formatDate, formatDateTime, formatMoney, titleCase } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import { employeeLines, isEnginePayslip } from "@/lib/payslip-lines";
 import type { PerformanceReview, Task, TrainingEnrollment } from "@/lib/types";
@@ -45,6 +45,8 @@ export default function MyWorkspacePage() {
   const expenses = useApiResource(() => expensesApi.mine());
   const loans = useApiResource(() => loansApi.mine());
   const benefits = useApiResource(() => benefitsApi.mine());
+  const availableBenefitPlans = useApiResource(() => benefitsApi.availablePlans());
+  const benefitApplications = useApiResource(() => benefitsApi.myApplications());
   const policies = useApiResource(() => policiesApi.list());
   const performanceReviews = useApiResource(() => performanceReviewsApi.me());
   const myEnrollments = useApiResource(() => trainingEnrollmentsApi.mine());
@@ -60,6 +62,57 @@ export default function MyWorkspacePage() {
   const { showToast } = useToast();
   const [clockActionPending, setClockActionPending] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [loanRequestOpen, setLoanRequestOpen] = useState(false);
+  const [loanPrincipal, setLoanPrincipal] = useState("");
+  const [loanInstallments, setLoanInstallments] = useState("6");
+  const [loanStartDate, setLoanStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [loanSubmitting, setLoanSubmitting] = useState(false);
+  const [benefitRequestOpen, setBenefitRequestOpen] = useState(false);
+  const [benefitPlanId, setBenefitPlanId] = useState("");
+  const [benefitEffectiveDate, setBenefitEffectiveDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [benefitNote, setBenefitNote] = useState("");
+  const [benefitSubmitting, setBenefitSubmitting] = useState(false);
+
+  async function submitLoanRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoanSubmitting(true);
+    try {
+      await loansApi.request({
+        principal_minor: toMinorUnits(loanPrincipal),
+        num_installments: Number(loanInstallments),
+        start_date: loanStartDate,
+      });
+      showToast("Loan request submitted for approval.", "good");
+      setLoanRequestOpen(false);
+      setLoanPrincipal("");
+      loans.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Loan request failed.", "bad");
+    } finally {
+      setLoanSubmitting(false);
+    }
+  }
+
+  async function submitBenefitApplication(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBenefitSubmitting(true);
+    try {
+      await benefitsApi.apply({
+        plan_id: benefitPlanId,
+        requested_effective_date: benefitEffectiveDate,
+        note: benefitNote || null,
+      });
+      showToast("Benefit application submitted for approval.", "good");
+      setBenefitRequestOpen(false);
+      setBenefitPlanId("");
+      setBenefitNote("");
+      benefitApplications.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Benefit application failed.", "bad");
+    } finally {
+      setBenefitSubmitting(false);
+    }
+  }
 
   async function onMyPhotoSelected(blob: Blob, consent: boolean) {
     setPhotoBusy(true);
@@ -362,6 +415,164 @@ export default function MyWorkspacePage() {
               </tbody>
             </Table>
           ) : null}
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader
+            title="New Requests"
+            subtitle="Loan requests and benefit enrolments require approval before they take effect."
+          />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-panel border border-border p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-ink">Request a Loan</h3>
+                <Button size="md" variant="secondary" onClick={() => setLoanRequestOpen((open) => !open)}>
+                  {loanRequestOpen ? "Close" : "New Request"}
+                </Button>
+              </div>
+              {loanRequestOpen ? (
+                <form onSubmit={submitLoanRequest} className="flex flex-col gap-3">
+                  <div>
+                    <Label htmlFor="loan-principal">Amount</Label>
+                    <Input
+                      id="loan-principal"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={loanPrincipal}
+                      onChange={(event) => setLoanPrincipal(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="loan-installments">Number of installments</Label>
+                    <Input
+                      id="loan-installments"
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={loanInstallments}
+                      onChange={(event) => setLoanInstallments(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="loan-start-date">Requested start date</Label>
+                    <Input
+                      id="loan-start-date"
+                      type="date"
+                      value={loanStartDate}
+                      onChange={(event) => setLoanStartDate(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-ink-soft">
+                    Payroll deductions begin only after your loan is approved.
+                  </p>
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={loanSubmitting || !loanPrincipal || Number(loanPrincipal) <= 0}>
+                      {loanSubmitting ? "Submitting…" : "Submit Loan Request"}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-xs text-ink-soft">Submit a loan request and track its approval status in Loans & Advances above.</p>
+              )}
+            </section>
+
+            <section className="rounded-panel border border-border p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-ink">Apply for a Benefit</h3>
+                <Button size="md" variant="secondary" onClick={() => setBenefitRequestOpen((open) => !open)}>
+                  {benefitRequestOpen ? "Close" : "New Application"}
+                </Button>
+              </div>
+              {benefitRequestOpen ? (
+                <form onSubmit={submitBenefitApplication} className="flex flex-col gap-3">
+                  <div>
+                    <Label htmlFor="benefit-plan">Benefit plan</Label>
+                    <select
+                      id="benefit-plan"
+                      value={benefitPlanId}
+                      onChange={(event) => setBenefitPlanId(event.target.value)}
+                      required
+                      className="h-10 w-full rounded-control border border-border bg-surface px-3 text-sm text-ink"
+                    >
+                      <option value="">Select a plan</option>
+                      {(availableBenefitPlans.data ?? []).map((plan) => (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.name} · {titleCase(plan.frequency)}
+                        </option>
+                      ))}
+                    </select>
+                    {availableBenefitPlans.error ? <ErrorState message={availableBenefitPlans.error} /> : null}
+                    {availableBenefitPlans.data?.length === 0 ? (
+                      <p className="mt-2 text-xs text-ink-soft">No benefit plans are currently available.</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <Label htmlFor="benefit-effective-date">Requested effective date</Label>
+                    <Input
+                      id="benefit-effective-date"
+                      type="date"
+                      value={benefitEffectiveDate}
+                      onChange={(event) => setBenefitEffectiveDate(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="benefit-note">Note (optional)</Label>
+                    <Textarea
+                      id="benefit-note"
+                      value={benefitNote}
+                      onChange={(event) => setBenefitNote(event.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={benefitSubmitting || !benefitPlanId || !availableBenefitPlans.data?.length}>
+                      {benefitSubmitting ? "Submitting…" : "Submit Application"}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-xs text-ink-soft">Choose an available plan and request enrolment. It will not become a payroll benefit until approved.</p>
+              )}
+            </section>
+          </div>
+          <div className="mt-6">
+            <h3 className="mb-3 text-sm font-bold text-ink">My Benefit Applications</h3>
+            {benefitApplications.loading ? <LoadingState /> : null}
+            {benefitApplications.error ? <ErrorState message={benefitApplications.error} /> : null}
+            {benefitApplications.data && benefitApplications.data.length === 0 ? (
+              <EmptyState label="No benefit applications submitted." />
+            ) : null}
+            {benefitApplications.data && benefitApplications.data.length > 0 ? (
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>Plan</Th>
+                    <Th>Requested effective date</Th>
+                    <Th>Status</Th>
+                    <Th>Decision note</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {benefitApplications.data.map((application) => (
+                    <tr key={application.id}>
+                      <Td>
+                        {availableBenefitPlans.data?.find((plan) => plan.id === application.plan_id)?.name ??
+                          "Plan " + application.plan_id.slice(0, 8)}
+                      </Td>
+                      <Td>{formatDate(application.requested_effective_date)}</Td>
+                      <Td><StatusBadge status={application.status} /></Td>
+                      <Td>{application.decision_note ?? "—"}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : null}
+          </div>
         </Card>
 
         <Card>

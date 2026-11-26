@@ -39,6 +39,12 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build and TypeScript validation
+        run: npm run build
+
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 

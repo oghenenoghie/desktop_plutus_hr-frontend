@@ -519,7 +519,7 @@ function NewBillModal({
             otherHint="For a vendor charging another country's VAT or a special rate. The name is printed on the bill."
           />
           <p className="text-[11px] text-ink-soft">
-            Enter the VAT shown on the supplier's invoice here. Goods receipts do not record VAT; link this bill to its goods receipt above when it covers stock already received.
+            Enter the VAT shown on the supplier&apos;s invoice here. Goods receipts do not record VAT; link this bill to its goods receipt above when it covers stock already received.
           </p>
         </div>
         <div>

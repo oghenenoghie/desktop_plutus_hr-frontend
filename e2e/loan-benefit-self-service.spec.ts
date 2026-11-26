@@ -154,6 +154,11 @@ test("a manager can approve a pending loan and a pending benefit application", a
     outstanding_minor: 2_000_000,
     created_at: "2026-11-26T00:00:00Z",
   };
+  const loanToReject = {
+    ...loan,
+    id: "loan-reject-1",
+    status: "pending",
+  };
   const application: Record<string, unknown> = {
     id: "benefit-approval-1",
     employee_id: "employee-1",
@@ -169,10 +174,16 @@ test("a manager can approve a pending loan and a pending benefit application", a
     updated_at: "2026-11-26T00:00:00Z",
   };
 
+  const applicationToReject: Record<string, unknown> = {
+    ...application,
+    id: "benefit-reject-1",
+    status: "pending",
+  };
+
   await installMockApi(context, store);
   await context.route("**/api/v1/loans", async (route) => {
     if (route.request().method() === "GET") {
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([loan]) });
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([loan, loanToReject]) });
     }
     return route.fallback();
   });
@@ -180,20 +191,34 @@ test("a manager can approve a pending loan and a pending benefit application", a
     loan.status = "active";
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(loan) });
   });
+  await context.route("**/api/v1/loans/loan-reject-1/reject", async (route) => {
+    loanToReject.status = "rejected";
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(loanToReject) });
+  });
   await context.route("**/api/v1/benefits/applications", async (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([application]) }),
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([application, applicationToReject]) }),
   );
   await context.route("**/api/v1/benefits/applications/benefit-approval-1/approve", async (route) => {
     application.status = "approved";
     application.benefit_id = "benefit-1";
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(application) });
   });
+  await context.route("**/api/v1/benefits/applications/benefit-reject-1/reject", async (route) => {
+    applicationToReject.status = "rejected";
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(applicationToReject) });
+  });
 
   await page.goto("/loans");
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Loan approved.")).toBeVisible();
+  await page.getByRole("button", { name: "Reject" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reject Loan" }).click();
+  await expect(page.getByText("Loan rejected.")).toBeVisible();
 
   await page.goto("/benefits");
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Benefit application approved and enrolment created.")).toBeVisible();
+  await page.getByRole("button", { name: "Reject" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reject Application" }).click();
+  await expect(page.getByText("Benefit application rejected.")).toBeVisible();
 });

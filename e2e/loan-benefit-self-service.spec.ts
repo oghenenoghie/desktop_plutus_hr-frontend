@@ -154,7 +154,7 @@ test("a manager can approve a pending loan and a pending benefit application", a
     outstanding_minor: 2_000_000,
     created_at: "2026-11-26T00:00:00Z",
   };
-  const application = {
+  const application: Record<string, unknown> = {
     id: "benefit-approval-1",
     employee_id: "employee-1",
     plan_id: "plan-health",

@@ -7,15 +7,17 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { approvalInstancesApi, expensesApi } from "@/lib/api/endpoints";
-import { formatDate, formatMoney } from "@/lib/format";
+import { currencyLabel, formatDate, formatMoney, fromMinorUnits, toMinorUnits } from "@/lib/format";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useApiResource } from "@/lib/hooks";
-import type { ApprovalInstance, Expense, ExpenseStatus } from "@/lib/types";
+import type { ApprovalInstance, Expense, ExpenseCreateBody, ExpenseStatus } from "@/lib/types";
 
 const NEXT_ACTION: Partial<Record<ExpenseStatus, { label: string; run: (id: string) => Promise<unknown> }>> = {
   pending: { label: "Approve", run: (id) => expensesApi.approve(id) },
@@ -23,9 +25,17 @@ const NEXT_ACTION: Partial<Record<ExpenseStatus, { label: string; run: (id: stri
 };
 
 export default function ExpensesPage() {
-  const expenses = useApiResource(() => expensesApi.list());
+  const { user } = useAuth();
+  const canViewAll = ["admin", "payroll_manager", "accountant", "manager", "auditor"].includes(user?.role ?? "");
+  const expenses = useApiResource(() => canViewAll ? expensesApi.list() : expensesApi.mine(), [canViewAll]);
   const { showToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [receiptUrl, setReceiptUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<Record<string, ApprovalInstance | null>>({});
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
 
@@ -36,6 +46,37 @@ export default function ExpensesPage() {
       expenses.reload();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+    }
+  }
+
+  async function submitExpense(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const amountValue = Number(amount);
+    const amountMinor = toMinorUnits(amount);
+    if (!Number.isFinite(amountValue) || amountMinor <= 0) {
+      showToast("Enter a valid expense amount greater than zero.", "bad");
+      return;
+    }
+    const body: ExpenseCreateBody = {
+      category: category.trim(),
+      description: description.trim(),
+      amount_minor: amountMinor,
+      expense_date: expenseDate,
+      receipt_url: receiptUrl.trim() || null,
+    };
+    setSubmitting(true);
+    try {
+      await expensesApi.submit(body);
+      showToast("Expense claim submitted for approval.", "good");
+      setCategory("");
+      setDescription("");
+      setAmount("");
+      setReceiptUrl("");
+      expenses.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not submit expense claim.", "bad");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -63,7 +104,18 @@ export default function ExpensesPage() {
 
   return (
     <div>
-      <PageHeader title="Expense Reimbursement" subtitle="Claims, approvals and taxable/non-taxable handling" />
+      <PageHeader title="Expense Reimbursement" subtitle={canViewAll ? "Claims, approvals and taxable/non-taxable handling" : "Submit and track your expense claims"} />
+
+      <Card className="mb-5">
+        <form onSubmit={submitExpense} className="grid gap-4 md:grid-cols-2">
+          <div><Label htmlFor="expense-category">Category</Label><Input id="expense-category" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="e.g. Transport" required maxLength={64} /></div>
+          <div><Label htmlFor="expense-date">Expense date</Label><Input id="expense-date" type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} required /></div>
+          <div><Label htmlFor="expense-amount">Amount ({currencyLabel()})</Label><Input id="expense-amount" type="number" min={fromMinorUnits(1)} step={fromMinorUnits(1)} value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={`Amount in ${currencyLabel()}`} required /></div>
+          <div><Label htmlFor="expense-receipt">Receipt URL (optional)</Label><Input id="expense-receipt" type="url" value={receiptUrl} onChange={(event) => setReceiptUrl(event.target.value)} placeholder="https://" /></div>
+          <div className="md:col-span-2"><Label htmlFor="expense-description">Description</Label><Textarea id="expense-description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explain what the expense was for" required maxLength={500} /></div>
+          <div className="md:col-span-2"><Button type="submit" disabled={submitting || !category.trim() || !description.trim() || !expenseDate || !amount}>{submitting ? "Submitting…" : "Submit expense claim"}</Button></div>
+        </form>
+      </Card>
 
       <Card>
         {expenses.loading ? <LoadingState /> : null}
@@ -98,7 +150,7 @@ export default function ExpensesPage() {
                       </Td>
                       <Td align="right">
                         <div className="flex justify-end gap-2">
-                          {expense.status === "pending" ? (
+                          {canViewAll && expense.status === "pending" ? (
                             <ConfirmActionButton
                               action={() => act(expensesApi.reject, expense.id, "Expense claim rejected")}
                               label="Reject"
@@ -107,7 +159,7 @@ export default function ExpensesPage() {
                               confirmLabel="Reject"
                             />
                           ) : null}
-                          {next ? (
+                          {canViewAll && next ? (
                             <ConfirmActionButton
                               action={() =>
                                 act(
@@ -123,9 +175,11 @@ export default function ExpensesPage() {
                               confirmLabel={next.label}
                             />
                           ) : null}
-                          <Button size="md" variant="secondary" onClick={() => toggleHistory(expense.id)}>
-                            {expandedId === expense.id ? "Hide" : "History"}
-                          </Button>
+                          {canViewAll ? (
+                            <Button size="md" variant="secondary" onClick={() => toggleHistory(expense.id)}>
+                              {expandedId === expense.id ? "Hide" : "History"}
+                            </Button>
+                          ) : null}
                         </div>
                       </Td>
                     </tr>

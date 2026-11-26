@@ -84,6 +84,7 @@ import type {
   EmployeeHistoryEvent,
   EmployeeUpdateBody,
   Expense,
+  ExpenseCreateBody,
   FinalSettlement,
   FinalSettlementCreateBody,
   FixedAsset,

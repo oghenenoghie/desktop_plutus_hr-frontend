@@ -984,8 +984,8 @@ export interface BenefitPlan {
   name: string;
   frequency: BenefitFrequency;
   description: string | null;
-  default_employee_cost_minor: number;
-  employer_cost_minor: number;
+  default_employee_cost_minor: number | null;
+  employer_cost_minor: number | null;
   created_at: string;
 }
 

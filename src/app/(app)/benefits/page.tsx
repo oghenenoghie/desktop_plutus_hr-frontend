@@ -15,19 +15,35 @@ import { Select } from "@/components/ui/select";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
-import { benefitsApi } from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/auth-context";
+import { benefitsApi, employeesApi } from "@/lib/api/endpoints";
 import { currencyLabel, formatDate, formatMoney, titleCase, toMinorUnits } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
 import type { BenefitFrequency } from "@/lib/types";
 
 export default function BenefitsPage() {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [employeeId, setEmployeeId] = useState("");
   const [adding, setAdding] = useState(false);
   const [endingId, setEndingId] = useState<string | null>(null);
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [ending, setEnding] = useState(false);
   const applications = useApiResource(() => benefitsApi.applications());
+  const applicationEmployees = useApiResource(() => employeesApi.list());
+  const applicationPlans = useApiResource(
+    () =>
+      user?.role === "manager" || user?.role === "department_manager"
+        ? benefitsApi.availablePlans()
+        : benefitsApi.plans(),
+    [user?.role],
+  );
+  const employeeNames = new Map(
+    (applicationEmployees.data ?? []).map((employee) => [employee.id, employee.full_name]),
+  );
+  const planNames = new Map(
+    (applicationPlans.data ?? []).map((plan) => [plan.id, plan.name]),
+  );
   const benefits = useApiResource(
     () => (employeeId ? benefitsApi.forEmployee(employeeId) : Promise.resolve([])),
     [employeeId],
@@ -95,8 +111,8 @@ export default function BenefitsPage() {
             <tbody>
               {applications.data.map((application) => (
                 <tr key={application.id}>
-                  <Td>{application.employee_id.slice(0, 8)}</Td>
-                  <Td>{application.plan_id.slice(0, 8)}</Td>
+                  <Td>{employeeNames.get(application.employee_id) ?? ("Employee " + application.employee_id.slice(0, 8))}</Td>
+                  <Td>{planNames.get(application.plan_id) ?? ("Plan " + application.plan_id.slice(0, 8))}</Td>
                   <Td>{formatDate(application.requested_effective_date)}</Td>
                   <Td><StatusBadge status={application.status} /></Td>
                   <Td align="right">

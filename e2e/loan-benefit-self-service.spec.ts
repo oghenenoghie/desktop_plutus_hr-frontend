@@ -209,7 +209,7 @@ test("a manager can approve a pending loan and a pending benefit application", a
   });
 
   await page.goto("/loans");
-  await page.getByRole("button", { name: "Approve" }).click();
+  await page.getByRole("button", { name: "Approve" }).first().click();
   await expect(page.getByText("Loan approved.")).toBeVisible();
   await page.getByRole("button", { name: "Reject" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Reject Loan" }).click();

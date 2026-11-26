@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/data-state";
 import { Table, Td, Th, Thead } from "@/components/ui/table";
@@ -15,7 +16,7 @@ import { ApiError } from "@/lib/api/client";
 import { approvalInstancesApi, expensesApi } from "@/lib/api/endpoints";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useApiResource } from "@/lib/hooks";
-import type { ApprovalInstance, Expense, ExpenseStatus } from "@/lib/types";
+import type { ApprovalInstance, Expense, ExpenseCreateBody, ExpenseStatus } from "@/lib/types";
 
 const NEXT_ACTION: Partial<Record<ExpenseStatus, { label: string; run: (id: string) => Promise<unknown> }>> = {
   pending: { label: "Approve", run: (id) => expensesApi.approve(id) },
@@ -26,6 +27,12 @@ export default function ExpensesPage() {
   const expenses = useApiResource(() => expensesApi.list());
   const { showToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [receiptUrl, setReceiptUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<Record<string, ApprovalInstance | null>>({});
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
 
@@ -36,6 +43,36 @@ export default function ExpensesPage() {
       expenses.reload();
     } catch (err) {
       showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Action failed.", "bad");
+    }
+  }
+
+  async function submitExpense(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const amountValue = Number(amount);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      showToast("Enter a valid expense amount greater than zero.", "bad");
+      return;
+    }
+    const body: ExpenseCreateBody = {
+      category: category.trim(),
+      description: description.trim(),
+      amount_minor: Math.round(amountValue * 100),
+      expense_date: expenseDate,
+      receipt_url: receiptUrl.trim() || null,
+    };
+    setSubmitting(true);
+    try {
+      await expensesApi.submit(body);
+      showToast("Expense claim submitted for approval.", "good");
+      setCategory("");
+      setDescription("");
+      setAmount("");
+      setReceiptUrl("");
+      expenses.reload();
+    } catch (err) {
+      showToast(err instanceof ApiError ? String(err.detail ?? err.message) : "Could not submit expense claim.", "bad");
+    } finally {
+      setSubmitting(false);
     }
   }
 

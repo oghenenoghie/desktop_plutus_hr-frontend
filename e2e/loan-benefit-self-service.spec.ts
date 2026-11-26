@@ -5,6 +5,7 @@ import { installMockApi, freshStore } from "./support/mock-api";
 test("an employee can submit a loan request and a benefit application", async ({ context, page }) => {
   const store = freshStore("employee");
   const loanWrites: Record<string, unknown>[] = [];
+  const loans: Record<string, unknown>[] = [];
   const applicationWrites: Record<string, unknown>[] = [];
   const applications: Record<string, unknown>[] = [];
 
@@ -50,23 +51,25 @@ test("an employee can submit a loan request and a benefit application", async ({
     if (route.request().method() === "POST") {
       const body = route.request().postDataJSON() as Record<string, unknown>;
       loanWrites.push(body);
+      const loan = {
+        id: "loan-1",
+        employee_id: "employee-1",
+        principal_minor: body.principal_minor,
+        num_installments: body.num_installments,
+        installment_minor: 100_000,
+        start_date: body.start_date,
+        status: "pending",
+        outstanding_minor: body.principal_minor,
+        created_at: "2026-11-26T00:00:00Z",
+      };
+      loans.push(loan);
       return route.fulfill({
         status: 201,
         contentType: "application/json",
-        body: JSON.stringify({
-          id: "loan-1",
-          employee_id: "employee-1",
-          principal_minor: body.principal_minor,
-          num_installments: body.num_installments,
-          installment_minor: 100_000,
-          start_date: body.start_date,
-          status: "pending",
-          outstanding_minor: body.principal_minor,
-          created_at: "2026-11-26T00:00:00Z",
-        }),
+        body: JSON.stringify(loan),
       });
     }
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(loans) });
   });
   await context.route("**/api/v1/benefits/plans/available", async (route) =>
     route.fulfill({

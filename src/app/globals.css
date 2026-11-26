@@ -141,3 +141,47 @@ a.rounded-btn:active {
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.5);
 }
+
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  html,
+  body {
+    min-height: initial;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  tr,
+  img,
+  svg {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+}
